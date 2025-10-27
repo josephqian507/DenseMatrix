@@ -1,4 +1,6 @@
 import Lean
+import Lean.Elab.Tactic
+import Qq
 
 structure EAState where
   x  : Int
@@ -28,3 +30,49 @@ def initialState : EAState := { x := 1, y := 0, x' := 0, y' := 1 }
 def run_euclidean_alg (a b : Nat):= do (extendedEuclideanAlgorithm a b).run initialState
 
 #eval run_euclidean_alg 15 17
+
+
+open Lean Elab Tactic Meta
+open Qq PrettyPrinter
+
+
+-- custom recognizer for the gcd function.
+
+@[inline] def gcd? (p : Expr) : Option (Expr × Expr) :=
+  p.app2? ``Nat.gcd
+
+def gcd_tactic_main (goal : MVarId): OptionT MetaM Unit := do
+  goal.withContext do
+    let target ← goal.getType
+    match (← whnfR <| ← instantiateMVars target).eq? with
+    |  some (α, lhs, rhs) => {
+        match gcd? (← whnfR lhs) with
+        | some (a, b) => {
+          let a ← evalNat a;
+          let b ← evalNat b;
+          let rhs ← evalNat rhs;
+          have a : Nat := a;
+          have b : Nat := b;
+          let ((x, y, d), _) ← run_euclidean_alg a b
+          if rhs == d then {
+            produce_proof
+          }
+          else return Unit.unit--throwTacticEx {sorry} {sorry} "sorry"
+        }
+        | none => return Unit.unit--throwTacticEx {sorry} {sorry} "sorry"
+    }
+    |  none => return Unit.unit --throwTacticEx {sorry} {sorry} "sorry"
+
+
+
+syntax (name := gcd_tactic) "gcd_tactic" : tactic
+
+@[tactic gcd_tactic]
+def evalMyRfl : Tactic := fun stx => do
+  let goal ← getMainGoal
+  gcd_tactic_main goal
+
+#check Tactic
+
+example : Nat.gcd 15 17 = 1 := by
+  gcd_tactic
