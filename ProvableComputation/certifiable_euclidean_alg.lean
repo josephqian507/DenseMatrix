@@ -1,11 +1,14 @@
 import Lean
 import Lean.Elab.Tactic
 import Qq
+
 import Mathlib.Algebra.GroupWithZero.Divisibility
+import Mathlib.Algebra.Ring.Divisibility.Basic
+import Mathlib.Data.Nat.Cast.Basic
 
 structure EAState where
-  x  : Int
-  y  : Int
+  x : Int
+  y : Int
   x' : Int
   y' : Int
 deriving Repr
@@ -43,7 +46,47 @@ open Qq PrettyPrinter
   p.app2? ``Nat.gcd
 
 def produce_proof (a b d x y : Expr) : MetaM Expr := do -- d = ax + by => gcd | d, (d | a, d | b) => d | gcd
+  let h_d_div_a := sorry
+  let h_d_div_b := sorry
+  let h_lin_combo := sorry
 
+  -- Part 1: Prove d ∣ g
+  -- h_d_div_g := Nat.dvd_gcd h_d_div_a h_d_div_b
+  let h_d_div_g_proof ← mkAppM ``Nat.dvd_gcd #[h_d_div_a, h_d_div_b]
+
+  -- Part 2: Prove g ∣ d
+  -- h_g_div_a := Nat.gcd_dvd_left a b
+  let h_g_div_a_proof ← mkAppM ``Nat.gcd_dvd_left #[a, b]
+  -- h_g_div_b := Nat.gcd_dvd_right a b
+  let h_g_div_b_proof ← mkAppM ``Nat.gcd_dvd_right #[a, b]
+
+  -- h_g_div_a_int := Int.ofNat_dvd_ofNat.mpr h_g_div_a
+  let h_g_div_a_int_proof ← mkAppM ``Iff.mpr #[mkConst ``Nat.cast_dvd_cast, h_g_div_a_proof] -- look into ↑ notation for casting
+  -- h_g_div_b_int := Int.ofNat_dvd_ofNat.mpr h_g_div_b
+  let h_g_div_b_int_proof ← mkAppM ``Iff.mpr #[mkConst ``Nat.cast_dvd_cast, h_g_div_b_proof]
+
+  -- h_g_div_ax := dvd_mul_of_dvd_left h_g_div_a_int x
+  let h_g_div_ax_proof ← mkAppM ``dvd_mul_of_dvd_left #[h_g_div_a_int_proof, x]
+  -- h_g_div_by := dvd_mul_of_dvd_left h_g_div_b_int y
+  let h_g_div_by_proof ← mkAppM ``dvd_mul_of_dvd_left #[h_g_div_b_int_proof, y]
+
+  -- h_g_div_sum := dvd_add h_g_div_ax h_g_div_by
+  let h_g_div_sum_proof ← mkAppM ``dvd_add #[h_g_div_ax_proof, h_g_div_by_proof]
+
+  -- h_lin_combo_symm := Eq.symm h_lin_combo
+  let h_lin_combo_symm ← mkAppM ``Eq.symm #[h_lin_combo]
+
+  -- h_g_div_d_int_proof := (Eq.symm h_lin_combo) ▸ h_g_div_sum_proof
+  let h_g_div_d_int_proof ← mkAppM ``Eq.subst #[h_lin_combo_symm, h_g_div_sum_proof]
+
+  -- h_g_div_d := Int.ofNat_dvd.mp h_g_div_d_int_proof
+  let h_g_div_d_proof ← mkAppM ``Iff.mp #[mkConst ``Int.ofNat_dvd, h_g_div_d_int_proof]
+
+  -- Part 3: Conclude g = d
+  -- final_proof := Nat.dvd_antisymm h_g_div_d h_d_div_g
+  let final_proof ← mkAppM ``Nat.dvd_antisymm #[h_g_div_d_proof, h_d_div_g_proof]
+
+  return final_proof
 
 def gcd_tactic_main (goal : MVarId): OptionT MetaM Expr := do
   goal.withContext do
