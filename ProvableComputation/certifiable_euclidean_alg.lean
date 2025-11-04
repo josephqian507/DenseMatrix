@@ -1,6 +1,7 @@
 import Lean
 import Lean.Elab.Tactic
 import Qq
+import Mathlib.tactic.ring
 
 import Mathlib.Algebra.GroupWithZero.Divisibility
 import Mathlib.Algebra.Ring.Divisibility.Basic
@@ -45,48 +46,114 @@ open Qq PrettyPrinter
 @[inline] def gcd? (p : Expr) : Option (Expr × Expr) :=
   p.app2? ``Nat.gcd
 
-def produce_proof (a b d x y : Expr) : MetaM Expr := do -- d = ax + by => gcd | d, (d | a, d | b) => d | gcd
-  let h_d_div_a := sorry
-  let h_d_div_b := sorry
-  let h_lin_combo := sorry
+-- -- d = ax + by => gcd | d, (d | a, d | b) => d | gcd
+-- def produce_proof (a b d : Nat) (x y : Int) : MetaM Expr := do
+--   -- let a := 10
+--   -- let b := 7
+--   -- let d := 8
+--   -- let x := -2
+--   -- let y := 4
+--   let a_expr := toExpr a
+--   let b_expr := toExpr b
+--   let d_expr := toExpr d
+--   let x_expr := toExpr x
+--   let y_expr := toExpr y
+--   let h_d_div_a := sorry -- d | a
+--   let h_d_div_b := sorry -- d | b
+--   let h_lin_combo : (d : Int) = (a : Int) * x + (b : Int) * y := Id.run do
+--     ← Lean.Elab.Tactic.evalTactic (← `(tactic| try ring)) -- or abel
 
-  -- Part 1: Prove d ∣ g
-  -- h_d_div_g := Nat.dvd_gcd h_d_div_a h_d_div_b
-  let h_d_div_g_proof ← mkAppM ``Nat.dvd_gcd #[h_d_div_a, h_d_div_b]
+--   -- Part 1: Prove d ∣ g
+--   -- h_d_div_g := Nat.dvd_gcd h_d_div_a h_d_div_b
+--   let h_d_div_g_proof ← mkAppM ``Nat.dvd_gcd #[h_d_div_a, h_d_div_b]
 
-  -- Part 2: Prove g ∣ d
-  -- h_g_div_a := Nat.gcd_dvd_left a b
-  let h_g_div_a_proof ← mkAppM ``Nat.gcd_dvd_left #[a, b]
-  -- h_g_div_b := Nat.gcd_dvd_right a b
-  let h_g_div_b_proof ← mkAppM ``Nat.gcd_dvd_right #[a, b]
+--   -- Part 2: Prove g ∣ d
+--   -- h_g_div_a := Nat.gcd_dvd_left a b
+--   let h_g_div_a_proof ← mkAppM ``Nat.gcd_dvd_left #[a_expr, b_expr]
+--   -- h_g_div_b := Nat.gcd_dvd_right a b
+--   let h_g_div_b_proof ← mkAppM ``Nat.gcd_dvd_right #[a_expr, b_expr]
 
-  -- h_g_div_a_int := Int.ofNat_dvd_ofNat.mpr h_g_div_a
-  let h_g_div_a_int_proof ← mkAppM ``Iff.mpr #[mkConst ``Nat.cast_dvd_cast, h_g_div_a_proof] -- look into ↑ notation for casting
-  -- h_g_div_b_int := Int.ofNat_dvd_ofNat.mpr h_g_div_b
-  let h_g_div_b_int_proof ← mkAppM ``Iff.mpr #[mkConst ``Nat.cast_dvd_cast, h_g_div_b_proof]
+--   -- h_g_div_a_int := Int.ofNat_dvd_ofNat.mpr h_g_div_a
+--   let h_g_div_a_int_proof ← mkAppM ``Iff.mpr #[mkConst ``Nat.cast_dvd_cast, h_g_div_a_proof] -- look into ↑ notation for casting
+--   -- h_g_div_b_int := Int.ofNat_dvd_ofNat.mpr h_g_div_b
+--   let h_g_div_b_int_proof ← mkAppM ``Iff.mpr #[mkConst ``Nat.cast_dvd_cast, h_g_div_b_proof]
 
-  -- h_g_div_ax := dvd_mul_of_dvd_left h_g_div_a_int x
-  let h_g_div_ax_proof ← mkAppM ``dvd_mul_of_dvd_left #[h_g_div_a_int_proof, x]
-  -- h_g_div_by := dvd_mul_of_dvd_left h_g_div_b_int y
-  let h_g_div_by_proof ← mkAppM ``dvd_mul_of_dvd_left #[h_g_div_b_int_proof, y]
+--   -- h_g_div_ax := dvd_mul_of_dvd_left h_g_div_a_int x
+--   let h_g_div_ax_proof ← mkAppM ``dvd_mul_of_dvd_left #[h_g_div_a_int_proof, x_expr]
+--   -- h_g_div_by := dvd_mul_of_dvd_left h_g_div_b_int y
+--   let h_g_div_by_proof ← mkAppM ``dvd_mul_of_dvd_left #[h_g_div_b_int_proof, y_expr]
 
-  -- h_g_div_sum := dvd_add h_g_div_ax h_g_div_by
-  let h_g_div_sum_proof ← mkAppM ``dvd_add #[h_g_div_ax_proof, h_g_div_by_proof]
+--   -- h_g_div_sum := dvd_add h_g_div_ax h_g_div_by
+--   let h_g_div_sum_proof ← mkAppM ``dvd_add #[h_g_div_ax_proof, h_g_div_by_proof]
 
-  -- h_lin_combo_symm := Eq.symm h_lin_combo
-  let h_lin_combo_symm ← mkAppM ``Eq.symm #[h_lin_combo]
+--   -- h_lin_combo_symm := Eq.symm h_lin_combo
+--   let h_lin_combo_symm ← mkAppM ``Eq.symm #[h_lin_combo]
 
-  -- h_g_div_d_int_proof := (Eq.symm h_lin_combo) ▸ h_g_div_sum_proof
-  let h_g_div_d_int_proof ← mkAppM ``Eq.subst #[h_lin_combo_symm, h_g_div_sum_proof]
+--   -- h_g_div_d_int_proof := (Eq.symm h_lin_combo) ▸ h_g_div_sum_proof
+--   let h_g_div_d_int_proof ← mkAppM ``Eq.subst #[h_lin_combo_symm, h_g_div_sum_proof]
 
-  -- h_g_div_d := Int.ofNat_dvd.mp h_g_div_d_int_proof
-  let h_g_div_d_proof ← mkAppM ``Iff.mp #[mkConst ``Int.ofNat_dvd, h_g_div_d_int_proof]
+--   -- h_g_div_d := Int.ofNat_dvd.mp h_g_div_d_int_proof
+--   let h_g_div_d_proof ← mkAppM ``Iff.mp #[mkConst ``Int.ofNat_dvd, h_g_div_d_int_proof]
 
-  -- Part 3: Conclude g = d
-  -- final_proof := Nat.dvd_antisymm h_g_div_d h_d_div_g
-  let final_proof ← mkAppM ``Nat.dvd_antisymm #[h_g_div_d_proof, h_d_div_g_proof]
+--   -- Part 3: Conclude g = d
+--   -- final_proof := Nat.dvd_antisymm h_g_div_d h_d_div_g
+--   let final_proof ← mkAppM ``Nat.dvd_antisymm #[h_g_div_d_proof, h_d_div_g_proof]
 
-  return final_proof
+--   return final_proof
+
+lemma int_bezout_implies_nat_gcd (a b d : Nat) (x y : Int)
+    {h_d_dvd_a : d ∣ a} {h_d_dvd_b : d ∣ b} {h_bezout : d = a * x + b * y} :
+    (d = Nat.gcd a b) := by
+  -- We will prove equality using `Nat.dvd_antisymm`, which states
+  -- that for any two natural numbers `m` and `n`, if `m ∣ n` and `n ∣ m`,
+  -- then `m = n`.
+  apply Nat.dvd_antisymm
+
+  -- GOAL 1: Show `d ∣ Nat.gcd a b`
+  -- This follows directly from the definition of GCD.
+  -- Since `d` divides `a` and `d` divides `b`, it must also
+  -- divide the *greatest* common divisor.
+  exact Nat.dvd_gcd h_d_dvd_a h_d_dvd_b
+
+  -- GOAL 2: Show `Nat.gcd a b ∣ d`
+  -- This is where we use the Bézout hypothesis `h_bezout`.
+  -- The hypothesis is in `Int`, so we must work with integers.
+
+  -- We want to prove `Nat.gcd a b ∣ d`.
+  -- We use `Nat.cast_dvd_cast.mpr` (modus ponens reverse), which
+  -- states `(↑m : ℤ) ∣ (↑n : ℤ) → m ∣ n`.
+  -- This changes our goal from the `Nat` version to the `Int` version.
+  rw [← Int.natCast_dvd_natCast]
+
+  -- Our goal is now `(↑(Nat.gcd a b) : ℤ) ∣ (↑d : ℤ)`.
+  -- We can rewrite the `↑d` using our Bézout hypothesis.
+  -- `h_bezout` means rewrite from left-to-right (replace `↑d` with the sum).
+  rw [h_bezout]
+
+  -- Our goal is now `(↑(Nat.gcd a b) : ℤ) ∣ (↑a : ℤ) * x + (↑b : ℤ) * y`
+  -- A number divides a sum if it divides both terms.
+  apply Int.dvd_add
+
+  -- GOAL 2a: Show `(↑(Nat.gcd a b) : ℤ) ∣ (↑a : ℤ) * x`
+  · -- A number divides a product if it divides one of the factors.
+    -- We will show it divides `↑a`.
+    apply Int.dvd_mul_right
+    -- Our goal is `(↑(Nat.gcd a b) : ℤ) ∣ (↑a : ℤ)`.
+    -- We prove this by proving the `Nat` equivalent `Nat.gcd a b ∣ a`.
+    -- `apply Nat.cast_dvd_cast.mp` (modus ponens) changes the `Int` goal
+    -- to a `Nat` goal, as it states `m ∣ n → (↑m : ℤ) ∣ (↑n : ℤ)`.
+    apply Nat.cast_dvd_cast.mp
+    -- This is true by the definition of `gcd`.
+    apply Nat.gcd_dvd_left
+
+  -- GOAL 2b: Show `(↑(Nat.gcd a b) : ℤ) ∣ (↑b : ℤ) * y`
+  · -- Similarly, we show it divides `↑b`.
+    apply Int.dvd_mul_right
+    -- Our goal is `(↑(Nat.gcd a b) : ℤ) ∣ (↑b : ℤ)`.
+    -- Use `mp` to change the goal from `Int` to `Nat`.
+    apply Nat.cast_dvd_cast.mp
+    -- This is true by the definition of `gcd`.
+    apply Nat.gcd_dvd_right
 
 def gcd_tactic_main (goal : MVarId): OptionT MetaM Expr := do
   goal.withContext do
@@ -102,9 +169,32 @@ def gcd_tactic_main (goal : MVarId): OptionT MetaM Expr := do
           have b : Nat := b;
           let ((x, y, d), _) ← run_euclidean_alg a b
           if rhs == d then {
-            return ← (produce_proof (toExpr a) (toExpr b) (toExpr d) (toExpr x) (toExpr y))
+            let lemmaWithArgs ← mkAppM ``int_bezout_implies_nat_gcd #[a b d x y]
+            let newGoals ← goal.apply lemmaWithArgs
+
+            let mut unsolvedGoals : List MVarId := []
+            for goal in newGoals do
+              let goalType ← goal.getType
+              if (goalType.isAppof ``Dvd) then
+                try
+                  evalTacticAt `(tactic| decide) goal
+                catch e =>
+                  logError m!"'decide' tactic failed on divisibility goal: {e.toMessageData}"
+                  unsolvedGoals := goal :: unsolvedGoals
+              else
+                try
+                  evalTacticAt `(tactic| abel) goal
+                catch e =>
+                  logError m!"'abel' tactic failed on Bezout goal: {e.toMessageData}"
+                  unsolvedGoals := goal :: unsolvedGoals
+
+            replaceMainGoal unsolvedGoals.reverse
+
+            logInfo s!"'gcd_tactic' finished. {3 - unsolvedGoals.length}/3 subgoals solved."
           } else {
-            throwTacticEx `gcd_tactic goal (m!"gcd({a}, {b}) ≠ {rhs}")
+            throwTacticEx `gcd_tactic goal (
+              m!"Tactic failed: computed GCD {d} does not match goal {rhs}"
+            )
           }
         }
         | none =>
@@ -113,7 +203,7 @@ def gcd_tactic_main (goal : MVarId): OptionT MetaM Expr := do
     }
     | none =>
       throwTacticEx `gcd_tactic goal
-        "goal should an equality"
+        "goal should be an equality"
 
 syntax (name := gcd_tactic) "gcd_tactic" : tactic
 
@@ -122,132 +212,5 @@ def evalMyRfl : Tactic := fun stx => do
   let goal ← getMainGoal
   gcd_tactic_main goal
 
-#check Tactic
-
 example : Nat.gcd 15 17 = 1 := by
   gcd_tactic
-
-
-
-
-
-/--
-This is a metaprogramming function that constructs a proof term for
-`Nat.gcd a b = d` given expressions for `a`, `b`, `d`, `x`, `y`,
-and proofs of:
-1. `h_lin_combo`: (d : Int) = (a : Int) * x + (b : Int) * y
-2. `h_d_div_a`  : d ∣ a
-3. `h_d_div_b`  : d ∣ b
-
-This function programmatically builds the same proof as seen in
-the theorem `gcd_is_linear_combo_and_divisor`.
--/
-def mkGcdProof (a b d x y : Expr) (h_lin_combo h_d_div_a h_d_div_b : Expr) : MetaM Expr := do
-
-  -- Part 1: Prove d ∣ g
-  -- h_d_div_g := Nat.dvd_gcd h_d_div_a h_d_div_b
-  let h_d_div_g_proof ← mkAppM ``Nat.dvd_gcd #[h_d_div_a, h_d_div_b]
-
-  -- Part 2: Prove g ∣ d
-  -- h_g_div_a := Nat.gcd_dvd_left a b
-  let h_g_div_a_proof ← mkAppM ``Nat.gcd_dvd_left #[a, b]
-  -- h_g_div_b := Nat.gcd_dvd_right a b
-  let h_g_div_b_proof ← mkAppM ``Nat.gcd_dvd_right #[a, b]
-
-  -- h_g_div_a_int := Int.ofNat_dvd_ofNat.mpr h_g_div_a
-  let h_g_div_a_int_proof ← mkAppM ``Iff.mpr #[mkConst ``Int.ofNat_dvd_ofNat, h_g_div_a_proof]
-  -- h_g_div_b_int := Int.ofNat_dvd_ofNat.mpr h_g_div_b
-  let h_g_div_b_int_proof ← mkAppM ``Iff.mpr #[mkConst ``Int.ofNat_dvd_ofNat, h_g_div_b_proof]
-
-  -- h_g_div_ax := dvd_mul_of_dvd_left h_g_div_a_int x
-  let h_g_div_ax_proof ← mkAppM ``dvd_mul_of_dvd_left #[h_g_div_a_int_proof, x]
-  -- h_g_div_by := dvd_mul_of_dvd_left h_g_div_b_int y
-  let h_g_div_by_proof ← mkAppM ``dvd_mul_of_dvd_left #[h_g_div_b_int_proof, y]
-
-  -- h_g_div_sum := dvd_add h_g_div_ax h_g_div_by
-  let h_g_div_sum_proof ← mkAppM ``dvd_add #[h_g_div_ax_proof, h_g_div_by_proof]
-
-  -- h_lin_combo_symm := Eq.symm h_lin_combo
-  let h_lin_combo_symm ← mkAppM ``Eq.symm #[h_lin_combo]
-
-  -- h_g_div_d_int_proof := (Eq.symm h_lin_combo) ▸ h_g_div_sum_proof
-  -- This is programmatically done with `Eq.cast`
-  let h_g_div_d_int_proof ← mkAppM ``Eq.cast #[h_lin_combo_symm, h_g_div_sum_proof]
-
-  -- h_g_div_d := Int.ofNat_dvd.mp h_g_div_d_int_proof
-  let h_g_div_d_proof ← mkAppM ``Iff.mp #[mkConst ``Int.ofNat_dvd, h_g_div_d_int_proof]
-
-  -- Part 3: Conclude g = d
-  -- final_proof := Nat.dvd_antisymm h_g_div_d h_d_div_g
-  let final_proof ← mkAppM ``Nat.dvd_antisymm #[h_g_div_d_proof, h_d_div_g_proof]
-
-  return final_proof
-
--- We can also make a simple tactic to test this
-open Lean.Elab.Tactic Lean.Meta
-
-syntax (name := solve_gcd) "solve_gcd" : tactic
-
-@[tactic solve_gcd]
-def evalSolveGcd : Tactic := fun _ =>
-  withMainContext do
-    -- Get goal
-    let goal ← getMainGoal
-    let goalType ← goal.getType
-
-    -- Goal should be `Nat.gcd a b = d`
-    -- We need to find `a, b, d` from the goal `Nat.gcd a b = d`
-    guard <| goalType.isAppOfArity ``Eq 3
-    let some (_, lhs, d) := goalType.app3? ``Eq | throwError "goal is not an equality"
-    guard <| lhs.isAppOfArity ``Nat.gcd 2
-    let some (_, a, b) := lhs.app2? ``Nat.gcd | throwError "LHS is not Nat.gcd"
-
-    -- Find `x` and `y` and the hypotheses in the local context
-    let fvarCtx ← getLCtx
-    let mut x : Option Expr := none
-    let mut y : Option Expr := none
-    let mut h_lin_combo : Option Expr := none
-    let mut h_d_div_a : Option Expr := none
-    let mut h_d_div_b : Option Expr := none
-
-    for localDecl in fvarCtx do
-      if localDecl.isImplementationDetail then
-        continue
-      let type := localDecl.type
-      -- Find x and y (this is weak, assumes they are named x and y)
-      if localDecl.userName == `x then
-        x := some localDecl.toExpr
-      if localDecl.userName == `y then
-        y := some localDecl.toExpr
-
-      -- Find `h_lin_combo : (d : Int) = (a : Int) * x + (b : Int) * y`
-      -- This is hard to match exactly without more powerful tools.
-      -- Let's just find the *names* of the hypotheses
-      if localDecl.userName == `h_lin_combo then
-        h_lin_combo := some localDecl.toExpr
-      if localDecl.userName == `h_d_div_a then
-        h_d_div_a := some localDecl.toExpr
-      if localDecl.userName == `h_d_div_b then
-        h_d_div_b := some localDecl.toExpr
-
-    -- Get the Exprs from the Options
-    let (some x, some y, some h_lin_combo, some h_d_div_a, some h_d_div_b) :=
-      (x, y, h_lin_combo, h_d_div_a, h_d_div_b) |
-      throwError "Could not find all variables (x, y) and hypotheses (h_lin_combo, h_d_div_a, h_d_div_b) in context"
-
-    -- Call the proof-generating function
-    let proofExpr ← mkGcdProof a b d x y h_lin_combo h_d_div_a h_d_div_b
-
-    -- Assign this proof to the goal
-    goal.assign proofExpr
-
-    -- Close the goal
-    replaceMainGoal []
-
--- Example theorem to test the tactic
-example (a b d : Nat) (x y : Int)
-    (h_lin_combo : (d : Int) = (a : Int) * x + (b : Int) * y)
-    (h_d_div_a : d ∣ a)
-    (h_d_div_b : d ∣ b) :
-    Nat.gcd a b = d := by
-  solve_gcd -- This tactic should now work
