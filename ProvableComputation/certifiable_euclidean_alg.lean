@@ -120,9 +120,6 @@ lemma int_bezout_implies_nat_gcd (a b d : Nat) (x y : Int)
   -- The hypothesis is in `Int`, so we must work with integers.
 
   -- We want to prove `Nat.gcd a b ∣ d`.
-  -- We use `Nat.cast_dvd_cast.mpr` (modus ponens reverse), which
-  -- states `(↑m : ℤ) ∣ (↑n : ℤ) → m ∣ n`.
-  -- This changes our goal from the `Nat` version to the `Int` version.
   rw [← Int.natCast_dvd_natCast]
 
   -- Our goal is now `(↑(Nat.gcd a b) : ℤ) ∣ (↑d : ℤ)`.
@@ -137,23 +134,29 @@ lemma int_bezout_implies_nat_gcd (a b d : Nat) (x y : Int)
   -- GOAL 2a: Show `(↑(Nat.gcd a b) : ℤ) ∣ (↑a : ℤ) * x`
   · -- A number divides a product if it divides one of the factors.
     -- We will show it divides `↑a`.
-    apply Int.dvd_mul_right
+    refine (mul_one (↑(a.gcd b))).symm ▸ ?_
+    rw [Nat.cast_mul]
+    apply Int.mul_dvd_mul
     -- Our goal is `(↑(Nat.gcd a b) : ℤ) ∣ (↑a : ℤ)`.
     -- We prove this by proving the `Nat` equivalent `Nat.gcd a b ∣ a`.
     -- `apply Nat.cast_dvd_cast.mp` (modus ponens) changes the `Int` goal
     -- to a `Nat` goal, as it states `m ∣ n → (↑m : ℤ) ∣ (↑n : ℤ)`.
-    apply Nat.cast_dvd_cast.mp
+    rw [Int.natCast_dvd_natCast]
     -- This is true by the definition of `gcd`.
     apply Nat.gcd_dvd_left
+    apply Int.one_dvd
 
   -- GOAL 2b: Show `(↑(Nat.gcd a b) : ℤ) ∣ (↑b : ℤ) * y`
   · -- Similarly, we show it divides `↑b`.
-    apply Int.dvd_mul_right
+    refine (mul_one (↑(a.gcd b))).symm ▸ ?_
+    rw [Nat.cast_mul]
+    apply Int.mul_dvd_mul
     -- Our goal is `(↑(Nat.gcd a b) : ℤ) ∣ (↑b : ℤ)`.
     -- Use `mp` to change the goal from `Int` to `Nat`.
-    apply Nat.cast_dvd_cast.mp
+    rw [Int.natCast_dvd_natCast]
     -- This is true by the definition of `gcd`.
     apply Nat.gcd_dvd_right
+    apply Int.one_dvd
 
 def gcd_tactic_main (goal : MVarId): OptionT MetaM Expr := do
   goal.withContext do
