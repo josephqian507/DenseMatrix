@@ -1,7 +1,8 @@
 import Lean
 import Lean.Elab.Tactic
 import Qq
-import Mathlib.tactic.ring
+import Mathlib.Tactic.Ring
+import Mathlib.Tactic.Abel
 
 import Mathlib.Algebra.GroupWithZero.Divisibility
 import Mathlib.Algebra.Ring.Divisibility.Basic
@@ -141,10 +142,12 @@ lemma int_bezout_implies_nat_gcd (a b d : Nat) (x y : Int)
     -- We prove this by proving the `Nat` equivalent `Nat.gcd a b ∣ a`.
     -- `apply Nat.cast_dvd_cast.mp` (modus ponens) changes the `Int` goal
     -- to a `Nat` goal, as it states `m ∣ n → (↑m : ℤ) ∣ (↑n : ℤ)`.
-    rw [Int.natCast_dvd_natCast]
+    {
+      rw [Int.natCast_dvd_natCast]
     -- This is true by the definition of `gcd`.
-    apply Nat.gcd_dvd_left
-    apply Int.one_dvd
+      apply Nat.gcd_dvd_left
+    }
+    { apply Int.one_dvd }
 
   -- GOAL 2b: Show `(↑(Nat.gcd a b) : ℤ) ∣ (↑b : ℤ) * y`
   · -- Similarly, we show it divides `↑b`.
@@ -153,47 +156,58 @@ lemma int_bezout_implies_nat_gcd (a b d : Nat) (x y : Int)
     apply Int.mul_dvd_mul
     -- Our goal is `(↑(Nat.gcd a b) : ℤ) ∣ (↑b : ℤ)`.
     -- Use `mp` to change the goal from `Int` to `Nat`.
-    rw [Int.natCast_dvd_natCast]
+    {
+      rw [Int.natCast_dvd_natCast]
     -- This is true by the definition of `gcd`.
-    apply Nat.gcd_dvd_right
-    apply Int.one_dvd
+      apply Nat.gcd_dvd_right
+    }
+    { apply Int.one_dvd }
 
-def gcd_tactic_main (goal : MVarId): OptionT MetaM Expr := do
+def gcd_tactic_main (goal : MVarId): TacticM Unit := do
   goal.withContext do
     let target ← goal.getType
     match (← whnfR <| ← instantiateMVars target).eq? with
     |  some (α, lhs, rhs) => {
         match gcd? (← whnfR lhs) with
         | some (a, b) => {
-          let a ← evalNat a;
-          let b ← evalNat b;
-          let rhs ← evalNat rhs;
-          have a : Nat := a;
-          have b : Nat := b;
-          let ((x, y, d), _) ← run_euclidean_alg a b
+          let aNat ← match (← (evalNat a).run) with
+            | some val => pure val
+            | none => throwTacticEx `gcd_tactic goal "goal should be of the form `Nat.gcd a b = d`"
+          let bNat ← match (← (evalNat b).run) with
+            | some val => pure val
+            | none => throwTacticEx `gcd_tactic goal "goal should be of the form `Nat.gcd a b = d`"
+          let rhs ← match (← (evalNat rhs).run) with
+            | some val => pure val
+            | none => throwTacticEx `gcd_tactic goal "goal should be of the form `Nat.gcd a b = d`"
+          have aNat : Nat := aNat;
+          have bNat : Nat := bNat;
+          let ((x, y, d), _) ← run_euclidean_alg aNat bNat
           if rhs == d then {
-            let lemmaWithArgs ← mkAppM ``int_bezout_implies_nat_gcd #[a b d x y]
+            let lemmaWithArgs ← mkAppM ``int_bezout_implies_nat_gcd
+              #[a, b, toExpr d, toExpr x, toExpr y]
             let newGoals ← goal.apply lemmaWithArgs
 
-            let mut unsolvedGoals : List MVarId := []
+            let mut unsolvedGoals : List MVarId := [];
             for goal in newGoals do
               let goalType ← goal.getType
-              if (goalType.isAppof ``Dvd) then
+              if (!goalType.isAppOf ``Dvd) then -- wtf
                 try
-                  evalTacticAt `(tactic| decide) goal
+                  let decideAction := runTactic goal (← `(tactic| decide))
+                  let (_, _) ← decideAction
                 catch e =>
                   logError m!"'decide' tactic failed on divisibility goal: {e.toMessageData}"
                   unsolvedGoals := goal :: unsolvedGoals
               else
                 try
-                  evalTacticAt `(tactic| abel) goal
+                  let abelAction := runTactic goal (← `(tactic| abel))
+                  let (_, _) ← abelAction
                 catch e =>
                   logError m!"'abel' tactic failed on Bezout goal: {e.toMessageData}"
                   unsolvedGoals := goal :: unsolvedGoals
 
-            replaceMainGoal unsolvedGoals.reverse
+            --let replaceAction := runTactic goal (replaceMainGoal unsolvedGoals.reverse)
 
-            logInfo s!"'gcd_tactic' finished. {3 - unsolvedGoals.length}/3 subgoals solved."
+            logInfo m!"'gcd_tactic' finished. {3 - unsolvedGoals.length}/3 subgoals solved."
           } else {
             throwTacticEx `gcd_tactic goal (
               m!"Tactic failed: computed GCD {d} does not match goal {rhs}"
