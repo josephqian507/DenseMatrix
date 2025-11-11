@@ -6,9 +6,9 @@ import Mathlib.Data.Matrix.Basic
 open Matrix
 
 def sampleMatrix : Matrix (Fin 3) (Fin 2) ℕ :=
-  ![![0, 2],
+  ![![0, 0],
   ![0, 4],
-  ![5, 6]]
+  ![0, 6]]
 
 def swapRow {R : Type} [Semiring R] {a b : Nat} (given : Matrix (Fin a) (Fin b) R)
  (row1 row2 : Fin a) : Matrix (Fin a) (Fin b) R :=
@@ -43,19 +43,18 @@ def replace {R : Type} [Semiring R] {a b : Nat} (given : Matrix (Fin a) (Fin b) 
 def checkPivot {R : Type} [Semiring R] [DecidableEq R] {a b : Nat}
 (given : Matrix (Fin a) (Fin b) R) (row : Fin a) (col : Fin b) : Nat :=
   let rec loop1 (r : Nat) : Nat :=
-    if h : r < a then
+    if h1 : r1 < b then
+      checkPivot given ⟨r1, h1⟩
+    else if h : r < a then
       if given ⟨r, h⟩ col ≠ 0 then
         r
       else
         loop1 (r + 1)
-    else
-      row
-  loop1 row.val
-#eval checkPivot sampleMatrix 0 0
 
-
-def rowReducedEchelonForm {R : Type} [Semiring R] [DecidableEq R] {a b : Nat} (given : Matrix (Fin a) (Fin b) R ): Matrix (Fin a) (Fin b) R:=
-  let rec loop2 (new_given :  Matrix (Fin a) (Fin b) R ) :  Matrix (Fin a) (Fin b) R  :=
-    if checkPivot new_given 0 0 ≠ 0 then
-      swapRow new_given 0 checkPivot 0 0
-    else 
+def rowReducedEchelonForm {R : Type} [Semiring R] [DecidableEq R] {a b : Nat}
+(given : Matrix (Fin a) (Fin b) R ): Matrix (Fin a) (Fin b) R:=
+  if a = 0 || b == 0 then
+    new_given
+  else if checkPivot new_given 0 0 ≠ 0 then
+    swapRow new_given 0 checkPivot 0 0
+  else
