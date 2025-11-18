@@ -104,9 +104,13 @@ def rrefAux {R : Type} [Field R] [DecidableEq R] {a b : Nat}
     m
 
 
+def rowReducedEchelonForm {R : Type} [Semiring R] [DecidableEq R] {a b : Nat} (given : Matrix (Fin a) (Fin b) R ): Matrix (Fin a) (Fin b) R:=
+  let rec loop2 (new_given :  Matrix (Fin a) (Fin b) R ) :  Matrix (Fin a) (Fin b) R  :=
+    rrefAux m 0 0
 def rowReducedEchelonForm {R : Type} [Field R] [DecidableEq R]
   {a b : Nat} (given : Matrix (Fin a) (Fin b) R) :
   Matrix (Fin a) (Fin b) R :=
   rrefAux given 0 0
 
 #eval rowReducedEchelonForm sampleMatrix 0 0
+>>>>>>> 4d34b5ad20932222c1ec540bc0fbcab3775d41f4
