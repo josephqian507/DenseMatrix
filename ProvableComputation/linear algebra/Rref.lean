@@ -6,7 +6,7 @@ import Mathlib.Data.Matrix.Basic
 open Matrix
 
 def sampleMatrix : Matrix (Fin 3) (Fin 2) ℕ :=
-  ![![0, 2],
+  ![![1, 2],
   ![0, 4],
   ![5, 6]]
 
@@ -53,9 +53,66 @@ def checkPivot {R : Type} [Semiring R] [DecidableEq R] {a b : Nat}
   loop1 row.val
 #eval checkPivot sampleMatrix 0 0
 
+def eliminateCol {R : Type} [Semiring R] {a b : Nat}
+  (given : Matrix (Fin a) (Fin b) R)
+  (pivotRow : Fin a) (pivotCol : Fin b) : Matrix (Fin a) (Fin b) R :=
+  let rec go (r : Nat) (cur : Matrix (Fin a) (Fin b) R) : Matrix (Fin a) (Fin b) R :=
+    if hr : r < a then
+      let i : Fin a := ⟨r, hr⟩
+      if h : i = pivotRow then
+        go (r + 1) cur
+      else
+        let coeff := - cur i pivotCol
+        let cur' := replace cur pivotRow i coeff
+        go (r + 1) cur'
+    else
+      cur
+  go 0 given
+#eval eliminateCol sampleMatrix 0 0
+
+def rrefAux {R : Type} [Field R] [DecidableEq R] {a b : Nat}
+  (m : Matrix (Fin a) (Fin b) R) (row col : Nat) : Matrix (Fin a) (Fin b) R :=
+  -- termination: row or col out of bounds
+  if hrow : row < a then
+    if hcol : col < b then
+      let rowFin : Fin a := ⟨row, hrow⟩
+      let colFin : Fin b := ⟨col, hcol⟩
+
+      -- find pivot row index
+      let pivotRowNat : Nat := checkPivot m rowFin colFin
+      have hpivot : pivotRowNat < a := by
+        admit   -- will be proved later
+
+      let pivotRow : Fin a := ⟨pivotRowNat, hpivot⟩
+
+      -- if pivot is zero, no pivot in this column → move to next column
+      if hzero : m pivotRow colFin = 0 then
+        rrefAux m row (col + 1)
+      else
+        -- swap pivot row up if needed
+        let m1 :=
+          if hswap : pivotRow = rowFin then
+            m
+          else
+            swapRow m rowFin pivotRow
+
+        -- scale pivot row so pivot becomes 1
+        let pivotVal : R := m1 rowFin colFin
+        let m2 : Matrix (Fin a) (Fin b) R :=
+          factor m1 rowFin (pivotVal)⁻¹
+
+        -- eliminate all other rows in this pivot column
+        let m3 : Matrix (Fin a) (Fin b) R :=
+          eliminateCol m2 rowFin colFin
+
+        -- recurse to next row and next column
+        rrefAux m3 (row + 1) (col + 1)
+    else
+      m
+  else
+    m
+
 
 def rowReducedEchelonForm {R : Type} [Semiring R] [DecidableEq R] {a b : Nat} (given : Matrix (Fin a) (Fin b) R ): Matrix (Fin a) (Fin b) R:=
   let rec loop2 (new_given :  Matrix (Fin a) (Fin b) R ) :  Matrix (Fin a) (Fin b) R  :=
-    if checkPivot new_given 0 0 ≠ 0 then
-      swapRow new_given 0 checkPivot 0 0
-    else 
+    rrefAux m 0 0
