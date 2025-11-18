@@ -113,6 +113,14 @@ def rrefAux {R : Type} [Field R] [DecidableEq R] {a b : Nat}
     m
 
 
+<<<<<<< Updated upstream:ProvableComputation/linear algebra/Rref.lean
 def rowReducedEchelonForm {R : Type} [Semiring R] [DecidableEq R] {a b : Nat} (given : Matrix (Fin a) (Fin b) R ): Matrix (Fin a) (Fin b) R:=
   let rec loop2 (new_given :  Matrix (Fin a) (Fin b) R ) :  Matrix (Fin a) (Fin b) R  :=
     rrefAux m 0 0
+=======
+-- def rowReducedEchelonForm {R : Type} [Semiring R] [DecidableEq R] {a b : Nat} (given : Matrix (Fin a) (Fin b) R ): Matrix (Fin a) (Fin b) R:=
+--   let rec loop2 (new_given :  Matrix (Fin a) (Fin b) R ) :  Matrix (Fin a) (Fin b) R  :=
+--     if checkPivot new_given 0 0 ≠ 0 then
+--       swapRow new_given 0 checkPivot 0 0
+--     else
+>>>>>>> Stashed changes:ProvableComputation/linear_algebra/Rref.lean
