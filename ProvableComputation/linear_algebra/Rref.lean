@@ -9,9 +9,9 @@ set_option linter.hashCommand false
 open Matrix
 
 def sampleMatrix : Matrix (Fin 3) (Fin 2) ℚ :=
-  ![![1, 2],
-    ![0, 4],
-    ![5, 6]]
+  ![![0, 0],
+    ![0, 0],
+    ![0, 6]]
 
 variable {R : Type} [Field R] [DecidableEq R]
 variable {a b : ℕ}
@@ -46,19 +46,44 @@ def replace (given : Matrix (Fin a) (Fin b) R)
       given a2 b2
 #eval replace sampleMatrix 1 2 3
 
-def checkPivot
-  (given : Matrix (Fin a) (Fin b) R) (row : Fin a) (col : Fin b) : Option (Fin a × Fin b) := do
-  let mut i := row.val
-  let mut j := col.val
-  while j < b do
-    while (i < a) do
-      if given ⟨i, _⟩  ⟨j, hj⟩  ≠ 0
-        then return (⟨i, _⟩, ⟨j, _ ⟩)
-      else
-        i := i + 1
-        j := j + 1
-  none
+-- def checkPivot
+--   (given : Matrix (Fin a) (Fin b) R) (row : Fin a) (col : Fin b) : Option (Fin a × Fin b) := do
+--   let mut i := row.val
+--   let mut j := col.val
+--   while j < b do
+--     while (i < a) do
+--       if given ⟨i, _⟩  ⟨j, hj⟩  ≠ 0
+--         then return (⟨i, _⟩, ⟨j, _ ⟩)
+--       else
+--         i := i + 1
+--         j := j + 1
+--   none
 
+def checkPivot {R : Type} [Field R] [DecidableEq R]
+  {a b : Nat}
+  (M : Matrix (Fin a) (Fin b) R)
+  (startRow : Nat) (startCol : Nat)
+  : Option (Fin a × Fin b) :=
+
+  let rec scanCol (col : Nat) : Option (Fin a × Fin b) :=
+    if hcol : col < b then
+      -- now scan all rows in this column
+      let rec scanRow (row : Nat) : Option (Fin a × Fin b) :=
+        if hrow : row < a then
+          if M ⟨row, hrow⟩ ⟨col, hcol⟩ ≠ 0 then
+            some (⟨row, hrow⟩, ⟨col, hcol⟩)
+          else
+            scanRow (row + 1)
+        else
+          none
+      match scanRow startRow with
+      | some p => some p
+      | none   => scanCol (col + 1)
+    else
+      none
+  scanCol startCol
+
+#eval checkPivot sampleMatrix 0 0
 
   --   let mut res : Option (Fin a × Fin b) :=
   --   for j in ([:b]) do
