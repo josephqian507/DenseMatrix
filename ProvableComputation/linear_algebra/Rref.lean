@@ -9,9 +9,9 @@ set_option linter.hashCommand false
 open Matrix
 
 def sampleMatrix : Matrix (Fin 3) (Fin 3) ℚ :=
-  ![![1, 0, 2],
-    ![0, 0, 1],
-    ![0, 6, 0]]
+  ![![1, 2, 3],
+    ![2, 5, 6],
+    ![4, 8, 12]]
 
 variable {R : Type} [Field R] [DecidableEq R]
 variable {a b : ℕ}
@@ -82,7 +82,7 @@ def eliminateCol
         go (r + 1) cur
       else
         let coeff := cur i pivotCol
-        let cur' := replace cur pivotRow i coeff
+        let cur' := replace cur pivotRow i (-coeff)
         go (r + 1) cur'
     else
       cur
