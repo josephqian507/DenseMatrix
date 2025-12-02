@@ -37,7 +37,6 @@ def factor (given : Matrix (Fin a) (Fin b) R) (i : Fin a)
       given a1 b1
 #eval factor sampleMatrix 1 2
 
-
 def replace (given : Matrix (Fin a) (Fin b) R)
 (use toReplace : Fin a) (k : R) : Matrix (Fin a) (Fin b) R:=
   of fun a2 b2 =>
