@@ -41,7 +41,15 @@ lemma swap_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ :
 
 lemma factor_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R) (r : (Fin a)) (s : R)
     : factor M r s = (factor (1 : Matrix (Fin a) (Fin a) R) r s) * M := by
-  sorry
+    ext i j
+    rw [Matrix.mul_apply]
+    by_cases hr : i = r
+    · -- case 1 on the row of factorization (i=r)
+      subst hr
+      simp [factor, Matrix.one_apply]
+    · -- case 2 not on the row of factorization (i≠r)
+      simp [factor, Matrix.one_apply, hr]
+
 
 lemma replace_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R) (use toReplace : (Fin a))
     (k : R)
