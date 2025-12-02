@@ -8,9 +8,8 @@ import ProvableComputation.linear_algebra.Rref
 
 open Matrix
 
-variable {R : Type}
+variable {R : Type} [Field R] [DecidableEq R]
 variable {a b : Nat}
-variable [Field R]
 -- [Fintype m] [Fintype n] [DecidableEq m]
 
 /- Inductive type for lists of row operations -/
@@ -37,7 +36,16 @@ inductive row_equivalence : Matrix (Fin a) (Fin b) R → Matrix (Fin a) (Fin b) 
 /- Row operation lemmas -/
 lemma swap_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : (Fin a))
     : swapRow M r₁ r₂ = (swapRow (1 : Matrix (Fin a) (Fin a) R) r₁ r₂) * M := by
-  sorry
+  ext i j
+  rw [Matrix.mul_apply]
+  by_cases h1 : i = r₁
+  · -- Case 1: i = r₁
+    simp [swapRow, h1, Matrix.one_apply]
+  · by_cases h2 : i = r₂
+    · -- Case 2: i = r₂
+      simp [swapRow, h2, Matrix.one_apply]
+    · -- Case 3: i ≠ r₁ and i ≠ r₂
+      simp [swapRow, Matrix.one_apply]
 
 lemma factor_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R) (r : (Fin a)) (s : R)
     : factor M r s = (factor (1 : Matrix (Fin a) (Fin a) R) r s) * M := by
@@ -46,7 +54,15 @@ lemma factor_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R) (r : (Fin 
 lemma replace_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R) (use toReplace : (Fin a))
     (k : R)
     : replace M use toReplace k = (replace (1 : Matrix (Fin a) (Fin a) R) use toReplace k) * M := by
-  sorry
+  ext i j
+  rw [Matrix.mul_apply]
+  by_cases h1 : i = toReplace
+  · -- Case 1: we are on the row to be replaced
+    simp [replace, h1, Matrix.one_apply]
+    ring_nf
+    simp [Finset.sum_add_distrib]
+  · -- Case 2: everything else
+    simp [replace, h1, Matrix.one_apply]
 
 lemma mul_by_inv (A : Matrix (Fin a) (Fin a) R) (hA : Invertible A)
     (M : Matrix (Fin a) (Fin b) R) (x : Matrix (Fin b) (Fin 1) R) :
@@ -67,36 +83,11 @@ lemma mul_by_inv (A : Matrix (Fin a) (Fin a) R) (hA : Invertible A)
     -- if M*x = 0, then (⅟A)*(M*x) = (⅟A)*0 = 0
     simp [h]
 
--- def swap_proof {R : Type} [Field R] {a b : Nat} {x : Matrix (Fin b) (Fin 1) R}
---     (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : Fin a)
---     : (swapRow M r₁ r₂) * x = 0 ↔ M * x = 0 := by
-
--- def swap_matrix (r₁ r₂ : Fin a) : Matrix (Fin a) (Fin a) R :=
---   of fun a b =>
---     if (a = r₁ ∧ b = r₂) ∨
---        (a = r₂ ∧ b = r₁) ∨
---        (a ≠ r₁ ∧ a ≠ r₂ ∧ a = b) then
---       1
---     else
---       0
-
 def swap_proof {x : Matrix (Fin b) (Fin 1) R}
     (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : Fin a)
     : (swapRow M r₁ r₂) * x = 0 ↔ M * x = 0 := by
-  constructor
-  · intro h
-    let A : Matrix (Fin a) (Fin a) R := swapRow 1 r₁ r₂
-    have hA : A * A = 1 := by
-      rw [← Matrix.ext_iff]
-      intros i j
-      rw [A]
-
-
-    let inv_A : Invertible.mk A hA hA
-    sorry
-
-  · intro h
-  -- more code
+  let A : Matrix (Fin a) (Fin a) R := swapRow 1 r₁ r₂
+  sorry
 
 -- def factor_proof {R : Type} [Field R] {a b : Nat} {x : Matrix (Fin b) (Fin 1) R}
 --   (M : Matrix (Fin a) (Fin b) R)
