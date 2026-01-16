@@ -3,6 +3,7 @@ import Lean.Elab.Tactic
 import Qq
 import Mathlib.Data.Matrix.Basic
 import Mathlib.LinearAlgebra.Matrix.Determinant.Basic
+import Mathlib.LinearAlgebra.Matrix.NonsingularInverse
 
 import ProvableComputation.linear_algebra.Rref
 
@@ -10,7 +11,6 @@ open Matrix
 
 variable {R : Type} [Field R] [DecidableEq R]
 variable {a b : Nat}
--- [Fintype m] [Fintype n] [DecidableEq m]
 
 /- Inductive type for lists of row operations -/
 def is_swap (M N : Matrix (Fin a) (Fin b) R) : Prop := ∃ r₁ r₂ : (Fin a), swapRow M r₁ r₂ = N
@@ -72,41 +72,44 @@ lemma replace_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R) (use toRe
   · -- Case 2: everything else
     simp [replace, h1, Matrix.one_apply]
 
-lemma mul_by_inv (A : Matrix (Fin a) (Fin a) R) (hA : Invertible A)
+lemma mul_by_inv (A : Matrix (Fin a) (Fin a) R) (A_inv : Matrix (Fin a) (Fin a) R)
+    (hA : A_inv * A = (1 : Matrix (Fin a) (Fin a) R))
     (M : Matrix (Fin a) (Fin b) R) (x : Matrix (Fin b) (Fin 1) R) :
-    (⅟A) * (M * x) = 0 ↔ M * x = 0 := by
+    A * (M * x) = 0 ↔ M * x = 0 := by
   constructor
   · intro h
     -- apply A on the left to both sides of the equality (⅟A * M * x = 0)
-    have h1 : A * (⅟A * (M * x)) = A * (0 : Matrix (Fin a) (Fin 1) R) := by rw [h]
+    have h1 : A_inv * (A * (M * x)) = A_inv * (0 : Matrix (Fin a) (Fin 1) R) := by rw [h]
     -- reassociate so we can see (A * ⅟A) * (M * x)
     rw [←Matrix.mul_assoc] at h1
     -- use invertibility: A * ⅟A = 1
-    rw [hA.mul_invOf_self] at h1
+    rw [hA] at h1
     -- finish: 1 * (M * x) = M * x and A * 0 = 0
     simp at h1
     exact h1
-
   · intro h
-    -- if M*x = 0, then (⅟A)*(M*x) = (⅟A)*0 = 0
+    -- if M * x = 0, then (⅟A) * (M * x) = (⅟A) * 0 = 0
     simp [h]
+
+def swap_inv (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : Fin a)
+    : swapRow (swapRow M r₁ r₂) r₁ r₂ = M := by
+  ext i j
+  simp only [swapRow, of_apply]
+  split_ifs with h1 h2 h3
+  · rw [h2, ← h1]
+  · rw [← h1]
+  · rw [← h3]
+  · rfl
 
 def swap_proof {x : Matrix (Fin b) (Fin 1) R}
     (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : Fin a)
     : (swapRow M r₁ r₂) * x = 0 ↔ M * x = 0 := by
-  let A : Matrix (Fin a) (Fin a) R := swapRow 1 r₁ r₂
-  sorry
-
--- def factor_proof {R : Type} [Field R] {a b : Nat} {x : Matrix (Fin b) (Fin 1) R}
---   (M : Matrix (Fin a) (Fin b) R)
---     (i : Fin a) (j : R) : (factor M i j) * x = 0 ↔ M * x = 0 := by
---     -- A is idendity matrix with factor at row a instead of 1
---     let A := Matrix.of fun r c =>
---     if r = c ∧ r = i then j
---     else if r = c then 1
---     else 0
---     -- factor M i j * x = 0 ↔ M * x = 0
---     let mult := A * M
+  -- Define A_inv and hA for mul_by_inv
+  let A_inv : Matrix (Fin a) (Fin a) R := swapRow 1 r₁ r₂
+  have hA : A_inv * (swapRow 1 r₁ r₂) = 1 := by
+    rw[← swap_matrix_eq_elem_mul_matrix, swap_inv]
+  rw [swap_matrix_eq_elem_mul_matrix, Matrix.mul_assoc]
+  exact mul_by_inv _ A_inv hA M x
 
 theorem factor_proof {R : Type} [Field R] [DecidableEq R] {a b : ℕ} {x : Matrix (Fin b) (Fin 1) R}
   (M : Matrix (Fin a) (Fin b) R)
