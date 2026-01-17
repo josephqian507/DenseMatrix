@@ -101,6 +101,21 @@ def swap_inv (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : Fin a)
   · rw [← h3]
   · rfl
 
+def factor_inv (M : Matrix (Fin a) (Fin b) R) (i : Fin a) (j : R)
+    : factor (factor M i j) i j⁻¹ = M := by
+  sorry
+
+def replace_inv (M : Matrix (Fin a) (Fin b) R) (use toReplace : Fin a) (k : R) (h : use ≠ toReplace)
+    : replace (replace M use toReplace k) use toReplace (-k) = M := by
+  ext i j
+  simp only [replace]
+  split_ifs with h1
+  · contradiction
+  simp only [of_apply]
+  split_ifs with h1
+  · simp [h1]
+  rfl
+
 def swap_proof {x : Matrix (Fin b) (Fin 1) R}
     (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : Fin a)
     : (swapRow M r₁ r₂) * x = 0 ↔ M * x = 0 := by
@@ -186,8 +201,30 @@ theorem factor_proof {R : Type} [Field R] [DecidableEq R] {a b : ℕ} {x : Matri
     rw [Matrix.mul_assoc] -- Turn (A*M)*x into A*(M*x)
     convert h_apply   -- Lean figures out that A = ⅟B
 
-
-def replace_proof {R : Type} [Field R] {a b : Nat} {x : Matrix (Fin b) (Fin 1) R}
-    (M : Matrix (Fin a) (Fin b) R) (pivotRow : Fin a) (pivotCol : Fin b)
-    : (eliminateCol M pivotRow pivotCol) * x = 0 ↔ M * x = 0 := by
+def factor_proof2 {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R) (i : Fin a) (j : R)
+    : (factor M i j) * x = 0 ↔ M * x = 0 := by
   sorry
+
+-- def replace_proof {R : Type} [Field R] {a b : Nat} {x : Matrix (Fin b) (Fin 1) R}
+--     (M : Matrix (Fin a) (Fin b) R) (pivotRow : Fin a) (pivotCol : Fin b)
+--     : (eliminateCol M pivotRow pivotCol) * x = 0 ↔ M * x = 0 := by
+--   let A_inv : Matrix (Fin a) (Fin a) R := eliminateCol 1 pivotRow pivotCol
+--   sorry
+
+def replace_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
+    (use toReplace : Fin a) (k : R)
+    : (replace M use toReplace k) * x = 0 ↔ M * x = 0 := by
+  by_cases h : use = toReplace
+  {
+    rw [replace, h]
+    split_ifs with h1
+    · exact factor_proof2 M toReplace (k+1)
+    contradiction
+  }
+  {
+    let A_inv : Matrix (Fin a) (Fin a) R := replace 1 use toReplace (-k)
+    have hA : A_inv * (replace 1 use toReplace k) = (1 : Matrix (Fin a) (Fin a) R) := by
+      rw [← replace_matrix_eq_elem_mul_matrix, replace_inv]
+    rw [replace_matrix_eq_elem_mul_matrix, Matrix.mul_assoc]
+    exact mul_by_inv _ A_inv hA M x
+  }

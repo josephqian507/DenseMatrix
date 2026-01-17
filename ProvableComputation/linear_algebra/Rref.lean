@@ -39,12 +39,17 @@ def factor (given : Matrix (Fin a) (Fin b) R) (i : Fin a)
 
 def replace (given : Matrix (Fin a) (Fin b) R)
 (use toReplace : Fin a) (k : R) : Matrix (Fin a) (Fin b) R:=
-  of fun a2 b2 =>
-    if a2 = toReplace then
-      given toReplace b2 + k * given use b2
-    else
-      given a2 b2
+  if use = toReplace then
+    factor given toReplace (k+1)
+  else
+    of fun a2 b2 =>
+      if a2 = toReplace then
+        given toReplace b2 + k * given use b2
+      else
+        given a2 b2
 #eval replace sampleMatrix 1 2 3
+#eval replace sampleMatrix 1 1 3  -- should output the same matrix as the factor call below
+#eval factor sampleMatrix 1 4
 
 def checkPivot
   (M : Matrix (Fin a) (Fin b) R)
@@ -71,18 +76,29 @@ def checkPivot
 
 #eval checkPivot sampleMatrix 0 0
 
+-- `eliminateCol` iterates through the matrix row by row, and uses the `replace` operation
+-- to set the value in column `pivotCol` of the row to 0.
+-- `eliminateCol` calls replace between 0 and `a` times, so this algorithm's certificate
+-- should include a `replace` object for each `replace` call in `eliminateCol`
 def eliminateCol
   (given : Matrix (Fin a) (Fin b) R)
   (pivotRow : Fin a) (pivotCol : Fin b) : Matrix (Fin a) (Fin b) R :=
   let rec go (r : Nat) (cur : Matrix (Fin a) (Fin b) R) : Matrix (Fin a) (Fin b) R :=
+    -- Iterate over each entry in pivotCol
     if hr : r < a then
       let i : Fin a := ⟨r, hr⟩
+      -- Skip over pivotRow
       if h : i = pivotRow then
         go (r + 1) cur
       else
+        -- Otherwise, use pivotRow to replace the current row, setting this row's
+        -- pivotCol entry to 0.
         let coeff := cur i pivotCol
-        let cur' := replace cur pivotRow i (-coeff)
-        go (r + 1) cur'
+        if coeff ≠ 0 then  -- eliminate unnecessary calls to `replace`
+          let cur' := replace cur pivotRow i (-coeff)
+          go (r + 1) cur'
+        else
+          go (r + 1) cur
     else
       cur
   go 0 given
