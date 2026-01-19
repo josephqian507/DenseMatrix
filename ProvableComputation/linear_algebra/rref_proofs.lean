@@ -124,8 +124,8 @@ def replace_inv (M : Matrix (Fin a) (Fin b) R) (use toReplace : Fin a) (k : R) (
   split_ifs with h1
   · contradiction
   simp only [of_apply]
-  split_ifs with h1
-  · simp [h1]
+  split_ifs with h2
+  · simp [h2]
   rfl
 
 def swap_proof {x : Matrix (Fin b) (Fin 1) R}
@@ -134,7 +134,7 @@ def swap_proof {x : Matrix (Fin b) (Fin 1) R}
   -- Define A_inv and hA for mul_by_inv
   let A_inv : Matrix (Fin a) (Fin a) R := swapRow 1 r₁ r₂
   have hA : A_inv * (swapRow 1 r₁ r₂) = 1 := by
-    rw[← swap_matrix_eq_elem_mul_matrix, swap_inv]
+    rw [← swap_matrix_eq_elem_mul_matrix, swap_inv]
   rw [swap_matrix_eq_elem_mul_matrix, Matrix.mul_assoc]
   exact mul_by_inv _ A_inv hA M x
 
@@ -223,16 +223,15 @@ def replace_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
     (use toReplace : Fin a) (k : R)
     : (replace M use toReplace k) * x = 0 ↔ M * x = 0 := by
   by_cases h : use = toReplace
-  {
+  · -- Case 1: use = toReplace
     rw [replace, h]
     split_ifs with h1
     · exact factor_proof M toReplace (k+1)
     contradiction
-  }
-  {
+  · -- Case 2: use ≠ toReplace
     let A_inv : Matrix (Fin a) (Fin a) R := replace 1 use toReplace (-k)
     have hA : A_inv * (replace 1 use toReplace k) = (1 : Matrix (Fin a) (Fin a) R) := by
       rw [← replace_matrix_eq_elem_mul_matrix, replace_inv]
+      apply h
     rw [replace_matrix_eq_elem_mul_matrix, Matrix.mul_assoc]
     exact mul_by_inv _ A_inv hA M x
-  }
