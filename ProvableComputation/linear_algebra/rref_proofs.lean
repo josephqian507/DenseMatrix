@@ -40,12 +40,12 @@ lemma swap_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ :
   rw [Matrix.mul_apply]
   by_cases h1 : i = r₁
   · -- Case 1: i = r₁
-    simp [swapRow, h1, Matrix.one_apply]
+    simp [swapRow, h1, one_apply]
   · by_cases h2 : i = r₂
     · -- Case 2: i = r₂
-      simp [swapRow, h2, Matrix.one_apply]
+      simp [swapRow, h2, one_apply]
     · -- Case 3: i ≠ r₁ and i ≠ r₂
-      simp [swapRow, Matrix.one_apply]
+      simp [swapRow, one_apply]
 
 lemma factor_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R) (r : (Fin a)) (s : R)
     : factor M r s = (factor (1 : Matrix (Fin a) (Fin a) R) r s) * M := by
@@ -54,9 +54,9 @@ lemma factor_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R) (r : (Fin 
     by_cases hr : i = r
     · -- case 1 on the row of factorization (i=r)
       subst hr
-      simp [factor, Matrix.one_apply]
+      simp [factor, one_apply]
     · -- case 2 not on the row of factorization (i≠r)
-      simp [factor, Matrix.one_apply, hr]
+      simp [factor, one_apply, hr]
 
 
 lemma replace_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R) (use toReplace : (Fin a))
@@ -64,13 +64,25 @@ lemma replace_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R) (use toRe
     : replace M use toReplace k = (replace (1 : Matrix (Fin a) (Fin a) R) use toReplace k) * M := by
   ext i j
   rw [Matrix.mul_apply]
-  by_cases h1 : i = toReplace
-  · -- Case 1: we are on the row to be replaced
-    simp [replace, h1, Matrix.one_apply]
-    ring_nf
-    simp [Finset.sum_add_distrib]
-  · -- Case 2: everything else
-    simp [replace, h1, Matrix.one_apply]
+  by_cases h1 : use = toReplace
+  · -- Case 1: use = toReplace, so replace calls factor
+    simp [replace, h1]
+
+    -- NOTE: this is exactly the same as the second half of factor_matrix_eq_elem_mul_matrix
+    by_cases hr : i = toReplace
+    · -- case 1 on the row of factorization (i=r)
+      subst hr
+      simp [factor, one_apply]
+    · -- case 2 not on the row of factorization (i≠r)
+      simp [factor, one_apply, hr]
+  · -- Case 2: use ≠ toReplace
+    by_cases h2 : i = toReplace
+    · -- Case 1: we are on the row to be replaced
+      simp [replace, one_apply, h1, h2]
+      ring_nf
+      simp [Finset.sum_add_distrib]
+    · -- Case 2: everything else
+      simp [replace, one_apply, h1, h2]
 
 lemma mul_by_inv (A : Matrix (Fin a) (Fin a) R) (A_inv : Matrix (Fin a) (Fin a) R)
     (hA : A_inv * A = (1 : Matrix (Fin a) (Fin a) R))
@@ -117,8 +129,8 @@ def replace_inv (M : Matrix (Fin a) (Fin b) R) (use toReplace : Fin a) (k : R) (
   split_ifs with h1
   · contradiction
   simp only [of_apply]
-  split_ifs with h1
-  · simp [h1]
+  split_ifs with h2
+  · simp [h2]
   rfl
 
 def swap_proof {x : Matrix (Fin b) (Fin 1) R}
@@ -127,7 +139,7 @@ def swap_proof {x : Matrix (Fin b) (Fin 1) R}
   -- Define A_inv and hA for mul_by_inv
   let A_inv : Matrix (Fin a) (Fin a) R := swapRow 1 r₁ r₂
   have hA : A_inv * (swapRow 1 r₁ r₂) = 1 := by
-    rw[← swap_matrix_eq_elem_mul_matrix, swap_inv]
+    rw [← swap_matrix_eq_elem_mul_matrix, swap_inv]
   rw [swap_matrix_eq_elem_mul_matrix, Matrix.mul_assoc]
   exact mul_by_inv _ A_inv hA M x
 
