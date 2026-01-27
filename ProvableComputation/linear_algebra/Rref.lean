@@ -119,9 +119,12 @@ def rrefAux
             m
           else
             swapRow m ⟨row, hrow⟩ pivotRow
-
         let pivotVal : R := m1 ⟨row, hrow⟩ pivotCol
-        let m2 := factor m1 ⟨row, hrow⟩ (pivotVal)⁻¹
+        let m2 :=
+          if pivotVal = 1 then
+            m1
+          else
+            factor m1 ⟨row, hrow⟩ (pivotVal)⁻¹
         let m3 := eliminateCol m2 ⟨row, hrow⟩ pivotCol
 
         rrefAux m3 (row + 1) (col + 1)

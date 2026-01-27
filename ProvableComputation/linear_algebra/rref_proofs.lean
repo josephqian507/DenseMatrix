@@ -113,7 +113,7 @@ def swap_inv (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : Fin a)
   · rw [← h3]
   · rfl
 
-def factor_inv (M : Matrix (Fin a) (Fin b) R) (i : Fin a) (j : R) {hj : j ≠ 0}
+def factor_inv (M : Matrix (Fin a) (Fin b) R) (i : Fin a) (j : R) (hj : j ≠ 0)
     : factor (factor M i j) i j⁻¹ = M := by
   ext x y
   simp only [factor, of_apply]
@@ -144,7 +144,7 @@ def swap_proof {x : Matrix (Fin b) (Fin 1) R}
   exact mul_by_inv _ A_inv hA M x
 
 def factor_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R) (i : Fin a) (j : R)
-    {hj : j ≠ 0}
+    (hj : j ≠ 0)
     : (factor M i j) * x = 0 ↔ M * x = 0 := by
   let A_inv : Matrix (Fin a) (Fin a) R := factor 1 i j⁻¹
   have hA : A_inv * (factor 1 i j) = (1 : Matrix (Fin a) (Fin a) R) := by
@@ -154,7 +154,7 @@ def factor_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R) (
   exact mul_by_inv _ A_inv hA M x
 
 def replace_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
-    (use toReplace : Fin a) (k : R) {h : use ≠ toReplace}
+    (use toReplace : Fin a) (k : R) (h : use ≠ toReplace)
     : (replace M use toReplace k) * x = 0 ↔ M * x = 0 := by
     let A_inv : Matrix (Fin a) (Fin a) R := replace 1 use toReplace (-k)
     have hA : A_inv * (replace 1 use toReplace k) = (1 : Matrix (Fin a) (Fin a) R) := by
