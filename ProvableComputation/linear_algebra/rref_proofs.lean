@@ -162,3 +162,49 @@ def replace_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
       exact h
     rw [replace_matrix_eq_elem_mul_matrix, Matrix.mul_assoc]
     exact mul_by_inv _ A_inv hA M x
+
+def eliminate_proof_helper (r : Fin a) (c : Fin b) (row : Nat) (M : Matrix (Fin a) (Fin b) R)
+    (x : Matrix (Fin b) (Fin 1) R)
+    : (eliminateCol.go r c row M) * x = 0 ↔ M * x = 0 := by
+  rw [eliminateCol.go]
+  split
+  · simp
+    split_ifs with h
+    · exact eliminate_proof_helper r c (row+1) M x
+    · exact eliminate_proof_helper r c (row+1) M x
+    rw [eliminate_proof_helper, replace_proof]
+    -- there's got to be a better way to do this
+    push_neg at h
+    rw [ne_comm]
+    exact h
+  rfl
+
+def eliminate_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
+    (r : Fin a) (c : Fin b) : (eliminateCol M r c) * x = 0 ↔ M * x = 0 := by
+  rw [eliminateCol]
+  exact eliminate_proof_helper r c 0 M x
+
+def rref_proof_helper (M : Matrix (Fin a) (Fin b) R) (r c : Nat) (x : Matrix (Fin b) (Fin 1) R)
+    : (rrefAux M r c) * x = 0 ↔ M * x = 0 := by
+  rw [rrefAux]
+  split_ifs with h1 h2
+  · simp
+    split
+    · rfl
+    rw [rref_proof_helper, eliminate_proof]
+    split_ifs with h3 h4 h5
+    · rfl
+    · rw [factor_proof]
+      -- need to show j ≠ 0
+      sorry
+    · rw [swap_proof]
+    rw [factor_proof, swap_proof]
+    -- need to show j ≠ 0
+    sorry
+  · rfl
+  rfl
+
+def rref_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
+    : (rowReducedEchelonForm M) * x = 0 ↔ M * x = 0 := by
+  rw [rowReducedEchelonForm]
+  exact rref_proof_helper M 0 0 x
