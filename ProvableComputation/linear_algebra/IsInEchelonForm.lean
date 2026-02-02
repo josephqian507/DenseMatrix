@@ -1,26 +1,32 @@
 import Mathlib.Data.Matrix.Basic
-import Mathlib.Algebra.Field.Basic
 
-variable {R : Type*} [Field R]
-variable {a b : Nat}
+namespace Matrix
 
-def rowIsZero (M : Matrix (Fin a) (Fin b) R) (i : Fin a) : Prop :=
-  ∀ j : Fin b, M i j = 0
+variable {R : Type*} [Zero R]
 
-def isPivot (M : Matrix (Fin a) (Fin b) R) (i : Fin a) (p : Fin b) : Prop :=
-  M i p ≠ 0 ∧ ∀ j : Fin b, j < p → M i j = 0
+/- A row is zero if all of its entries are zero. -/
+def RowIsZero {m n : Type*} (M : Matrix m n R) (i : m) : Prop :=
+  ∀ j : n, M i j = 0
 
-structure isEchelonForm (M : Matrix (Fin a) (Fin b) R) : Prop where
+/- A pivot at column `p` of row `i`: the entry is nonzero and all entries to the left are zero. -/
+def IsPivot {m n : Type*} [LinearOrder n] (M : Matrix m n R) (i : m) (p : n) : Prop :=
+  M i p ≠ 0 ∧ ∀ j : n, j < p → M i j = 0
+
+/- Row echelon form (REF) with respect to the given row/column orders. -/
+structure IsEchelonForm {m n : Type*} [LinearOrder m] [LinearOrder n]
+  (M : Matrix m n R) : Prop where
   row_zero_or_pivot :
-    ∀ i : Fin a, rowIsZero M i ∨ ∃ p : Fin b, isPivot M i p
+    ∀ i : m, RowIsZero M i ∨ ∃ p : n, IsPivot M i p
   zero_rows_bottom :
-    ∀ i j : Fin a, i < j → rowIsZero M i → rowIsZero M j
+    ∀ i j : m, i < j → RowIsZero M i → RowIsZero M j
   pivots_strictly_increasing :
-    ∀ i j : Fin a, ∀ p q : Fin b, i < j → isPivot M i p → isPivot M j q → p < q
+    ∀ i j : m, ∀ p q : n, i < j → IsPivot M i p → IsPivot M j q → p < q
 
-lemma isEchelonForm.pivot_column_zero_below_of_increasing
-    {M : Matrix (Fin a) (Fin b) R} (h : isEchelonForm (M := M)) :
-    ∀ i r : Fin a, ∀ p : Fin b, i < r → isPivot M i p → M r p = 0 := by
+/- In REF, a pivot column is zero below the pivot (derivable from the minimal axioms). -/
+lemma IsEchelonForm.pivot_column_zero_below
+    {m n : Type*} [LinearOrder m] [LinearOrder n]
+    {M : Matrix m n R} (h : IsEchelonForm (M := M)) :
+    ∀ i r : m, ∀ p : n, i < r → IsPivot M i p → M r p = 0 := by
   intro i r p hir hp
   cases h.row_zero_or_pivot r with
   | inl hzero =>
@@ -29,3 +35,20 @@ lemma isEchelonForm.pivot_column_zero_below_of_increasing
       rcases hex with ⟨q, hq⟩
       have hlt : p < q := h.pivots_strictly_increasing i r p q hir hp hq
       exact hq.2 p hlt
+
+section Reduced
+
+variable [One R]
+
+/- Reduced row echelon form (RREF): REF plus pivot normalization and zero above pivots. -/
+structure IsReducedEchelonForm {m n : Type*} [LinearOrder m] [LinearOrder n]
+  (M : Matrix m n R) : Prop where
+  echelon : IsEchelonForm (M := M)
+  pivot_is_one :
+    ∀ i : m, ∀ p : n, IsPivot M i p → M i p = 1
+  pivot_column_zero_above :
+    ∀ i r : m, ∀ p : n, r < i → IsPivot M i p → M r p = 0
+
+end Reduced
+
+end Matrix
