@@ -14,7 +14,8 @@ variable {a b : Nat}
 
 /- Inductive type for lists of row operations -/
 -- def is_swap (M N : Matrix (Fin a) (Fin b) R) : Prop := ∃ r₁ r₂ : (Fin a), swapRow M r₁ r₂ = N
--- def is_factor (M N : Matrix (Fin a) (Fin b) R) : Prop := ∃ (r : (Fin a)) (s : R), factor M r s = N
+-- def is_factor (M N : Matrix (Fin a) (Fin b) R) : Prop :=
+--     ∃ (r : (Fin a)) (s : R), factor M r s = N
 -- def is_replace (M N : Matrix (Fin a) (Fin b) R) : Prop :=
 --     ∃ (use toReplace : (Fin a)) (k : R), replace M use toReplace k = N
 -- def is_row_equivalent (M N : Matrix (Fin a) (Fin b) R) : Prop :=
@@ -109,45 +110,53 @@ variable [DecidableEq R]
 
 /- Pivot is nonzero -/
 def pivot_ne_zero {pivotRow : Fin a} {pivotCol : Fin b} (M : Matrix (Fin a) (Fin b) R)
-    (r c : Nat) (h : checkPivot M r c = some (pivotRow, pivotCol)) (h1 : r < a)
-    : M ⟨r, h1⟩ pivotCol ≠ 0 := by
+    (r c : Nat) (h : checkPivot M r c = some (pivotRow, pivotCol))
+    : M pivotRow pivotCol ≠ 0 := by
   rw [checkPivot, checkPivot.scanCol] at h
-  split_ifs at h with h2
+  split_ifs at h with h1
   · split at h
     · rename_i x p heq
       rw [checkPivot.scanCol.scanRow] at heq
-      split_ifs at heq with h3
+      split_ifs at heq with h2 h3
       · rw [h] at heq
-        have hCol : pivotCol = ⟨c, h2⟩ := by sorry
-        rw [hCol]
+        injection heq with heq
+        cases heq
         exact h3
-      · rw [checkPivot.scanCol.scanRow] at heq
-        split_ifs at heq with h4 h5
-        ·
-          rw [h] at heq
-          have hCol : pivotCol = ⟨c, h2⟩ := by sorry
-          rw [hCol]
-          push_neg at h3
-          rw [h3]
-
-        ·
-          sorry
-    ·
-      sorry
-
-  -- split_ifs at h
-  -- · split at h
-  --   · rename_i p heq
-  --     rw [checkPivot.scanCol.scanRow] at heq
-  --     split at heq
-  --     · split at heq
-  --       · rw [h] at heq
-  --         have hc : pivotCol = ⟨c, h1⟩ := by sorry
-  --         rw [← hc]
-  --         sorry
-  --       sorry
-  --     sorry
-  --   sorry
+      · have h' : checkPivot M (r + 1) c = some (pivotRow, pivotCol) := by
+          rw [checkPivot, checkPivot.scanCol]
+          split_ifs
+          split
+          · rename_i p' heq'
+            rw [← heq', heq, h]
+          · rename_i heq'
+            rw [heq] at heq'
+            contradiction
+        exact pivot_ne_zero M (r + 1) c h'
+    · rename_i x heq
+      have h' : checkPivot M r (c + 1) = some (pivotRow, pivotCol) := by
+        rw [checkPivot, checkPivot.scanCol]
+        split_ifs with h2
+        split
+        · rename_i p heq'
+          rw [checkPivot.scanCol] at h
+          split_ifs at h
+          split at h
+          · rename_i p' heq''
+            rw [← heq', heq'', h]
+          · rename_i heq''
+            rw [heq'] at heq''
+            contradiction
+        · rename_i heq'
+          rw [checkPivot.scanCol] at h
+          split_ifs at h
+          split at h
+          · rename_i heq''
+            rw [heq'] at heq''
+            contradiction
+          · exact h
+        · rw [checkPivot.scanCol] at h
+          split_ifs at h
+      exact pivot_ne_zero M r (c + 1) h'
 
 /- Inverses of row operations -/
 def swap_inv (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : Fin a)
@@ -244,15 +253,24 @@ def rref_proof_helper (M : Matrix (Fin a) (Fin b) R) (r c : Nat) (x : Matrix (Fi
     split_ifs with h3 h4 h5
     · rfl
     · rw [factor_proof]
-      -- need to show j ≠ 0
-      rename_i pivot_location pivotRow pivotCol heq
+      rename_i pivotRow pivotCol heq
+      have hr : pivotRow = ⟨r, h1⟩ := by
+        ext
+        exact h3
+      rw [← hr]
       rw [ne_eq, inv_eq_iff_eq_inv, _root_.inv_zero]
-      exact pivot_ne_zero M r c heq h1
+      exact pivot_ne_zero M r c heq
     · rw [swap_proof]
     rw [factor_proof, swap_proof]
-    -- need to show j ≠ 0
-    rename_i pivot_location pivotRow pivotCol heq
-    sorry
+    rename_i heq
+    rw [swapRow, of_apply]
+    split_ifs with h6 h7
+    · rw [ne_eq, inv_eq_iff_eq_inv, _root_.inv_zero]
+      exact pivot_ne_zero M r c heq
+    · rw [h7]
+      rw [ne_eq, inv_eq_iff_eq_inv, _root_.inv_zero]
+      exact pivot_ne_zero M r c heq
+    · contradiction
   · rfl
   rfl
 
@@ -260,5 +278,3 @@ def rref_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
     : (rowReducedEchelonForm M) * x = 0 ↔ M * x = 0 := by
   rw [rowReducedEchelonForm]
   exact rref_proof_helper M 0 0 x
-
-/- Resulting matrix really is in row-reduced echelon form -/

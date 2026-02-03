@@ -53,7 +53,7 @@ def replace (given : Matrix (Fin a) (Fin b) R)
 
 def checkPivot
   (M : Matrix (Fin a) (Fin b) R)
-  (startRow : Nat) (startCol : Nat)
+  (startRow startCol : Nat)
   : Option (Fin a × Fin b) :=
 
   let rec scanCol (col : Nat) : Option (Fin a × Fin b) :=
