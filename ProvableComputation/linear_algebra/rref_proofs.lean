@@ -109,20 +109,23 @@ lemma mul_by_inv (A : Matrix (Fin a) (Fin a) R) (A_inv : Matrix (Fin a) (Fin a) 
 variable [DecidableEq R]
 
 /- Pivot is nonzero -/
-def pivot_ne_zero {pivotRow : Fin a} {pivotCol : Fin b} (M : Matrix (Fin a) (Fin b) R)
+def pivot_ne_zero (pivotRow : Fin a) (pivotCol : Fin b) (M : Matrix (Fin a) (Fin b) R)
     (r c : Nat) (h : checkPivot M r c = some (pivotRow, pivotCol))
     : M pivotRow pivotCol ≠ 0 := by
   rw [checkPivot, checkPivot.scanCol] at h
   split_ifs at h with h1
   · split at h
-    · rename_i x p heq
+    · -- Case 1: found pivot in current column
+      rename_i x p heq
       rw [checkPivot.scanCol.scanRow] at heq
       split_ifs at heq with h2 h3
-      · rw [h] at heq
+      · -- Case 1a: found pivot
+        rw [h] at heq
         injection heq with heq
         cases heq
         exact h3
-      · have h' : checkPivot M (r + 1) c = some (pivotRow, pivotCol) := by
+      · -- Case 1b: did not find pivot, scanning next row
+        have h' : checkPivot M (r + 1) c = some (pivotRow, pivotCol) := by
           rw [checkPivot, checkPivot.scanCol]
           split_ifs
           split
@@ -131,8 +134,10 @@ def pivot_ne_zero {pivotRow : Fin a} {pivotCol : Fin b} (M : Matrix (Fin a) (Fin
           · rename_i heq'
             rw [heq] at heq'
             contradiction
-        exact pivot_ne_zero M (r + 1) c h'
-    · rename_i x heq
+        -- Recursively call pivot_ne_zero over the structure of checkPivot
+        exact pivot_ne_zero pivotRow pivotCol M (r + 1) c h'
+    · -- Case 2: did not find pivot, scanning next column
+      rename_i x heq
       have h' : checkPivot M r (c + 1) = some (pivotRow, pivotCol) := by
         rw [checkPivot, checkPivot.scanCol]
         split_ifs with h2
@@ -156,7 +161,8 @@ def pivot_ne_zero {pivotRow : Fin a} {pivotCol : Fin b} (M : Matrix (Fin a) (Fin
           · exact h
         · rw [checkPivot.scanCol] at h
           split_ifs at h
-      exact pivot_ne_zero M r (c + 1) h'
+      -- Recursively call pivot_ne_zero over the structure of checkPivot
+      exact pivot_ne_zero pivotRow pivotCol M r (c + 1) h'
 
 /- Inverses of row operations -/
 def swap_inv (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : Fin a)
@@ -171,7 +177,7 @@ def swap_inv (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : Fin a)
 
 def factor_inv (M : Matrix (Fin a) (Fin b) R) (i : Fin a) (j : R) (hj : j ≠ 0)
     : factor (factor M i j) i j⁻¹ = M := by
-  ext x y
+  ext i j
   simp only [factor, of_apply]
   split_ifs with h1
   · simp [hj]
@@ -230,7 +236,6 @@ def eliminate_proof_helper (r : Fin a) (c : Fin b) (row : Nat) (M : Matrix (Fin 
     · exact eliminate_proof_helper r c (row+1) M x
     · exact eliminate_proof_helper r c (row+1) M x
     rw [eliminate_proof_helper, replace_proof]
-    -- there's got to be a better way to do this
     push_neg at h
     rw [ne_comm]
     exact h
@@ -259,17 +264,17 @@ def rref_proof_helper (M : Matrix (Fin a) (Fin b) R) (r c : Nat) (x : Matrix (Fi
         exact h3
       rw [← hr]
       rw [ne_eq, inv_eq_iff_eq_inv, _root_.inv_zero]
-      exact pivot_ne_zero M r c heq
+      exact pivot_ne_zero pivotRow pivotCol M r c heq
     · rw [swap_proof]
     rw [factor_proof, swap_proof]
-    rename_i heq
+    rename_i pivotRow pivotCol heq
     rw [swapRow, of_apply]
     split_ifs with h6 h7
     · rw [ne_eq, inv_eq_iff_eq_inv, _root_.inv_zero]
-      exact pivot_ne_zero M r c heq
+      exact pivot_ne_zero pivotRow pivotCol M r c heq
     · rw [h7]
       rw [ne_eq, inv_eq_iff_eq_inv, _root_.inv_zero]
-      exact pivot_ne_zero M r c heq
+      exact pivot_ne_zero pivotRow pivotCol M r c heq
     · contradiction
   · rfl
   rfl
