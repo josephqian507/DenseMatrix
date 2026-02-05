@@ -1,8 +1,9 @@
 import Mathlib.Data.Matrix.Basic
+import ProvableComputation.linear_algebra.rref_proofs
 
 namespace Matrix
 
-variable {R : Type*} [Zero R]
+variable {R : Type} [Field R] [DecidableEq R]
 
 /- A row is zero if all of its entries are zero. -/
 def RowIsZero {m n : Type*} (M : Matrix m n R) (i : m) : Prop :=
@@ -23,6 +24,7 @@ structure IsEchelonForm {m n : Type*} [LinearOrder m] [LinearOrder n]
     ∀ i j : m, ∀ p q : n, i < j → IsPivot M i p → IsPivot M j q → p < q
 
 /- In REF, a pivot column is zero below the pivot (derivable from the minimal axioms). -/
+omit [DecidableEq R] in
 lemma IsEchelonForm.pivot_column_zero_below
     {m n : Type*} [LinearOrder m] [LinearOrder n]
     {M : Matrix m n R} (h : IsEchelonForm (M := M)) :
