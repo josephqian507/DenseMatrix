@@ -1,5 +1,4 @@
 import Mathlib.Data.Matrix.Basic
-import ProvableComputation.linear_algebra.rref_proofs
 
 namespace Matrix
 
