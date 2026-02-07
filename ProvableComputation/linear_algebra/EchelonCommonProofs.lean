@@ -1,0 +1,559 @@
+import Mathlib.Tactic
+
+import ProvableComputation.linear_algebra.IsInEchelonForm
+import ProvableComputation.linear_algebra.Rref
+import ProvableComputation.linear_algebra.rref_proofs
+
+open Matrix
+
+namespace Matrix
+
+variable {R : Type} [Field R] [DecidableEq R]
+variable {m n : ℕ}
+
+/-! Helper lemmas about pivots. -/
+
+omit [DecidableEq R] in
+lemma IsPivot.eq_of_left {m n : Type*} [LinearOrder n]
+    {M : Matrix m n R} {i : m} {p q : n} (hp : IsPivot M i p) (hq : IsPivot M i q) :
+    p = q := by
+  have hnot_lt_pq : ¬ p < q := by
+    intro hlt
+    exact hp.1 (hq.2 p hlt)
+  have hnot_lt_qp : ¬ q < p := by
+    intro hlt
+    exact hq.1 (hp.2 q hlt)
+  exact le_antisymm (le_of_not_gt hnot_lt_qp) (le_of_not_gt hnot_lt_pq)
+
+omit [DecidableEq R] in
+lemma RowIsZero.not_isPivot {m n : Type*} [LinearOrder n]
+    {M : Matrix m n R} {i : m} {p : n} (hzero : RowIsZero M i) (hp : IsPivot M i p) :
+    False := by
+  exact hp.1 (hzero p)
+
+/-! Lemmas about `checkPivot`. -/
+
+private lemma sub_pos_of_sub_eq_succ {a b k : Nat}
+    (h : a - b = Nat.succ k) : b < a := by
+  have hpos : 0 < a - b := by simp [h]
+  exact (Nat.sub_pos_iff_lt).1 hpos
+
+private lemma sub_tail_eq_of_sub_eq_succ {a b k : Nat}
+    (hle : b ≤ a) (h : a - b = Nat.succ k) : a - (b + 1) = k := by
+  have hab : a = b + Nat.succ k := (Nat.sub_eq_iff_eq_add' hle).1 h
+  rw [hab, Nat.add_sub_add_left]
+  simp
+
+private lemma impossible_lt_self_from_bounds {a b : Nat}
+    (h : a < b) (h' : b ≤ a) : False := by
+  exact (Nat.lt_irrefl _ (lt_of_lt_of_le h h'))
+
+private lemma scanRow_none_col_zero
+    (M : Matrix (Fin m) (Fin n) R) (col row : Nat) (hcol : col < n)
+    (h : checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = none) :
+    ∀ r : Fin m, row ≤ r.1 → M r ⟨col, hcol⟩ = 0 := by
+  classical
+  have hrec :
+      ∀ k row, m - row = k →
+        checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = none →
+        ∀ r : Fin m, row ≤ r.1 → M r ⟨col, hcol⟩ = 0 := by
+    refine Nat.rec ?base ?step
+    · intro row hk h r hr
+      -- row ≥ m, so no such r
+      have hrow : m ≤ row := Nat.le_of_sub_eq_zero hk
+      have : r.1 < row := lt_of_lt_of_le r.2 hrow
+      exact (False.elim ((Nat.not_lt_of_ge hr) this))
+    · intro k ih row hk h r hr
+      have hrow : row < m := sub_pos_of_sub_eq_succ (h := hk)
+      rw [checkPivot.scanCol.scanRow, dif_pos hrow] at h
+      by_cases hzero : M ⟨row, hrow⟩ ⟨col, hcol⟩ ≠ 0
+      · simp [hzero] at h
+      · have hnext : checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) (row + 1) = none := by
+          simp only [hzero] at h
+          exact h
+        have hk' : m - (row + 1) = k :=
+          sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hrow) (h := hk)
+        by_cases hreq : r.1 = row
+        · have hr' : r = ⟨row, hrow⟩ := by
+            ext
+            simp [hreq]
+          subst hr'
+          have hzero' : M ⟨row, hrow⟩ ⟨col, hcol⟩ = 0 := by
+            by_contra hne
+            exact hzero hne
+          exact hzero'
+        · have hrlt : row < r.1 := lt_of_le_of_ne hr (Ne.symm hreq)
+          have hr' : row + 1 ≤ r.1 := Nat.succ_le_of_lt hrlt
+          exact ih (row + 1) hk' hnext r hr'
+  exact hrec (m - row) row rfl h
+
+lemma checkPivot_none_zero
+    (M : Matrix (Fin m) (Fin n) R) (row col : Nat)
+    (h : checkPivot M row col = none) :
+    ∀ j : Fin n, col ≤ j.1 → ∀ r : Fin m, row ≤ r.1 → M r j = 0 := by
+  classical
+  have hrec :
+      ∀ k row col, n - col = k →
+        checkPivot M row col = none →
+        ∀ j : Fin n, col ≤ j.1 → ∀ r : Fin m, row ≤ r.1 → M r j = 0 := by
+    refine Nat.rec ?base ?step
+    · intro row col hk hnone j hj r hr
+      have hcol : n ≤ col := Nat.le_of_sub_eq_zero hk
+      have hlt : j.1 < col := lt_of_lt_of_le j.2 hcol
+      exact (False.elim (impossible_lt_self_from_bounds hlt hj))
+    · intro k ih row col hk hnone j hj r hr
+      rw [checkPivot, checkPivot.scanCol] at hnone
+      by_cases hcol : col < n
+      · simp only [hcol] at hnone
+        -- `scanRow` must be `none`
+        cases hscan : checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row with
+        | some p =>
+            simp [hscan] at hnone
+        | none =>
+            have hcol_zero : ∀ r : Fin m, row ≤ r.1 → M r ⟨col, hcol⟩ = 0 :=
+              scanRow_none_col_zero (M := M) col row hcol hscan
+            have hnext : checkPivot M row (col + 1) = none := by
+              simp only [hscan] at hnone
+              exact hnone
+            have hj' := lt_or_eq_of_le hj
+            cases hj' with
+            | inl hjlt =>
+                have hk' : n - (col + 1) = k :=
+                  sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hcol) (h := hk)
+                have hj_ge : col + 1 ≤ j.1 := Nat.succ_le_of_lt hjlt
+                exact ih row (col + 1) hk' hnext j hj_ge r hr
+            | inr hjeq =>
+                subst hjeq
+                exact hcol_zero r hr
+      · have hcol' : n ≤ col := Nat.le_of_not_gt hcol
+        have h' : n - col = 0 := Nat.sub_eq_zero_iff_le.mpr hcol'
+        rw [hk] at h'
+        exact (False.elim ((Nat.ne_of_lt (Nat.succ_pos k)) h'.symm))
+  exact hrec (n - col) row col rfl h
+
+private lemma scanRow_some_row_ge
+    (M : Matrix (Fin m) (Fin n) R) (col row : Nat) (hcol : col < n)
+    {pr : Fin m} {pc : Fin n}
+    (h : checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = some (pr, pc)) :
+    row ≤ pr.1 := by
+  classical
+  have hrec :
+      ∀ k row, m - row = k →
+        checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = some (pr, pc) →
+          row ≤ pr.1 := by
+    refine Nat.rec ?base ?step
+    · intro row hk h
+      have hrow : m ≤ row := Nat.le_of_sub_eq_zero hk
+      -- scanRow cannot return a row if row ≥ m
+      rw [checkPivot.scanCol.scanRow, dif_neg (not_lt_of_ge hrow)] at h
+      cases h
+    · intro k ih row hk h
+      have hrow : row < m := sub_pos_of_sub_eq_succ (h := hk)
+      rw [checkPivot.scanCol.scanRow, dif_pos hrow] at h
+      by_cases hzero : M ⟨row, hrow⟩ ⟨col, hcol⟩ ≠ 0
+      · simp only [ne_eq, hzero, not_false_eq_true, ↓reduceIte, Option.some.injEq,
+        Prod.mk.injEq] at h
+        rcases h with ⟨hpr, _⟩
+        subst hpr
+        exact Nat.le_refl _
+      · have hnext :
+            checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) (row + 1) = some (pr, pc) := by
+          simp only [hzero] at h
+          exact h
+        have hk' : m - (row + 1) = k :=
+          sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hrow) (h := hk)
+        have hge : row + 1 ≤ pr.1 := ih (row + 1) hk' hnext
+        exact Nat.le_trans (Nat.le_succ _) hge
+  exact hrec (m - row) row rfl h
+
+private lemma scanRow_some_col_eq
+    (M : Matrix (Fin m) (Fin n) R) (col row : Nat) (hcol : col < n)
+    {pr : Fin m} {pc : Fin n}
+    (h : checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = some (pr, pc)) :
+    pc = ⟨col, hcol⟩ := by
+  classical
+  have hrec :
+      ∀ k row, m - row = k →
+        checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = some (pr, pc) →
+          pc = ⟨col, hcol⟩ := by
+    refine Nat.rec ?base ?step
+    · intro row hk h
+      have hrow : m ≤ row := Nat.le_of_sub_eq_zero hk
+      rw [checkPivot.scanCol.scanRow, dif_neg (not_lt_of_ge hrow)] at h
+      cases h
+    · intro k ih row hk h
+      have hrow : row < m := sub_pos_of_sub_eq_succ (h := hk)
+      rw [checkPivot.scanCol.scanRow, dif_pos hrow] at h
+      by_cases hzero : M ⟨row, hrow⟩ ⟨col, hcol⟩ ≠ 0
+      · simp only [ne_eq, hzero, not_false_eq_true, ↓reduceIte, Option.some.injEq,
+        Prod.mk.injEq] at h
+        rcases h with ⟨_, hpc⟩
+        exact hpc.symm
+      · have hnext :
+            checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) (row + 1) = some (pr, pc) := by
+          simp only [hzero] at h
+          exact h
+        have hk' : m - (row + 1) = k :=
+          sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hrow) (h := hk)
+        exact ih (row + 1) hk' hnext
+  exact hrec (m - row) row rfl h
+
+lemma checkPivot_some_row_ge
+    (M : Matrix (Fin m) (Fin n) R) (row col : Nat)
+    {pr : Fin m} {pc : Fin n}
+    (h : checkPivot M row col = some (pr, pc)) :
+    row ≤ pr.1 := by
+  classical
+  have hrec :
+      ∀ k row col, n - col = k →
+        checkPivot M row col = some (pr, pc) → row ≤ pr.1 := by
+    refine Nat.rec ?base ?step
+    · intro row col hk h
+      have hcol : n ≤ col := Nat.le_of_sub_eq_zero hk
+      -- scanCol cannot find a pivot if col ≥ n
+      rw [checkPivot, checkPivot.scanCol, dif_neg (not_lt_of_ge hcol)] at h
+      cases h
+    · intro k ih row col hk h
+      rw [checkPivot, checkPivot.scanCol] at h
+      by_cases hcol : col < n
+      · simp only [hcol] at h
+        cases hscan : checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row with
+        | some p =>
+            -- pivot in this column
+            have h' :
+            checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = some (pr, pc) := by
+              simpa [hscan] using h
+            have hrowge := scanRow_some_row_ge (M := M) col row hcol h'
+            exact hrowge
+        | none =>
+            have hnext : checkPivot M row (col + 1) = some (pr, pc) := by
+              simpa [hscan] using h
+            have hk' : n - (col + 1) = k :=
+              sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hcol) (h := hk)
+            exact ih row (col + 1) hk' hnext
+      · simp [hcol] at h
+  exact hrec (n - col) row col rfl h
+
+lemma checkPivot_some_minimal
+    (M : Matrix (Fin m) (Fin n) R) (row col : Nat)
+    {pr : Fin m} {pc : Fin n}
+    (h : checkPivot M row col = some (pr, pc)) :
+    ∀ j : Fin n, col ≤ j.1 → j < pc → ∀ r : Fin m, row ≤ r.1 → M r j = 0 := by
+  classical
+  have hrec :
+      ∀ k row col, n - col = k →
+        checkPivot M row col = some (pr, pc) →
+        ∀ j : Fin n, col ≤ j.1 → j < pc → ∀ r : Fin m, row ≤ r.1 → M r j = 0 := by
+    refine Nat.rec ?base ?step
+    · intro row col hk h j hj hlt r hr
+      have hcol : n ≤ col := Nat.le_of_sub_eq_zero hk
+      have hlt' : j.1 < col := lt_of_lt_of_le j.2 hcol
+      exact (False.elim (impossible_lt_self_from_bounds hlt' hj))
+    · intro k ih row col hk h j hj hlt r hr
+      by_cases hcol : col < n
+      · dsimp [checkPivot] at h
+        rw [checkPivot.scanCol] at h
+        simp only [hcol] at h
+        cases hscan : checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row with
+        | some p =>
+            -- pivot in current column
+            have h' : some p = some (pr, pc) := by simpa [hscan] using h
+            cases h'
+            have hpc : pc = ⟨col, hcol⟩ :=
+              scanRow_some_col_eq (M := M) col row hcol hscan
+            have hlt' : j.1 < col := by simpa [hpc] using hlt
+            exact (False.elim (impossible_lt_self_from_bounds hlt' hj))
+        | none =>
+            -- column col is zero below row
+            have hcol_zero : ∀ r : Fin m, row ≤ r.1 → M r ⟨col, hcol⟩ = 0 :=
+              scanRow_none_col_zero (M := M) col row hcol hscan
+            have hnext : checkPivot M row (col + 1) = some (pr, pc) := by
+              simpa [checkPivot, hscan] using h
+            have hj' := lt_or_eq_of_le hj
+            cases hj' with
+            | inl hjlt =>
+                have hk' : n - (col + 1) = k :=
+                  sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hcol) (h := hk)
+                have hj_ge : col + 1 ≤ j.1 := Nat.succ_le_of_lt hjlt
+                exact ih row (col + 1) hk' hnext j hj_ge hlt r hr
+            | inr hjeq =>
+                subst hjeq
+                exact hcol_zero r hr
+      · have hcol' : n ≤ col := Nat.le_of_not_gt hcol
+        have h' : n - col = 0 := Nat.sub_eq_zero_iff_le.mpr hcol'
+        rw [hk] at h'
+        exact (False.elim ((Nat.ne_of_lt (Nat.succ_pos k)) h'.symm))
+  exact hrec (n - col) row col rfl h
+
+lemma checkPivot_some_nonzero
+    (M : Matrix (Fin m) (Fin n) R) (row col : Nat)
+    {pr : Fin m} {pc : Fin n}
+    (h : checkPivot M row col = some (pr, pc)) :
+    M pr pc ≠ 0 := by
+  -- reuse the proof from rref_proofs
+  exact pivot_ne_zero pr pc M row col h
+
+/-! Lemmas about `replace` and `eliminateCol`. -/
+
+omit [DecidableEq R] in
+private lemma replace_apply_of_ne
+    (M : Matrix (Fin m) (Fin n) R) (use toReplace : Fin m) (k : R)
+    (r : Fin m) (j : Fin n) (huse : use ≠ toReplace) (hrow : r ≠ toReplace) :
+    replace M use toReplace k r j = M r j := by
+  simp [replace, huse, hrow, of_apply]
+
+omit [DecidableEq R] in
+private lemma replace_apply_eq
+    (M : Matrix (Fin m) (Fin n) R) (use toReplace : Fin m) (k : R)
+    (huse : use ≠ toReplace) (j : Fin n) :
+    replace M use toReplace k toReplace j = M toReplace j + k * M use j := by
+  simp [replace, huse, of_apply]
+
+omit [DecidableEq R] in
+private lemma replace_pivot_col_zero
+    (M : Matrix (Fin m) (Fin n) R) (pivotRow toReplace : Fin m) (pivotCol : Fin n)
+    (huse : pivotRow ≠ toReplace) (h1 : M pivotRow pivotCol = 1) :
+    replace M pivotRow toReplace (-M toReplace pivotCol) toReplace pivotCol = 0 := by
+  simp [replace, huse, of_apply, h1]
+
+lemma eliminateCol_go_preserves_col
+    (cur : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n) (r : Nat) (j : Fin n)
+    (hzero : cur pivotRow j = 0) :
+    ∀ i : Fin m, (eliminateCol.go pivotRow pivotCol r cur) i j = cur i j := by
+  classical
+  have hrec :
+      ∀ k (r : Nat) (cur : Matrix (Fin m) (Fin n) R), m - r = k →
+        cur pivotRow j = 0 →
+        ∀ i : Fin m, (eliminateCol.go pivotRow pivotCol r cur) i j = cur i j := by
+    refine Nat.rec ?base ?step
+    · intro r cur hk hzero i
+      -- r ≥ m
+      have hr : m ≤ r := Nat.le_of_sub_eq_zero hk
+      rw [eliminateCol.go, dif_neg (not_lt_of_ge hr)]
+    · intro k ih r cur hk hzero i
+      have hr : r < m := sub_pos_of_sub_eq_succ (h := hk)
+      rw [eliminateCol.go, dif_pos hr]
+      by_cases hEq : (⟨r, hr⟩ : Fin m) = pivotRow
+      · simp only [hEq]
+        have hk' : m - (r + 1) = k :=
+          sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+        exact ih (r + 1) cur hk' hzero i
+      · by_cases hcoeff : cur ⟨r, hr⟩ pivotCol ≠ 0
+        · -- replace row r
+          simp only [hEq, ↓reduceDIte, ne_eq, hcoeff, not_false_eq_true, ↓reduceIte]
+          have hk' : m - (r + 1) = k :=
+            sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+          let i0 : Fin m := ⟨r, hr⟩
+          let cur' := replace cur pivotRow i0 (-cur i0 pivotCol)
+          have huse : pivotRow ≠ i0 := by
+            intro hpr
+            exact hEq hpr.symm
+          -- replacement preserves column j because pivotRow column j is zero
+          have hzero' : cur' pivotRow j = 0 := by
+            have h :=
+              replace_apply_of_ne
+              (M := cur)
+              (use := pivotRow)
+              (toReplace := i0)
+              (k := -cur i0 pivotCol)
+              (r := pivotRow)
+              (j := j)
+              (huse := huse)
+              (hrow := huse)
+            have h' : cur' pivotRow j = cur pivotRow j := by
+              simpa [cur'] using h
+            simpa [h'] using hzero
+          have hih := ih (r + 1) cur' hk' hzero' i
+          have hcur' : cur' i j = cur i j := by
+            by_cases hi : i = i0
+            · subst hi
+              have h := replace_apply_eq (M := cur) (use := pivotRow) (toReplace := i0)
+                (k := -cur i0 pivotCol) (huse := huse) (j := j)
+              -- pivotRow column j is zero
+              simpa [cur', hzero, mul_zero, add_zero] using h
+            · simpa [cur'] using
+                replace_apply_of_ne
+                (M := cur)
+                (use := pivotRow)
+                (toReplace := i0)
+                (k := -cur i0 pivotCol)
+                  (r := i) (j := j) (huse := huse) (hrow := hi)
+          exact (by
+            calc
+              eliminateCol.go pivotRow pivotCol (r + 1) cur' i j = cur' i j := hih
+              _ = cur i j := hcur')
+        · simp (config := { failIfUnchanged := false }) only [hEq, ↓reduceDIte, hcoeff, ↓reduceIte]
+          have hk' : m - (r + 1) = k :=
+            sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+          exact ih (r + 1) cur hk' hzero i
+  exact hrec (m - r) r cur rfl hzero
+
+lemma eliminateCol_go_pivotRow
+    (cur : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n) :
+    ∀ r j, (eliminateCol.go pivotRow pivotCol r cur) pivotRow j = cur pivotRow j := by
+  classical
+  have hrec :
+      ∀ k (r : Nat) (cur : Matrix (Fin m) (Fin n) R), m - r = k →
+        ∀ j, (eliminateCol.go pivotRow pivotCol r cur) pivotRow j = cur pivotRow j := by
+    refine Nat.rec ?base ?step
+    · intro r cur hk j
+      have hr : m ≤ r := Nat.le_of_sub_eq_zero hk
+      rw [eliminateCol.go, dif_neg (not_lt_of_ge hr)]
+    · intro k ih r cur hk j
+      have hr : r < m := sub_pos_of_sub_eq_succ (h := hk)
+      let i0 : Fin m := ⟨r, hr⟩
+      by_cases hEq : i0 = pivotRow
+      · have hk' : m - (r + 1) = k :=
+          sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+        -- eliminateCol.go skips pivotRow
+        rw [eliminateCol.go, dif_pos hr]
+        simp only [i0, hEq]
+        exact ih (r + 1) cur hk' j
+      · by_cases hcoeff : cur i0 pivotCol ≠ 0
+        · have hk' : m - (r + 1) = k :=
+            sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+          let cur' := replace cur pivotRow i0 (-cur i0 pivotCol)
+          -- pivotRow unchanged by replace
+          have hpr : cur' pivotRow j = cur pivotRow j := by
+            have huse : pivotRow ≠ i0 := by
+              intro hpr
+              exact hEq hpr.symm
+            have h :=
+              replace_apply_of_ne
+              (M := cur)
+              (use := pivotRow)
+              (toReplace := i0)
+              (k := -cur i0 pivotCol)
+              (r := pivotRow)
+              (j := j)
+              (huse := huse)
+              (hrow := huse)
+            simpa [cur'] using h
+          have hih := ih (r + 1) cur' hk' j
+          have hstep :
+              eliminateCol.go pivotRow pivotCol r cur pivotRow j =
+                eliminateCol.go pivotRow pivotCol (r + 1) cur' pivotRow j := by
+            rw [eliminateCol.go, dif_pos hr]
+            simp [i0, hEq, hcoeff, cur']
+          calc
+            eliminateCol.go pivotRow pivotCol r cur pivotRow j
+                = eliminateCol.go pivotRow pivotCol (r + 1) cur' pivotRow j := hstep
+            _ = cur' pivotRow j := hih
+            _ = cur pivotRow j := hpr
+        · have hk' : m - (r + 1) = k :=
+            sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+          have hih := ih (r + 1) cur hk' j
+          have hstep :
+              eliminateCol.go pivotRow pivotCol r cur pivotRow j =
+                eliminateCol.go pivotRow pivotCol (r + 1) cur pivotRow j := by
+            rw [eliminateCol.go, dif_pos hr]
+            simp [i0, hEq, hcoeff]
+          calc
+            eliminateCol.go pivotRow pivotCol r cur pivotRow j
+                = eliminateCol.go pivotRow pivotCol (r + 1) cur pivotRow j := hstep
+            _ = cur pivotRow j := hih
+  intro r j
+  exact hrec (m - r) r cur rfl j
+
+lemma eliminateCol_pivotRow
+    (M : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n) :
+    ∀ j : Fin n, (eliminateCol M pivotRow pivotCol) pivotRow j = M pivotRow j := by
+  intro j
+  simpa [eliminateCol] using
+    (eliminateCol_go_pivotRow (cur := M) (pivotRow := pivotRow) (pivotCol := pivotCol) 0 j)
+
+lemma eliminateCol_pivotCol_zero
+    (M : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n)
+    (h1 : M pivotRow pivotCol = 1) :
+    ∀ r : Fin m, r ≠ pivotRow → (eliminateCol M pivotRow pivotCol) r pivotCol = 0 := by
+  classical
+  intro r hr
+  have hrec :
+      ∀ k (r : Nat) (cur : Matrix (Fin m) (Fin n) R), m - r = k →
+        (∀ i : Fin m, i.1 < r → i ≠ pivotRow → cur i pivotCol = 0) →
+        cur pivotRow pivotCol = 1 →
+        ∀ i : Fin m, i ≠ pivotRow → (eliminateCol.go pivotRow pivotCol r cur) i pivotCol = 0 := by
+    refine Nat.rec ?base ?step
+    · intro r cur hk hpre h1 i hi
+      have hr : m ≤ r := Nat.le_of_sub_eq_zero hk
+      have hir : i.1 < r := lt_of_lt_of_le i.2 hr
+      rw [eliminateCol.go, dif_neg (not_lt_of_ge hr)]
+      exact hpre i hir hi
+    · intro k ih r cur hk hpre h1 i hi
+      have hr : r < m := sub_pos_of_sub_eq_succ (h := hk)
+      rw [eliminateCol.go, dif_pos hr]
+      let i0 : Fin m := ⟨r, hr⟩
+      by_cases hi0 : i0 = pivotRow
+      · -- skip pivotRow
+        simp only [i0, hi0]
+        have hk' : m - (r + 1) = k :=
+          sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+        have hpre' :
+            ∀ i : Fin m, i.1 < r + 1 → i ≠ pivotRow → cur i pivotCol = 0 := by
+          intro i hi' hne
+          have hle : i.1 ≤ r := Nat.lt_succ_iff.mp hi'
+          by_cases hir : i.1 < r
+          · exact hpre i hir hne
+          · have hEq : i.1 = r := le_antisymm hle (le_of_not_gt hir)
+            have : i = i0 := by
+              ext
+              simp [hEq, i0]
+            exact (False.elim (hne (by simp [this, hi0])))
+        exact ih (r + 1) cur hk' hpre' h1 i hi
+      · -- process row i0
+        simp only [i0, hi0]
+        by_cases hcoeff : cur i0 pivotCol ≠ 0
+        · have hk' : m - (r + 1) = k :=
+            sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+          let cur' := replace cur pivotRow i0 (-cur i0 pivotCol)
+          have huse : pivotRow ≠ i0 := by
+            intro hpr
+            exact hi0 hpr.symm
+          have h1' : cur' pivotRow pivotCol = 1 := by
+            simp [cur', replace, huse, of_apply, h1]
+          have hpre' :
+              ∀ i : Fin m, i.1 < r + 1 → i ≠ pivotRow → cur' i pivotCol = 0 := by
+            intro i hi' hne
+            have hle : i.1 ≤ r := Nat.lt_succ_iff.mp hi'
+            by_cases hir : i.1 < r
+            · have hne' : i ≠ i0 := by
+                intro hEq
+                have : i.1 = r := by simpa [i0] using congrArg Fin.val hEq
+                exact (Nat.lt_irrefl _ (this ▸ hir))
+              simp [cur', replace, huse, hne', of_apply, hpre i hir hne]
+            · have hEq : i.1 = r := le_antisymm hle (le_of_not_gt hir)
+              have hEq' : i = i0 := by
+                ext
+                simp [hEq, i0]
+              subst hEq'
+              have hzero :=
+                replace_pivot_col_zero (M := cur) (pivotRow := pivotRow) (toReplace := i0)
+                  (pivotCol := pivotCol) (huse := huse) h1
+              exact hzero
+          have hih := ih (r + 1) cur' hk' hpre' h1' i hi
+          simpa [i0, hi0, hcoeff, cur'] using hih
+        · have hk' : m - (r + 1) = k :=
+            sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+          have hcoeff' : cur i0 pivotCol = 0 := by
+            by_contra hne; exact hcoeff hne
+          have hpre' :
+              ∀ i : Fin m, i.1 < r + 1 → i ≠ pivotRow → cur i pivotCol = 0 := by
+            intro i hi' hne
+            have hle : i.1 ≤ r := Nat.lt_succ_iff.mp hi'
+            by_cases hir : i.1 < r
+            · exact hpre i hir hne
+            · have hEq : i.1 = r := le_antisymm hle (le_of_not_gt hir)
+              have hEq' : i = i0 := by
+                ext
+                simp [hEq, i0]
+              subst hEq'
+              exact hcoeff'
+          have hih := ih (r + 1) cur hk' hpre' h1 i hi
+          simpa [i0, hi0, hcoeff'] using hih
+  have hpre0 : ∀ i : Fin m, i.1 < 0 → i ≠ pivotRow → M i pivotCol = 0 := by
+    intro i hi
+    exact (False.elim (Nat.not_lt_zero _ hi))
+  have hrec' := hrec (m - 0) 0 M rfl hpre0 h1
+  simpa [eliminateCol] using hrec' r hr
+
+end Matrix
