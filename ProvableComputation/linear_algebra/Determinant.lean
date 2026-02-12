@@ -11,7 +11,7 @@ def matrix2 : Matrix (Fin 5) (Fin 5) ℚ :=
     ![4, 0, 2, -1, 5],
     ![-2, 3, 1, 4, -3],
     ![5, 1, -4, 0, 2]]
-Multilinear, alternating, send identity matrix to 1
+--Multilinear, alternating, send identity matrix to 1
 def matrix3 : Matrix (Fin 10) (Fin 10) ℚ :=
   ![![ 1,  2, -1,  0,  3,  4, -2,  1,  5,  0],
     ![ 0, -3,  4,  1,  2, -1,  0,  6, -2,  3],
