@@ -12,28 +12,6 @@ open Matrix
 variable {R : Type} [Field R]
 variable {a b : Nat}
 
-/- Inductive type for lists of row operations -/
--- def is_swap (M N : Matrix (Fin a) (Fin b) R) : Prop := ∃ r₁ r₂ : (Fin a), swapRow M r₁ r₂ = N
--- def is_factor (M N : Matrix (Fin a) (Fin b) R) : Prop :=
---     ∃ (r : (Fin a)) (s : R), factor M r s = N
--- def is_replace (M N : Matrix (Fin a) (Fin b) R) : Prop :=
---     ∃ (use toReplace : (Fin a)) (k : R), replace M use toReplace k = N
--- def is_row_equivalent (M N : Matrix (Fin a) (Fin b) R) : Prop :=
---     is_swap M N ∨ is_factor M N ∨ is_replace M N
-
--- inductive row_equivalent_step : Matrix (Fin a) (Fin b) R → Matrix (Fin a) (Fin b) R → Type where
---   | swap : ∀ (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : (Fin a)),
---       row_equivalent_step M (swapRow M r₁ r₂)
---   | factor : ∀ (M : Matrix (Fin a) (Fin b) R) (r : (Fin a)) (s : R),
---       row_equivalent_step M (factor M r s)
---   | replace : ∀ (M : Matrix (Fin a) (Fin b) R) (use toReplace : (Fin a)) (k : R),
---       row_equivalent_step M (replace M use toReplace k)
-
--- inductive row_equivalence : Matrix (Fin a) (Fin b) R → Matrix (Fin a) (Fin b) R → Type where
---   | nil : ∀ (M N : Matrix (Fin a) (Fin b) R) (h : row_equivalent_step M N), row_equivalence M N
---   | cons : ∀ (M N L : Matrix (Fin a) (Fin b) R) (h₁ : row_equivalent_step M N)
---       (h₂ : row_equivalent_step N L), row_equivalence M L
-
 /- Row operation lemmas
 -- Performing a row operation is equivalent to multiplying by the elementary matrix -/
 lemma swap_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : (Fin a))
@@ -119,7 +97,7 @@ def pivot_ne_zero (pivotRow : Fin a) (pivotCol : Fin b) (M : Matrix (Fin a) (Fin
       rename_i x p heq
       rw [checkPivot.scanCol.scanRow] at heq
       split_ifs at heq with h2 h3
-      · -- Case 1a: found pivot
+      · -- Case 1a: found pivot in current row
         rw [h] at heq
         injection heq with heq
         cases heq
@@ -127,40 +105,42 @@ def pivot_ne_zero (pivotRow : Fin a) (pivotCol : Fin b) (M : Matrix (Fin a) (Fin
       · -- Case 1b: did not find pivot, scanning next row
         have h' : checkPivot M (r + 1) c = some (pivotRow, pivotCol) := by
           rw [checkPivot, checkPivot.scanCol]
-          split_ifs
-          split
-          · rename_i p' heq'
-            rw [← heq', heq, h]
-          · rename_i heq'
-            rw [heq] at heq'
-            contradiction
+          aesop
+          -- split_ifs
+          -- split
+          -- · rename_i p' heq'
+          --   rw [← heq', heq, h]
+          -- · rename_i heq'
+          --   rw [heq] at heq'
+          --   contradiction
         -- Recursively call pivot_ne_zero over the structure of checkPivot
         exact pivot_ne_zero pivotRow pivotCol M (r + 1) c h'
     · -- Case 2: did not find pivot, scanning next column
       rename_i x heq
       have h' : checkPivot M r (c + 1) = some (pivotRow, pivotCol) := by
-        rw [checkPivot, checkPivot.scanCol]
-        split_ifs with h2
-        split
-        · rename_i p heq'
-          rw [checkPivot.scanCol] at h
-          split_ifs at h
-          split at h
-          · rename_i p' heq''
-            rw [← heq', heq'', h]
-          · rename_i heq''
-            rw [heq'] at heq''
-            contradiction
-        · rename_i heq'
-          rw [checkPivot.scanCol] at h
-          split_ifs at h
-          split at h
-          · rename_i heq''
-            rw [heq'] at heq''
-            contradiction
-          · exact h
-        · rw [checkPivot.scanCol] at h
-          split_ifs at h
+        aesop
+        -- rw [checkPivot, checkPivot.scanCol]
+        -- split_ifs with h2
+        -- split
+        -- · rename_i p heq'
+        --   rw [checkPivot.scanCol] at h
+        --   split_ifs at h
+        --   split at h
+        --   · rename_i p' heq''
+        --     rw [← heq', heq'', h]
+        --   · rename_i heq''
+        --     rw [heq'] at heq''
+        --     contradiction
+        -- · rename_i heq'
+        --   rw [checkPivot.scanCol] at h
+        --   split_ifs at h
+        --   split at h
+        --   · rename_i heq''
+        --     rw [heq'] at heq''
+        --     contradiction
+        --   · exact h
+        -- · rw [checkPivot.scanCol] at h
+        --   split_ifs at h
       -- Recursively call pivot_ne_zero over the structure of checkPivot
       exact pivot_ne_zero pivotRow pivotCol M r (c + 1) h'
 

@@ -5,7 +5,6 @@ import Mathlib.Data.Matrix.Basic
 import Mathlib.Algebra.Field.Rat
 set_option linter.hashCommand false
 
-
 open Matrix
 
 def sampleMatrix : Matrix (Fin 3) (Fin 3) ℚ :=
@@ -16,6 +15,11 @@ def sampleMatrix : Matrix (Fin 3) (Fin 3) ℚ :=
 variable {R : Type} [Field R] [DecidableEq R]
 variable {a b : ℕ}
 variable {ha : a > 0} {hb : b > 0}
+
+inductive row_op : Type where
+  | swap (row1 row2 : Fin a)
+  | factor (row : Fin a) (scale : R)
+  | replace (use toReplace : Fin a) (scale : R)
 
 def swapRow (given : Matrix (Fin a) (Fin b) R)
  (row1 row2 : Fin a) : Matrix (Fin a) (Fin b) R :=
@@ -111,26 +115,6 @@ def rrefAux
     if col < b then
 
       let pivot_location := checkPivot m row col
-      -- if h : pivot_location.isSome then
-      --   let pivotRow := (pivot_location.get h).1
-      --   let pivotCol := (pivot_location.get h).2
-      --   let m1 :=
-      --     if pivotRow.val = row then
-      --       m
-      --     else
-      --       swapRow m ⟨row, hrow⟩ pivotRow
-      --   let pivotVal : R := m1 ⟨row, hrow⟩ pivotCol
-      --   let m2 :=
-      --     if pivotVal = 1 then
-      --       m1
-      --     else
-      --       factor m1 ⟨row, hrow⟩ (pivotVal)⁻¹
-      --   let m3 := eliminateCol m2 ⟨row, hrow⟩ pivotCol
-
-      --   rrefAux m3 (row + 1) (col + 1)
-      -- else
-      --   m
-
       match pivot_location with
       | none => m
       | some (pivotRow, pivotCol) =>
