@@ -16,10 +16,10 @@ variable {R : Type} [Field R] [DecidableEq R]
 variable {a b : ℕ}
 variable {ha : a > 0} {hb : b > 0}
 
-inductive row_op : Type where
-  | swap (row1 row2 : Fin a)
-  | factor (row : Fin a) (scale : R)
-  | replace (use toReplace : Fin a) (scale : R)
+inductive RowOp (a : ℕ) (R : Type) : Type where
+  | swap : Fin a → Fin a → RowOp a R
+  | factor : Fin a → R → RowOp a R
+  | replace : Fin a → Fin a → R → RowOp a R
 
 def swapRow (given : Matrix (Fin a) (Fin b) R)
  (row1 row2 : Fin a) : Matrix (Fin a) (Fin b) R :=
@@ -85,62 +85,66 @@ def checkPivot
 -- `eliminateCol` calls replace between 0 and `a` times, so this algorithm's certificate
 -- should include a `replace` object for each `replace` call in `eliminateCol`
 def eliminateCol
-  (given : Matrix (Fin a) (Fin b) R)
-  (pivotRow : Fin a) (pivotCol : Fin b) : Matrix (Fin a) (Fin b) R :=
-  let rec go (r : Nat) (cur : Matrix (Fin a) (Fin b) R) : Matrix (Fin a) (Fin b) R :=
+    (given : Matrix (Fin a) (Fin b) R) (pivotRow : Fin a) (pivotCol : Fin b)
+    (steps : List (RowOp a R)) : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
+  let rec go (r : Nat) (cur : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
+      : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
     -- Iterate over each entry in pivotCol
     if hr : r < a then
       let i : Fin a := ⟨r, hr⟩
       -- Skip over pivotRow
       if h : i = pivotRow then
-        go (r + 1) cur
+        go (r + 1) cur steps
       else
         -- Otherwise, use pivotRow to replace the current row, setting this row's
         -- pivotCol entry to 0.
         let coeff := cur i pivotCol
         if coeff ≠ 0 then  -- eliminate unnecessary calls to `replace`
           let cur' := replace cur pivotRow i (-coeff)
-          go (r + 1) cur'
+          let steps := List.concat steps (.replace pivotRow i (-coeff))
+          go (r + 1) cur' steps
         else
-          go (r + 1) cur
+          go (r + 1) cur steps
     else
-      cur
-  go 0 given
-#eval eliminateCol sampleMatrix 0 0
+      (cur, steps)
+  go 0 given steps
+#eval (eliminateCol sampleMatrix 0 0 List.nil).1
 
 def rrefAux
-  (m : Matrix (Fin a) (Fin b) R)
-  (row col : Nat) : Matrix (Fin a) (Fin b) R :=
+  (m : Matrix (Fin a) (Fin b) R) (row col : Nat) (steps : List (RowOp a R))
+  : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
   if hrow : row < a then
     if col < b then
 
       let pivot_location := checkPivot m row col
       match pivot_location with
-      | none => m
+      | none => (m, steps)
       | some (pivotRow, pivotCol) =>
         let m1 :=
           if pivotRow.val = row then
             m
           else
             swapRow m ⟨row, hrow⟩ pivotRow
+            let steps := List.concat steps (.swap ⟨row, hrow⟩ pivotRow)
         let pivotVal : R := m1 ⟨row, hrow⟩ pivotCol
         let m2 :=
           if pivotVal = 1 then
             m1
           else
             factor m1 ⟨row, hrow⟩ (pivotVal)⁻¹
-        let m3 := eliminateCol m2 ⟨row, hrow⟩ pivotCol
+            let steps := List.concat steps (.factor ⟨row, hrow⟩ (pivotVal)⁻¹)
+        let (m3, steps) := eliminateCol m2 ⟨row, hrow⟩ pivotCol steps
 
-        rrefAux m3 (row + 1) (col + 1)
+        rrefAux m3 (row + 1) (col + 1) steps
     else
-      m
+      (m, steps)
   else
-    m
+    (m, steps)
 
 
 def rowReducedEchelonForm
  (given : Matrix (Fin a) (Fin b) R)
 : Matrix (Fin a) (Fin b) R:=
-  rrefAux given 0 0
+  (rrefAux given 0 0 List.nil).1
 
 #eval rowReducedEchelonForm sampleMatrix
