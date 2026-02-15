@@ -3,7 +3,6 @@ import Mathlib.LinearAlgebra.Matrix.NonsingularInverse
 
 import ProvableComputation.linear_algebra.IsInEchelonForm
 import ProvableComputation.linear_algebra.Rref
-import ProvableComputation.linear_algebra.rref_proofs
 
 namespace Matrix
 
@@ -65,6 +64,77 @@ lemma isEchelonFormOf_mk {m n : Type*}
 section FinOperations
 
 variable {a b : Nat}
+
+private lemma swap_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R)
+    (r₁ r₂ : Fin a) :
+    swapRow M r₁ r₂ = (swapRow (1 : Matrix (Fin a) (Fin a) R) r₁ r₂) * M := by
+  ext i j
+  rw [Matrix.mul_apply]
+  by_cases h1 : i = r₁
+  · simp [swapRow, h1, one_apply]
+  · by_cases h2 : i = r₂
+    · simp [swapRow, h2, one_apply]
+    · simp [swapRow, one_apply]
+
+private lemma factor_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R)
+    (r : Fin a) (s : R) :
+    factor M r s = (factor (1 : Matrix (Fin a) (Fin a) R) r s) * M := by
+  ext i j
+  rw [Matrix.mul_apply]
+  by_cases hr : i = r
+  · subst hr
+    simp [factor, one_apply]
+  · simp [factor, one_apply, hr]
+
+private lemma replace_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R)
+    (use toReplace : Fin a) (k : R) :
+    replace M use toReplace k =
+      (replace (1 : Matrix (Fin a) (Fin a) R) use toReplace k) * M := by
+  ext i j
+  rw [Matrix.mul_apply]
+  by_cases h1 : use = toReplace
+  · simp [replace, h1]
+    by_cases hr : i = toReplace
+    · subst hr
+      simp [factor, one_apply]
+    · simp [factor, one_apply, hr]
+  · by_cases h2 : i = toReplace
+    · simp [replace, one_apply, h1, h2]
+      ring_nf
+      simp [Finset.sum_add_distrib]
+    · simp [replace, one_apply, h1, h2]
+
+omit [Field R] in
+private lemma swap_inv (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : Fin a) :
+    swapRow (swapRow M r₁ r₂) r₁ r₂ = M := by
+  ext i j
+  simp only [swapRow, of_apply]
+  split_ifs with h1 h2 h3
+  · rw [h2, ← h1]
+  · rw [← h1]
+  · rw [← h3]
+  · rfl
+
+private lemma factor_inv (M : Matrix (Fin a) (Fin b) R) (i : Fin a) (j : R) (hj : j ≠ 0) :
+    factor (factor M i j) i j⁻¹ = M := by
+  ext i j
+  simp only [factor, of_apply]
+  split_ifs with h1
+  · simp [hj]
+  · rfl
+
+private lemma replace_inv
+    (M : Matrix (Fin a) (Fin b) R) (use toReplace : Fin a) (k : R)
+    (h : use ≠ toReplace) :
+    replace (replace M use toReplace k) use toReplace (-k) = M := by
+  ext i j
+  simp only [replace]
+  split_ifs with h1
+  · contradiction
+  simp only [of_apply]
+  split_ifs with h2
+  · simp [h2]
+  · rfl
 
 private lemma swap_elem_isUnit (r₁ r₂ : Fin a) :
     IsUnit (swapRow (1 : Matrix (Fin a) (Fin a) R) r₁ r₂) := by
