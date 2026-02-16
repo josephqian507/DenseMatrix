@@ -1,6 +1,3 @@
--- import Lean
--- import Lean.Elab.Tactic
--- import Qq
 import Mathlib.Data.Matrix.Basic
 import Mathlib.Algebra.Field.Rat
 set_option linter.hashCommand false
@@ -144,7 +141,7 @@ def rrefAux
 
 def rowReducedEchelonForm
  (given : Matrix (Fin a) (Fin b) R)
-: Matrix (Fin a) (Fin b) R:=
-  (rrefAux given 0 0 List.nil).1
+: (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
+  rrefAux given 0 0 List.nil
 
-#eval rowReducedEchelonForm sampleMatrix
+#eval (rowReducedEchelonForm sampleMatrix).1

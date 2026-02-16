@@ -261,6 +261,6 @@ def rref_proof_helper (M : Matrix (Fin a) (Fin b) R) (r c : Nat) (x : Matrix (Fi
   rfl
 
 def rref_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
-    : (rowReducedEchelonForm M) * x = 0 ↔ M * x = 0 := by
+    : (rowReducedEchelonForm M).1 * x = 0 ↔ M * x = 0 := by
   rw [rowReducedEchelonForm]
   exact rref_proof_helper M 0 0 x List.nil
