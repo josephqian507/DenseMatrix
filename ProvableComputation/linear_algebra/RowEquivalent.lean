@@ -104,6 +104,35 @@ private lemma replace_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R)
       simp [Finset.sum_add_distrib]
     · simp [replace, one_apply, h1, h2]
 
+/-- Apply one logged row operation to a matrix. -/
+def applyRowOp (op : RowOp a R) (M : Matrix (Fin a) (Fin b) R) : Matrix (Fin a) (Fin b) R :=
+  match op with
+  | .swap i j => swapRow M i j
+  | .factor i c => factor M i c
+  | .replace use toReplace k => replace M use toReplace k
+
+/-- Elementary matrix corresponding to one logged row operation. -/
+def elementaryMatrixOfRowOp (op : RowOp a R) : Matrix (Fin a) (Fin a) R :=
+  match op with
+  | .swap i j => swapRow (1 : Matrix (Fin a) (Fin a) R) i j
+  | .factor i c => factor (1 : Matrix (Fin a) (Fin a) R) i c
+  | .replace use toReplace k => replace (1 : Matrix (Fin a) (Fin a) R) use toReplace k
+
+lemma elementaryMatrixOfRowOp_mul_eq_applyRowOp
+    (op : RowOp a R) (M : Matrix (Fin a) (Fin b) R) :
+    elementaryMatrixOfRowOp op * M = applyRowOp op M := by
+  cases op with
+  | swap i j =>
+      simpa [elementaryMatrixOfRowOp, applyRowOp] using
+        (swap_matrix_eq_elem_mul_matrix (M := M) i j).symm
+  | factor i c =>
+      simpa [elementaryMatrixOfRowOp, applyRowOp] using
+        (factor_matrix_eq_elem_mul_matrix (M := M) (r := i) (s := c)).symm
+  | replace use toReplace k =>
+      simpa [elementaryMatrixOfRowOp, applyRowOp] using
+        (replace_matrix_eq_elem_mul_matrix
+          (M := M) (use := use) (toReplace := toReplace) (k := k)).symm
+
 omit [Field R] in
 private lemma swap_inv (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : Fin a) :
     swapRow (swapRow M r₁ r₂) r₁ r₂ = M := by
