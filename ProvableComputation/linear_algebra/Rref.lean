@@ -83,7 +83,7 @@ def checkPivot
 -- should include a `replace` object for each `replace` call in `eliminateCol`
 def eliminateCol
     (given : Matrix (Fin a) (Fin b) R) (pivotRow : Fin a) (pivotCol : Fin b)
-    (steps : List (RowOp a R)) : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
+    (steps : List (RowOp a R)) (reduced : Bool) : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
   let rec go (r : Nat) (cur : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
       : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
     -- Iterate over each entry in pivotCol
@@ -104,11 +104,14 @@ def eliminateCol
           go (r + 1) cur steps
     else
       (cur, steps)
-  go 0 given steps
-#eval (eliminateCol sampleMatrix 0 0 List.nil).1
+  if reduced then
+    go 0 given steps
+  else
+    go pivotRow.val given steps
+#eval (eliminateCol sampleMatrix 0 0 List.nil true).1
 
 def rrefAux
-  (m : Matrix (Fin a) (Fin b) R) (row col : Nat) (steps : List (RowOp a R))
+  (m : Matrix (Fin a) (Fin b) R) (row col : Nat) (steps : List (RowOp a R)) (reduced : Bool)
   : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
   if hrow : row < a then
     if col < b then
@@ -130,18 +133,21 @@ def rrefAux
           else
             factor m1 ⟨row, hrow⟩ (pivotVal)⁻¹
             let steps := List.concat steps (.factor ⟨row, hrow⟩ (pivotVal)⁻¹)
-        let (m3, steps) := eliminateCol m2 ⟨row, hrow⟩ pivotCol steps
+        let (m3, steps) := eliminateCol m2 ⟨row, hrow⟩ pivotCol steps reduced
 
-        rrefAux m3 (row + 1) (col + 1) steps
+        rrefAux m3 (row + 1) (col + 1) steps reduced
     else
       (m, steps)
   else
     (m, steps)
 
+def rowEchelonForm (given : Matrix (Fin a) (Fin b) R)
+    : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
+  rrefAux given 0 0 List.nil false
 
 def rowReducedEchelonForm
  (given : Matrix (Fin a) (Fin b) R)
 : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
-  rrefAux given 0 0 List.nil
+  rrefAux given 0 0 List.nil true
 
 #eval (rowReducedEchelonForm sampleMatrix).1

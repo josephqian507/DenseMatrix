@@ -207,29 +207,32 @@ def replace_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
     exact mul_by_inv _ A_inv hA M x
 
 def eliminate_proof_helper (r : Fin a) (c : Fin b) (row : Nat) (M : Matrix (Fin a) (Fin b) R)
-    (x : Matrix (Fin b) (Fin 1) R) (steps : List (RowOp a R))
+    (x : Matrix (Fin b) (Fin 1) R) (steps : List (RowOp a R)) (reduced : Bool)
     : (eliminateCol.go r c row M steps).1 * x = 0 ↔ M * x = 0 := by
   rw [eliminateCol.go]
   split
   · simp
-    split_ifs with h
-    · exact eliminate_proof_helper r c (row+1) M x steps
-    · exact eliminate_proof_helper r c (row+1) M x steps
-    rw [eliminate_proof_helper, replace_proof]
-    push_neg at h
-    rw [ne_comm]
-    exact h
-  rfl
+    split_ifs with h1 h2
+    · exact eliminate_proof_helper r c (row+1) M x steps reduced
+    · exact eliminate_proof_helper r c (row+1) M x steps reduced
+    · rw [eliminate_proof_helper, replace_proof]
+      · push_neg at h1
+        apply h1.symm
+      · exact reduced
+  · simp
 
 def eliminate_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
-    (r : Fin a) (c : Fin b) (steps : List (RowOp a R))
-    : (eliminateCol M r c steps).1 * x = 0 ↔ M * x = 0 := by
+    (r : Fin a) (c : Fin b) (steps : List (RowOp a R)) (reduced : Bool)
+    : (eliminateCol M r c steps reduced).1 * x = 0 ↔ M * x = 0 := by
   rw [eliminateCol]
-  exact eliminate_proof_helper r c 0 M x steps
+  split
+  · exact eliminate_proof_helper r c 0 M x steps reduced
+  · exact eliminate_proof_helper r c (↑r) M x steps reduced
 
 /- Gaussian elimination does not change the matrix's solution set -/
 def rref_proof_helper (M : Matrix (Fin a) (Fin b) R) (r c : Nat) (x : Matrix (Fin b) (Fin 1) R)
-    (steps : List (RowOp a R)) : (rrefAux M r c steps).1 * x = 0 ↔ M * x = 0 := by
+    (steps : List (RowOp a R)) (reduced : Bool)
+    : (rrefAux M r c steps reduced).1 * x = 0 ↔ M * x = 0 := by
   rw [rrefAux]
   split_ifs with h1 h2
   · simp
@@ -260,7 +263,12 @@ def rref_proof_helper (M : Matrix (Fin a) (Fin b) R) (r c : Nat) (x : Matrix (Fi
   · rfl
   rfl
 
+def ref_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
+    : (rowEchelonForm M).1 * x = 0 ↔ M * x = 0 := by
+  rw [rowEchelonForm]
+  exact rref_proof_helper M 0 0 x List.nil false
+
 def rref_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
     : (rowReducedEchelonForm M).1 * x = 0 ↔ M * x = 0 := by
   rw [rowReducedEchelonForm]
-  exact rref_proof_helper M 0 0 x List.nil
+  exact rref_proof_helper M 0 0 x List.nil true

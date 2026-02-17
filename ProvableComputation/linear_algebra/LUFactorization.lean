@@ -25,11 +25,9 @@ def buildPL (steps : List (RowOp a R)) (P L : squareMatrix a R)
 
 def LUFactorization (M : Matrix (Fin a) (Fin a) R)
     : (squareMatrix a R × squareMatrix a R × squareMatrix a R) :=
-  let (U, steps) := rowReducedEchelonForm M
+  let (U, steps) := rowEchelonForm M
   let (P, L) := buildPL steps 1 1
   (P, L, U)
-
-
 
 #eval LUFactorization sampleMatrix
 #eval (LUFactorization sampleMatrix).1 * (LUFactorization sampleMatrix).2.1 * (LUFactorization sampleMatrix).2.2
