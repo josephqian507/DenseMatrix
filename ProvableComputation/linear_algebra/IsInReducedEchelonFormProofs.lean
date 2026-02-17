@@ -9,7 +9,7 @@ variable {m n : ℕ}
 abbrev rrefAuxM
     (M : Matrix (Fin m) (Fin n) R) (row col : Nat) (steps : List (RowOp m R)) :
     Matrix (Fin m) (Fin n) R :=
-  (rrefAux M row col steps).1
+  (rrefAux M row col steps true).1
 
 /-! Echelon invariants. -/
 
@@ -852,7 +852,7 @@ private lemma rrefAux_isReducedEchelon
                     rw [hm, Nat.add_sub_add_left]
                     simp
                   have helim :
-                      (eliminateCol m2 ⟨row, hrow⟩ pc steps').1 = m3 := by
+                      (eliminateCol m2 ⟨row, hrow⟩ pc steps' true).1 = m3 := by
                     simpa [m3, steps'] using
                       (eliminateCol_matrix_irrel
                         (M := m2)
@@ -861,7 +861,7 @@ private lemma rrefAux_isReducedEchelon
                         (steps := steps'))
                   simpa [m1, pivotVal, m2, m3, steps', helim] using
                     ih m3 (row + 1) (col + 1) (pc.1 + 1)
-                      ((eliminateCol m2 ⟨row, hrow⟩ pc steps').2)
+                      ((eliminateCol m2 ⟨row, hrow⟩ pc steps' true).2)
                       (extendPivs row pivs pc) hk' hstate'
         · -- col ≥ n, so rrefAuxM returns M
           have hcol' : ¬ col < n := hcol
@@ -883,7 +883,7 @@ private lemma rrefAux_isReducedEchelon
 
 theorem rowReducedEchelonForm_isReducedEchelon
     (M : Matrix (Fin m) (Fin n) R) :
-    IsReducedEchelonForm (M := rowReducedEchelonForm M) := by
+    IsReducedEchelonForm (M := (rowReducedEchelonForm M).1) := by
   classical
   have hstate : EchelonState (M := M) (row := 0) (col := 0) (bound := 0) emptyPivs :=
     initial_state (M := M)
@@ -895,7 +895,7 @@ theorem rowReducedEchelonForm_isReducedEchelon
 /-- Compatibility theorem: derive REF directly from the stronger RREF result. -/
 theorem rowReducedEchelonForm_isEchelon
     (M : Matrix (Fin m) (Fin n) R) :
-    IsEchelonForm (M := rowReducedEchelonForm M) :=
+    IsEchelonForm (M := (rowReducedEchelonForm M).1) :=
   (rowReducedEchelonForm_isReducedEchelon (M := M)).echelon
 
 end Matrix

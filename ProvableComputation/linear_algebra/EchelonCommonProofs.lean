@@ -14,7 +14,7 @@ variable {m n : ℕ}
 abbrev eliminateColM
     (M : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n) :
     Matrix (Fin m) (Fin n) R :=
-  (eliminateCol M pivotRow pivotCol List.nil).1
+  (eliminateCol M pivotRow pivotCol List.nil true).1
 
 /-- Matrix output of `eliminateCol.go` for a given current step log. -/
 abbrev eliminateColGo
@@ -385,7 +385,7 @@ private theorem eliminateCol_go_matrix_irrel
 lemma eliminateCol_matrix_irrel
     (M : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n)
     (steps : List (RowOp m R)) :
-    (eliminateCol M pivotRow pivotCol steps).1 = eliminateColM M pivotRow pivotCol := by
+    (eliminateCol M pivotRow pivotCol steps true).1 = eliminateColM M pivotRow pivotCol := by
   simpa [eliminateColM, eliminateCol] using
     eliminateCol_go_matrix_irrel pivotRow pivotCol 0 M steps List.nil
 
