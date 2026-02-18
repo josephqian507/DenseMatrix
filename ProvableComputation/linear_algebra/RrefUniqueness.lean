@@ -86,7 +86,8 @@ private theorem eliminateColGo_rowEquivalent
           exact rowEquivalent_replace
             (A := cur) (use := pivotRow) (toReplace := i) (k := -cur i pivotCol)
             (huse := by simpa [eq_comm] using hEq)
-        have hrec : RowEquivalent cur' (eliminateCol.go pivotRow pivotCol (row + 1) cur' steps').1 := by
+        have hrec :
+            RowEquivalent cur' (eliminateCol.go pivotRow pivotCol (row + 1) cur' steps').1 := by
           simpa [cur', steps'] using
             (eliminateColGo_rowEquivalent pivotRow pivotCol (row + 1) cur' steps')
         simpa [i, hEq, hcoeff, cur', steps'] using RowEquivalent.trans hreplace hrec
@@ -151,7 +152,7 @@ private theorem rrefAux_rowEquivalent
               exact hp (by simpa [rowFin] using (congrArg Fin.val hEq).symm)
             have hpres :
                 (swapRow M rowFin pivotRow) rowFin pivotCol = M pivotRow pivotCol := by
-              simp [swapRow, of_apply, hrowne]
+              simp [swapRow, of_apply]
             simpa [m1, hp, pivotVal, hpres] using hnon
         have hM2 : RowEquivalent m1 m2 := by
           by_cases hv : pivotVal = 1
