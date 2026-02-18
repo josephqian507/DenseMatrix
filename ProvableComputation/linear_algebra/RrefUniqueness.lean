@@ -7,20 +7,24 @@ variable {R : Type} [Field R]
 
 /-- `B` is an RREF representative of `A`: row-equivalent to `A` and in reduced echelon form. -/
 def IsReducedEchelonFormOf {m n : Nat}
+    [DecidableEq R]
     (A B : Matrix (Fin m) (Fin n) R) : Prop :=
   RowEquivalent A B ∧ IsReducedEchelonForm (M := B)
 
 lemma IsReducedEchelonFormOf.rowEquivalent {m n : Nat}
+    [DecidableEq R]
     {A B : Matrix (Fin m) (Fin n) R} (h : IsReducedEchelonFormOf (A := A) B) :
     RowEquivalent A B :=
   h.1
 
 lemma IsReducedEchelonFormOf.reduced {m n : Nat}
+    [DecidableEq R]
     {A B : Matrix (Fin m) (Fin n) R} (h : IsReducedEchelonFormOf (A := A) B) :
     IsReducedEchelonForm (M := B) :=
   h.2
 
 lemma isReducedEchelonFormOf_mk {m n : Nat}
+    [DecidableEq R]
     {A B : Matrix (Fin m) (Fin n) R}
     (hRow : RowEquivalent A B)
     (hRed : IsReducedEchelonForm (M := B)) :
@@ -241,34 +245,287 @@ lemma rowEquivalent_common_source_mul_eq_zero_iff {m n : Nat}
     RowEquivalent.trans (RowEquivalent.symm hAB) hAB'
   simpa using (RowEquivalent.mul_eq_zero_iff (hAB := hBB') x)
 
-private axiom reduced_unique_of_rowEquivalent_axiom
-    {m n : Nat}
-    {B B' : Matrix (Fin m) (Fin n) R} :
-    RowEquivalent B B' →
-    IsReducedEchelonForm (M := B) →
-    IsReducedEchelonForm (M := B') →
-    B = B'
+private lemma reduced_pivot_col_zero_ne {m n : Nat}
+    {M : Matrix (Fin m) (Fin n) R}
+    (hRed : IsReducedEchelonForm (M := M))
+    {i r : Fin m} {p : Fin n}
+    (hp : IsPivot M i p)
+    (hr : r ≠ i) :
+    M r p = 0 := by
+  by_cases hri : r < i
+  · exact hRed.pivot_column_zero_above i r p hri hp
+  · have hir_or_eq : i < r ∨ i = r := lt_or_eq_of_le (le_of_not_gt hri)
+    cases hir_or_eq with
+    | inl hir =>
+        exact hRed.echelon.pivot_column_zero_below i r p hir hp
+    | inr hir_eq =>
+        exact (hr hir_eq.symm).elim
 
-private theorem reduced_unique_of_rowEquivalent
-    {m n : Nat}
-    {B B' : Matrix (Fin m) (Fin n) R} :
-    RowEquivalent B B' →
-    IsReducedEchelonForm (M := B) →
-    IsReducedEchelonForm (M := B') →
-    B = B' :=
-  reduced_unique_of_rowEquivalent_axiom
+private lemma reduced_pivot_col_unit {m n : Nat}
+    {M : Matrix (Fin m) (Fin n) R}
+    (hRed : IsReducedEchelonForm (M := M))
+    {i r : Fin m} {p : Fin n}
+    (hp : IsPivot M i p) :
+    M r p = if r = i then 1 else 0 := by
+  by_cases hri : r = i
+  · subst hri
+    simpa using hRed.pivot_is_one r p hp
+  · simp [hri, reduced_pivot_col_zero_ne hRed hp hri]
+
+private lemma coeff_from_pivot_column {m n : Nat}
+    {B C : Matrix (Fin m) (Fin n) R}
+    (hC : IsReducedEchelonForm (M := C))
+    (U : Matrix (Fin m) (Fin m) R)
+    (hBC : B = U * C)
+    {k i : Fin m} {q : Fin n}
+    (hq : IsPivot C k q) :
+    B i q = U i k := by
+  have hEntry : B i q = (U * C) i q := by simp [hBC]
+  rw [Matrix.mul_apply] at hEntry
+  have hsum : (∑ t, U i t * C t q) = U i k := by
+    calc
+      (∑ t, U i t * C t q)
+          = ∑ t, U i t * (if t = k then 1 else 0) := by
+              refine Finset.sum_congr rfl ?_
+              intro t _
+              simp [reduced_pivot_col_unit hC hq]
+      _ = U i k := by simp
+  simpa [hsum] using hEntry
+
+private def RowMatch {m n : Nat}
+    (B C : Matrix (Fin m) (Fin n) R) (i : Fin m) : Prop :=
+  (RowIsZero B i ∧ RowIsZero C i) ∨ ∃ p : Fin n, IsPivot B i p ∧ IsPivot C i p
+
+private lemma pivot_exists_in_right {m n : Nat}
+    {B C : Matrix (Fin m) (Fin n) R}
+    (hBC : RowEquivalent B C)
+    (hC : IsReducedEchelonForm (M := C))
+    {i : Fin m} {p : Fin n}
+    (hpB : IsPivot B i p) :
+    ∃ k : Fin m, IsPivot C k p := by
+  rcases RowEquivalent.symm hBC with ⟨UUnit, hUraw⟩
+  let U : Matrix (Fin m) (Fin m) R := (UUnit : Matrix (Fin m) (Fin m) R)
+  have hU : B = U * C := by simpa [U] using hUraw
+  by_contra hnone
+  have hsumZero : (∑ t, U i t * C t p) = 0 := by
+    refine Finset.sum_eq_zero ?_
+    intro t _
+    cases hCt : hC.echelon.row_zero_or_pivot t with
+    | inl hZero =>
+        simp [hZero p]
+    | inr hPivot =>
+        rcases hPivot with ⟨q, hq⟩
+        by_cases hqp : q = p
+        · exact (hnone ⟨t, by simpa [hqp] using hq⟩).elim
+        · rcases lt_or_gt_of_ne hqp with hqLt | hpLt
+          · have hUit : U i t = 0 := by
+              have hCoeff : B i q = U i t :=
+                coeff_from_pivot_column (hC := hC) (U := U) (hBC := hU)
+                  (k := t) (i := i) (q := q) hq
+              have hBiq : B i q = 0 := hpB.2 q hqLt
+              calc
+                U i t = B i q := hCoeff.symm
+                _ = 0 := hBiq
+            simp [hUit]
+          · have hCtp : C t p = 0 := hq.2 p hpLt
+            simp [hCtp]
+  have hBpZero : B i p = 0 := by
+    calc
+      B i p = (U * C) i p := by simp [hU]
+      _ = ∑ t, U i t * C t p := by simp [Matrix.mul_apply]
+      _ = 0 := hsumZero
+  exact hpB.1 hBpZero
+
+private lemma pivot_exists_in_left {m n : Nat}
+    {B C : Matrix (Fin m) (Fin n) R}
+    (hBC : RowEquivalent B C)
+    (hB : IsReducedEchelonForm (M := B))
+    {i : Fin m} {p : Fin n}
+    (hpC : IsPivot C i p) :
+    ∃ k : Fin m, IsPivot B k p := by
+  simpa using
+    (pivot_exists_in_right (hBC := RowEquivalent.symm hBC) (hC := hB) hpC)
+
+private theorem reduced_rowMatch_of_rowEquivalent {m n : Nat}
+    {B C : Matrix (Fin m) (Fin n) R}
+    (hBC : RowEquivalent B C)
+    (hB : IsReducedEchelonForm (M := B))
+    (hC : IsReducedEchelonForm (M := C)) :
+    ∀ i : Fin m, RowMatch (R := R) B C i := by
+  have hMatchNat : ∀ iNat : Nat, ∀ hi : iNat < m, RowMatch (R := R) B C ⟨iNat, hi⟩ := by
+    intro iNat
+    refine Nat.strong_induction_on iNat ?_
+    intro iNat ih hi
+    let iFin : Fin m := ⟨iNat, hi⟩
+    cases hBi : hB.echelon.row_zero_or_pivot iFin with
+    | inl hBZero =>
+        have hCZero : RowIsZero C iFin := by
+          cases hCi : hC.echelon.row_zero_or_pivot iFin with
+          | inl hZero =>
+              exact hZero
+          | inr hPivot =>
+              rcases hPivot with ⟨q, hqC⟩
+              rcases pivot_exists_in_left (hBC := hBC) (hB := hB) hqC with ⟨k, hkB⟩
+              rcases lt_trichotomy k.1 iNat with hkLt | hkEq | hiLt
+              · have hkMatch : RowMatch (R := R) B C k := ih k.1 hkLt k.2
+                cases hkMatch with
+                | inl hZeroPair =>
+                    exact (RowIsZero.not_isPivot (hzero := hZeroPair.1) (hp := hkB)).elim
+                | inr hPivotPair =>
+                    rcases hPivotPair with ⟨qk, hkB', hkCk⟩
+                    have hqk : qk = q := IsPivot.eq_of_left hkB' hkB
+                    have hkCq : IsPivot C k q := by simpa [hqk] using hkCk
+                    have hkLt' : k < iFin := by simpa [iFin] using hkLt
+                    have hqLtq : q < q :=
+                      hC.echelon.pivots_strictly_increasing k iFin q q hkLt' hkCq hqC
+                    exact (lt_irrefl _ hqLtq).elim
+              · have hkEqFin : k = iFin := Fin.ext hkEq
+                subst hkEqFin
+                exact (RowIsZero.not_isPivot (hzero := hBZero) (hp := hkB)).elim
+              · have hiLt' : iFin < k := by simpa [iFin] using hiLt
+                have hkZero : RowIsZero B k :=
+                  hB.echelon.zero_rows_bottom iFin k hiLt' hBZero
+                exact (RowIsZero.not_isPivot (hzero := hkZero) (hp := hkB)).elim
+        exact Or.inl ⟨hBZero, hCZero⟩
+    | inr hPivotB =>
+        rcases hPivotB with ⟨p, hpB⟩
+        have hCNonzero : ¬ RowIsZero C iFin := by
+          intro hCZero
+          rcases pivot_exists_in_right (hBC := hBC) (hC := hC) hpB with ⟨k, hkC⟩
+          rcases lt_trichotomy k.1 iNat with hkLt | hkEq | hiLt
+          · have hkMatch : RowMatch (R := R) B C k := ih k.1 hkLt k.2
+            cases hkMatch with
+            | inl hZeroPair =>
+                exact (RowIsZero.not_isPivot (hzero := hZeroPair.2) (hp := hkC)).elim
+            | inr hPivotPair =>
+                rcases hPivotPair with ⟨pk, hkB, hkC'⟩
+                have hpk : pk = p := IsPivot.eq_of_left hkC' hkC
+                have hkBp : IsPivot B k p := by simpa [hpk] using hkB
+                have hkLt' : k < iFin := by simpa [iFin] using hkLt
+                have hpLtp : p < p :=
+                  hB.echelon.pivots_strictly_increasing k iFin p p hkLt' hkBp hpB
+                exact (lt_irrefl _ hpLtp).elim
+          · have hkEqFin : k = iFin := Fin.ext hkEq
+            subst hkEqFin
+            exact (RowIsZero.not_isPivot (hzero := hCZero) (hp := hkC)).elim
+          · have hiLt' : iFin < k := by simpa [iFin] using hiLt
+            have hkZero : RowIsZero C k :=
+              hC.echelon.zero_rows_bottom iFin k hiLt' hCZero
+            exact (RowIsZero.not_isPivot (hzero := hkZero) (hp := hkC)).elim
+        have hCPivot : ∃ q : Fin n, IsPivot C iFin q := by
+          cases hCi : hC.echelon.row_zero_or_pivot iFin with
+          | inl hZero =>
+              exact (hCNonzero hZero).elim
+          | inr hPivot =>
+              exact hPivot
+        rcases hCPivot with ⟨q, hqC⟩
+        have hpLeQ : p ≤ q := by
+          by_contra hNotLe
+          have hqLtP : q < p := lt_of_not_ge hNotLe
+          rcases pivot_exists_in_left (hBC := hBC) (hB := hB) hqC with ⟨k, hkBq⟩
+          rcases lt_trichotomy k.1 iNat with hkLt | hkEq | hiLt
+          · have hkMatch : RowMatch (R := R) B C k := ih k.1 hkLt k.2
+            cases hkMatch with
+            | inl hZeroPair =>
+                exact (RowIsZero.not_isPivot (hzero := hZeroPair.1) (hp := hkBq)).elim
+            | inr hPivotPair =>
+                rcases hPivotPair with ⟨qk, hkB, hkCk⟩
+                have hqk : qk = q := IsPivot.eq_of_left hkB hkBq
+                have hkCq : IsPivot C k q := by simpa [hqk] using hkCk
+                have hkLt' : k < iFin := by simpa [iFin] using hkLt
+                have hqLtq : q < q :=
+                  hC.echelon.pivots_strictly_increasing k iFin q q hkLt' hkCq hqC
+                exact (lt_irrefl _ hqLtq).elim
+          · have hkEqFin : k = iFin := Fin.ext hkEq
+            subst hkEqFin
+            have hpEqQ : p = q := IsPivot.eq_of_left hpB hkBq
+            exact (ne_of_lt hqLtP) hpEqQ.symm
+          · have hiLt' : iFin < k := by simpa [iFin] using hiLt
+            have hpLtQ : p < q :=
+              hB.echelon.pivots_strictly_increasing iFin k p q hiLt' hpB hkBq
+            exact (lt_irrefl _ (hqLtP.trans hpLtQ)).elim
+        have hqLeP : q ≤ p := by
+          by_contra hNotLe
+          have hpLtQ : p < q := lt_of_not_ge hNotLe
+          rcases pivot_exists_in_right (hBC := hBC) (hC := hC) hpB with ⟨k, hkCp⟩
+          rcases lt_trichotomy k.1 iNat with hkLt | hkEq | hiLt
+          · have hkMatch : RowMatch (R := R) B C k := ih k.1 hkLt k.2
+            cases hkMatch with
+            | inl hZeroPair =>
+                exact (RowIsZero.not_isPivot (hzero := hZeroPair.2) (hp := hkCp)).elim
+            | inr hPivotPair =>
+                rcases hPivotPair with ⟨pk, hkBk, hkCk⟩
+                have hpk : pk = p := IsPivot.eq_of_left hkCk hkCp
+                have hkBp : IsPivot B k p := by simpa [hpk] using hkBk
+                have hkLt' : k < iFin := by simpa [iFin] using hkLt
+                have hpLtp : p < p :=
+                  hB.echelon.pivots_strictly_increasing k iFin p p hkLt' hkBp hpB
+                exact (lt_irrefl _ hpLtp).elim
+          · have hkEqFin : k = iFin := Fin.ext hkEq
+            subst hkEqFin
+            have hqEqP : q = p := IsPivot.eq_of_left hqC hkCp
+            exact (ne_of_lt hpLtQ) hqEqP.symm
+          · have hiLt' : iFin < k := by simpa [iFin] using hiLt
+            have hqLtP : q < p :=
+              hC.echelon.pivots_strictly_increasing iFin k q p hiLt' hqC hkCp
+            exact (lt_irrefl _ (hpLtQ.trans hqLtP)).elim
+        have hpq : p = q := le_antisymm hpLeQ hqLeP
+        exact Or.inr ⟨p, hpB, by simpa [hpq] using hqC⟩
+  intro i
+  simpa using hMatchNat i.1 i.2
+
+private theorem reduced_unique_of_rowEquivalent {m n : Nat}
+    {B C : Matrix (Fin m) (Fin n) R}
+    (hBC : RowEquivalent B C)
+    (hB : IsReducedEchelonForm (M := B))
+    (hC : IsReducedEchelonForm (M := C)) :
+    B = C := by
+  rcases RowEquivalent.symm hBC with ⟨UUnit, hUraw⟩
+  let U : Matrix (Fin m) (Fin m) R := (UUnit : Matrix (Fin m) (Fin m) R)
+  have hU : B = U * C := by simpa [U] using hUraw
+  have hMatch : ∀ i : Fin m, RowMatch (R := R) B C i :=
+    reduced_rowMatch_of_rowEquivalent (hBC := hBC) (hB := hB) (hC := hC)
+  ext i j
+  calc
+    B i j = ∑ t, U i t * C t j := by
+      calc
+        B i j = (U * C) i j := by simp [hU]
+        _ = ∑ t, U i t * C t j := by simp [Matrix.mul_apply]
+    _ = ∑ t, (if i = t then 1 else 0) * C t j := by
+      refine Finset.sum_congr rfl ?_
+      intro t _
+      cases hMatch t with
+      | inl hZeroPair =>
+          simp [hZeroPair.2 j]
+      | inr hPivotPair =>
+          rcases hPivotPair with ⟨p, hpBt, hpCt⟩
+          have hCoeff : U i t = B i p :=
+            (coeff_from_pivot_column (hC := hC) (U := U) (hBC := hU)
+              (k := t) (i := i) (q := p) hpCt).symm
+          have hUnit : B i p = if i = t then 1 else 0 :=
+            reduced_pivot_col_unit hB hpBt
+          simp [hCoeff, hUnit]
+    _ = C i j := by simp
 
 theorem IsReducedEchelonFormOf.unique {m n : Nat}
+    [DecidableEq R]
     {A B B' : Matrix (Fin m) (Fin n) R}
     (hB : IsReducedEchelonFormOf A B)
     (hB' : IsReducedEchelonFormOf A B') :
     B = B' := by
   have hBB' : RowEquivalent B B' :=
     RowEquivalent.trans (RowEquivalent.symm hB.rowEquivalent) hB'.rowEquivalent
-  exact reduced_unique_of_rowEquivalent hBB' hB.reduced hB'.reduced
+  exact reduced_unique_of_rowEquivalent (hBC := hBB') (hB := hB.reduced) (hC := hB'.reduced)
+
+lemma IsReducedEchelonFormOf.canonical {m n : Nat}
+    [DecidableEq R]
+    {A B : Matrix (Fin m) (Fin n) R} (h : IsReducedEchelonFormOf (A := A) B) :
+    B = (rowReducedEchelonForm A).1 := by
+  exact IsReducedEchelonFormOf.unique h (rowReducedEchelonForm_isReducedEchelonFormOf (A := A))
 
 /-- Semantic target for full RREF uniqueness (stage 2). -/
 def RrefUniquenessSemanticGoal {m n : Nat}
+    [DecidableEq R]
     (A : Matrix (Fin m) (Fin n) R) : Prop :=
   ∀ {B B' : Matrix (Fin m) (Fin n) R},
     IsReducedEchelonFormOf A B →
@@ -276,6 +533,7 @@ def RrefUniquenessSemanticGoal {m n : Nat}
     B = B'
 
 theorem rrefUniquenessSemanticGoal_holds {m n : Nat}
+    [DecidableEq R]
     (A : Matrix (Fin m) (Fin n) R) :
     RrefUniquenessSemanticGoal (A := A) := by
   intro B B' hB hB'
