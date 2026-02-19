@@ -105,7 +105,7 @@ private lemma replace_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R)
     · simp [replace, one_apply, h1, h2]
 
 /-- Apply one logged row operation to a matrix. -/
-def applyRowOp (op : RowOp a R) (M : Matrix (Fin a) (Fin b) R) : Matrix (Fin a) (Fin b) R :=
+def applyRowOp (M : Matrix (Fin a) (Fin b) R) (op : RowOp a R) : Matrix (Fin a) (Fin b) R :=
   match op with
   | .swap i j => swapRow M i j
   | .factor i c => factor M i c
@@ -120,7 +120,7 @@ def elementaryMatrixOfRowOp (op : RowOp a R) : Matrix (Fin a) (Fin a) R :=
 
 lemma elementaryMatrixOfRowOp_mul_eq_applyRowOp
     (op : RowOp a R) (M : Matrix (Fin a) (Fin b) R) :
-    elementaryMatrixOfRowOp op * M = applyRowOp op M := by
+    elementaryMatrixOfRowOp op * M = applyRowOp M op := by
   cases op with
   | swap i j =>
       simpa [elementaryMatrixOfRowOp, applyRowOp] using
