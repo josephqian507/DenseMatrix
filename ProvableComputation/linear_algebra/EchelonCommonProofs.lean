@@ -1,4 +1,6 @@
-import Mathlib.Tactic
+import Mathlib.Data.Matrix.Basic
+import Mathlib.Algebra.Field.Defs
+import Mathlib.Order.Basic
 
 import ProvableComputation.linear_algebra.IsInEchelonForm
 import ProvableComputation.linear_algebra.Rref
@@ -8,7 +10,7 @@ open Matrix
 namespace Matrix
 
 variable {R : Type} [Field R] [DecidableEq R]
-variable {m n : ℕ}
+variable {m n : ℕ} [Nonempty (Fin m)] [Nonempty (Fin n)]
 
 /-- Matrix output of `eliminateCol` starting from an empty step log. -/
 abbrev eliminateColM
