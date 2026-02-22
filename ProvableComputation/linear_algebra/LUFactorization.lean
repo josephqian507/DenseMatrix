@@ -3,10 +3,15 @@ import ProvableComputation.linear_algebra.rref_proofs
 import ProvableComputation.linear_algebra.RowEquivalent
 
 variable {R : Type} [Field R] [DecidableEq R]
-variable {a : ℕ}
+variable {a : ℕ} [Nonempty (Fin a)]
 variable {ha : a > 0}
 
 abbrev squareMatrix (a : ℕ) (R : Type) := Matrix (Fin a) (Fin a) R
+
+def sampleMatrix2 : Matrix (Fin 3) (Fin 3) ℚ :=
+  ![![1, 2, 3],
+    ![4, 8, 12],
+    ![2, 5, 6]]
 
 def buildPL (steps : List (RowOp a R)) (P L : squareMatrix a R)
     : (squareMatrix a R × squareMatrix a R) :=
@@ -31,3 +36,5 @@ def LUFactorization (M : Matrix (Fin a) (Fin a) R)
 
 #eval LUFactorization sampleMatrix
 #eval (LUFactorization sampleMatrix).1 * (LUFactorization sampleMatrix).2.1 * (LUFactorization sampleMatrix).2.2
+
+#eval LUFactorization sampleMatrix2
