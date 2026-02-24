@@ -386,12 +386,12 @@ private def pivot_ne_zero (pivotRow : Fin m) (pivotCol : Fin n) (M : Matrix (Fin
         exact h3
       · have h' : checkPivot M (r + 1) c = some (pivotRow, pivotCol) := by
           rw [checkPivot, checkPivot.scanCol]
-          aesop
+          simp_all only [Option.some.injEq, ne_eq, Decidable.not_not, ↓reduceDIte]
         -- Current row entry is zero; continue scanning the same column downward.
         exact pivot_ne_zero pivotRow pivotCol M (r + 1) c h'
     · rename_i x heq
       have h' : checkPivot M r (c + 1) = some (pivotRow, pivotCol) := by
-        aesop
+        exact h
       -- Current column failed; recurse to the next column.
       exact pivot_ne_zero pivotRow pivotCol M r (c + 1) h'
 
