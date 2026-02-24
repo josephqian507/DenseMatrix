@@ -309,6 +309,33 @@ lemma rowReducedEchelonForm_isCanonicalRrefOf
     IsCanonicalRrefOf A (rowReducedEchelonForm A).1 :=
   rfl
 
+/--
+If two matrices have the same computed RREF, then they are row-equivalent.
+-/
+theorem rowEquivalent_of_rref_eq {m n : Nat}
+    {A B : Matrix (Fin m) (Fin n) R}
+    (hEq : (rowReducedEchelonForm A).1 = (rowReducedEchelonForm B).1) :
+    RowEquivalent A B := by
+  let C : Matrix (Fin m) (Fin n) R := (rowReducedEchelonForm A).1
+  have hAC : RowEquivalent A C := by
+    simpa [C] using rowReducedEchelonForm_rowEquivalent (A := A)
+  have hBC : RowEquivalent B C := by
+    simpa [C, hEq] using rowReducedEchelonForm_rowEquivalent (A := B)
+  exact RowEquivalent.trans hAC (RowEquivalent.symm hBC)
+
+/--
+Computational wrapper: if `decide` confirms RREF equality, conclude row-equivalence.
+This is convenient with `native_decide` on concrete matrices.
+example : RowEquivalent A B := by
+  apply rowEquivalent_of_decide_rref_eq_true (A := A) (B := B)
+  native_decide
+-/
+theorem rowEquivalent_of_decide_rref_eq_true {m n : Nat}
+    {A B : Matrix (Fin m) (Fin n) R}
+    (hEq : decide ((rowReducedEchelonForm A).1 = (rowReducedEchelonForm B).1) = true) :
+    RowEquivalent A B := by
+  exact rowEquivalent_of_rref_eq (A := A) (B := B) (of_decide_eq_true hEq)
+
 end AlgorithmBridge
 
 /-- Row-equivalent matrices have the same homogeneous solution set. -/
