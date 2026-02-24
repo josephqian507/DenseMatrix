@@ -5,6 +5,14 @@ import Mathlib.Order.Basic
 import ProvableComputation.linear_algebra.IsInEchelonForm
 import ProvableComputation.linear_algebra.Rref
 
+/-!
+# Shared proof lemmas for echelon / RREF routines
+
+This file collects structural lemmas used by proofs around `checkPivot`,
+`replace`, and `eliminateCol`.  The focus is to expose stable invariants of
+the executable procedures in `Rref.lean` as reusable theorem statements.
+-/
+
 open Matrix
 
 namespace Matrix
@@ -12,21 +20,22 @@ namespace Matrix
 variable {R : Type} [Field R] [DecidableEq R]
 variable {m n : ℕ} [Nonempty (Fin m)] [Nonempty (Fin n)]
 
-/-- Matrix output of `eliminateCol` starting from an empty step log. -/
+/-- Matrix output of `eliminateCol` when the step log starts as `[]` and `reduced = true`. -/
 abbrev eliminateColM
     (M : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n) :
     Matrix (Fin m) (Fin n) R :=
   (eliminateCol M pivotRow pivotCol List.nil true).1
 
-/-- Matrix output of `eliminateCol.go` for a given current step log. -/
+/-- Matrix component of `eliminateCol.go` for a fixed loop index and current step log. -/
 abbrev eliminateColGo
     (pivotRow : Fin m) (pivotCol : Fin n) (r : Nat)
     (cur : Matrix (Fin m) (Fin n) R) (steps : List (RowOp m R)) :
     Matrix (Fin m) (Fin n) R :=
   (eliminateCol.go pivotRow pivotCol r cur steps).1
 
-/-! Helper lemmas about pivots. -/
+/-! ## Elementary pivot facts -/
 
+-- A row cannot have two distinct pivot columns.
 omit [DecidableEq R] in
 lemma IsPivot.eq_of_left {m n : Type*} [LinearOrder n]
     {M : Matrix m n R} {i : m} {p q : n} (hp : IsPivot M i p) (hq : IsPivot M i q) :
@@ -39,59 +48,74 @@ lemma IsPivot.eq_of_left {m n : Type*} [LinearOrder n]
     exact hq.1 (hp.2 q hlt)
   exact le_antisymm (le_of_not_gt hnot_lt_qp) (le_of_not_gt hnot_lt_pq)
 
+-- A zero row cannot contain a pivot.
 omit [DecidableEq R] in
 lemma RowIsZero.not_isPivot {m n : Type*} [LinearOrder n]
     {M : Matrix m n R} {i : m} {p : n} (hzero : RowIsZero M i) (hp : IsPivot M i p) :
     False := by
   exact hp.1 (hzero p)
 
-/-! Lemmas about `checkPivot`. -/
+/-! ## `checkPivot` search invariants -/
 
+/-- Convert `a - b = succ k` into the strict inequality `b < a`. -/
 private lemma sub_pos_of_sub_eq_succ {a b k : Nat}
     (h : a - b = Nat.succ k) : b < a := by
   have hpos : 0 < a - b := by simp [h]
   exact (Nat.sub_pos_iff_lt).1 hpos
 
+/-- Tail subtraction identity used when advancing a recursive index by one. -/
 private lemma sub_tail_eq_of_sub_eq_succ {a b k : Nat}
     (hle : b ≤ a) (h : a - b = Nat.succ k) : a - (b + 1) = k := by
   have hab : a = b + Nat.succ k := (Nat.sub_eq_iff_eq_add' hle).1 h
   rw [hab, Nat.add_sub_add_left]
   simp
 
+/-- Contradiction helper for `a < b` together with `b ≤ a`. -/
 private lemma impossible_lt_self_from_bounds {a b : Nat}
     (h : a < b) (h' : b ≤ a) : False := by
   exact (Nat.lt_irrefl _ (lt_of_lt_of_le h h'))
 
+/--
+If scanning column `col` from row `row` returns `none`, then every entry in
+that column at rows `≥ row` is zero.
+-/
 private lemma scanRow_none_col_zero
     (M : Matrix (Fin m) (Fin n) R) (col row : Nat) (hcol : col < n)
     (h : checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = none) :
     ∀ r : Fin m, row ≤ r.1 → M r ⟨col, hcol⟩ = 0 := by
   classical
+  -- Recursion invariant: for any `row`, failure of `scanRow` forces all rows
+  -- at/after `row` in column `col` to be zero.
   have hrec :
       ∀ k row, m - row = k →
         checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = none →
         ∀ r : Fin m, row ≤ r.1 → M r ⟨col, hcol⟩ = 0 := by
     refine Nat.rec ?base ?step
     · intro row hk h r hr
-      -- row ≥ m, so no such r
+      -- Base case: `row ≥ m`, so there is no `r : Fin m` with `row ≤ r.1`.
       have hrow : m ≤ row := Nat.le_of_sub_eq_zero hk
       have : r.1 < row := lt_of_lt_of_le r.2 hrow
       exact (False.elim ((Nat.not_lt_of_ge hr) this))
     · intro k ih row hk h r hr
+      -- Step case: unfold one iteration of `scanRow` at this concrete `row`.
       have hrow : row < m := sub_pos_of_sub_eq_succ (h := hk)
       rw [checkPivot.scanCol.scanRow, dif_pos hrow] at h
+      -- If current entry is nonzero, `scanRow` would return `some`, contradiction.
       by_cases hzero : M ⟨row, hrow⟩ ⟨col, hcol⟩ ≠ 0
       · simp [hzero] at h
+      -- Otherwise recurse to `row + 1`; then transfer result back to any target `r`.
       · have hnext : checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) (row + 1) = none := by
           simp only [hzero] at h
           exact h
         have hk' : m - (row + 1) = k :=
           sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hrow) (h := hk)
+        -- Split target row `r` into exact-hit (`r = row`) or strict-after (`r > row`).
         by_cases hreq : r.1 = row
         · have hr' : r = ⟨row, hrow⟩ := by
             ext
             simp [hreq]
           subst hr'
+          -- At the hit row, zero follows from the negated nonzero branch.
           have hzero' : M ⟨row, hrow⟩ ⟨col, hcol⟩ = 0 := by
             by_contra hne
             exact hzero hne
@@ -101,34 +125,43 @@ private lemma scanRow_none_col_zero
           exact ih (row + 1) hk' hnext r hr'
   exact hrec (m - row) row rfl h
 
+/--
+If `checkPivot M row col = none`, then all entries in the submatrix with
+rows `≥ row` and columns `≥ col` are zero.
+-/
 lemma checkPivot_none_zero
     (M : Matrix (Fin m) (Fin n) R) (row col : Nat)
     (h : checkPivot M row col = none) :
     ∀ j : Fin n, col ≤ j.1 → ∀ r : Fin m, row ≤ r.1 → M r j = 0 := by
   classical
+  -- Recursion invariant over remaining columns.
   have hrec :
       ∀ k row col, n - col = k →
         checkPivot M row col = none →
         ∀ j : Fin n, col ≤ j.1 → ∀ r : Fin m, row ≤ r.1 → M r j = 0 := by
     refine Nat.rec ?base ?step
     · intro row col hk hnone j hj r hr
+      -- Base case: `col ≥ n`; impossible to pick `j : Fin n` with `col ≤ j.1`.
       have hcol : n ≤ col := Nat.le_of_sub_eq_zero hk
       have hlt : j.1 < col := lt_of_lt_of_le j.2 hcol
       exact (False.elim (impossible_lt_self_from_bounds hlt hj))
     · intro k ih row col hk hnone j hj r hr
+      -- Step case: inspect the current column and then recurse if needed.
       rw [checkPivot, checkPivot.scanCol] at hnone
       by_cases hcol : col < n
       · simp only [hcol] at hnone
-        -- `scanRow` must be `none`
+        -- `checkPivot = none` implies this column scan cannot return `some`.
         cases hscan : checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row with
         | some p =>
             simp [hscan] at hnone
         | none =>
+            -- So the whole column segment is zero from `row` downward.
             have hcol_zero : ∀ r : Fin m, row ≤ r.1 → M r ⟨col, hcol⟩ = 0 :=
               scanRow_none_col_zero (M := M) col row hcol hscan
             have hnext : checkPivot M row (col + 1) = none := by
               simp only [hscan] at hnone
               exact hnone
+            -- For target column `j`, either `j = col` (done) or `j > col` (recurse).
             have hj' := lt_or_eq_of_le hj
             cases hj' with
             | inl hjlt =>
@@ -140,17 +173,23 @@ lemma checkPivot_none_zero
                 subst hjeq
                 exact hcol_zero r hr
       · have hcol' : n ≤ col := Nat.le_of_not_gt hcol
+        -- Contradict `n - col = succ k` once `col ≥ n`.
         have h' : n - col = 0 := Nat.sub_eq_zero_iff_le.mpr hcol'
         rw [hk] at h'
         exact (False.elim ((Nat.ne_of_lt (Nat.succ_pos k)) h'.symm))
   exact hrec (n - col) row col rfl h
 
+/--
+If `scanRow` finds a pivot candidate, its row index is at least the starting
+row used for the scan.
+-/
 private lemma scanRow_some_row_ge
     (M : Matrix (Fin m) (Fin n) R) (col row : Nat) (hcol : col < n)
     {pr : Fin m} {pc : Fin n}
     (h : checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = some (pr, pc)) :
     row ≤ pr.1 := by
   classical
+  -- Recursion invariant: successful scan from `row` always returns `pr.1 ≥ row`.
   have hrec :
       ∀ k row, m - row = k →
         checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = some (pr, pc) →
@@ -158,15 +197,17 @@ private lemma scanRow_some_row_ge
     refine Nat.rec ?base ?step
     · intro row hk h
       have hrow : m ≤ row := Nat.le_of_sub_eq_zero hk
-      -- scanRow cannot return a row if row ≥ m
+      -- Base case: if `row ≥ m`, `scanRow` must be `none`, contradiction.
       rw [checkPivot.scanCol.scanRow, dif_neg (not_lt_of_ge hrow)] at h
       cases h
     · intro k ih row hk h
+      -- Step case: unfold `scanRow row` and inspect the current entry.
       have hrow : row < m := sub_pos_of_sub_eq_succ (h := hk)
       rw [checkPivot.scanCol.scanRow, dif_pos hrow] at h
       by_cases hzero : M ⟨row, hrow⟩ ⟨col, hcol⟩ ≠ 0
       · simp only [ne_eq, hzero, not_false_eq_true, ↓reduceIte, Option.some.injEq,
         Prod.mk.injEq] at h
+        -- Successful immediate hit: returned row is exactly `row`.
         rcases h with ⟨hpr, _⟩
         subst hpr
         exact Nat.le_refl _
@@ -174,18 +215,23 @@ private lemma scanRow_some_row_ge
             checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) (row + 1) = some (pr, pc) := by
           simp only [hzero] at h
           exact h
+        -- No hit at `row`; recurse from `row + 1` and weaken.
         have hk' : m - (row + 1) = k :=
           sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hrow) (h := hk)
         have hge : row + 1 ≤ pr.1 := ih (row + 1) hk' hnext
         exact Nat.le_trans (Nat.le_succ _) hge
   exact hrec (m - row) row rfl h
 
+/--
+Any successful `scanRow` call in column `col` returns that same column index.
+-/
 private lemma scanRow_some_col_eq
     (M : Matrix (Fin m) (Fin n) R) (col row : Nat) (hcol : col < n)
     {pr : Fin m} {pc : Fin n}
     (h : checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = some (pr, pc)) :
     pc = ⟨col, hcol⟩ := by
   classical
+  -- Recursion invariant: a successful result keeps column component fixed.
   have hrec :
       ∀ k row, m - row = k →
         checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = some (pr, pc) →
@@ -193,53 +239,64 @@ private lemma scanRow_some_col_eq
     refine Nat.rec ?base ?step
     · intro row hk h
       have hrow : m ≤ row := Nat.le_of_sub_eq_zero hk
+      -- Base case contradiction: out-of-range start cannot produce `some`.
       rw [checkPivot.scanCol.scanRow, dif_neg (not_lt_of_ge hrow)] at h
       cases h
     · intro k ih row hk h
+      -- Step case: unfold one scan step in column `col`.
       have hrow : row < m := sub_pos_of_sub_eq_succ (h := hk)
       rw [checkPivot.scanCol.scanRow, dif_pos hrow] at h
       by_cases hzero : M ⟨row, hrow⟩ ⟨col, hcol⟩ ≠ 0
       · simp only [ne_eq, hzero, not_false_eq_true, ↓reduceIte, Option.some.injEq,
         Prod.mk.injEq] at h
+        -- Immediate success exposes the exact column equality.
         rcases h with ⟨_, hpc⟩
         exact hpc.symm
       · have hnext :
             checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) (row + 1) = some (pr, pc) := by
           simp only [hzero] at h
           exact h
+        -- Otherwise move to `row + 1` and reuse the induction hypothesis.
         have hk' : m - (row + 1) = k :=
           sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hrow) (h := hk)
         exact ih (row + 1) hk' hnext
   exact hrec (m - row) row rfl h
 
+/--
+If `checkPivot` returns `some (pr, pc)`, the pivot row `pr` is not above
+the starting search row.
+-/
 lemma checkPivot_some_row_ge
     (M : Matrix (Fin m) (Fin n) R) (row col : Nat)
     {pr : Fin m} {pc : Fin n}
     (h : checkPivot M row col = some (pr, pc)) :
     row ≤ pr.1 := by
   classical
+  -- Recursion invariant over columns for successful `checkPivot`.
   have hrec :
       ∀ k row col, n - col = k →
         checkPivot M row col = some (pr, pc) → row ≤ pr.1 := by
     refine Nat.rec ?base ?step
     · intro row col hk h
       have hcol : n ≤ col := Nat.le_of_sub_eq_zero hk
-      -- scanCol cannot find a pivot if col ≥ n
+      -- Base case contradiction: no candidate column exists when `col ≥ n`.
       rw [checkPivot, checkPivot.scanCol, dif_neg (not_lt_of_ge hcol)] at h
       cases h
     · intro k ih row col hk h
+      -- Step case: inspect current column then recurse to `col + 1` if needed.
       rw [checkPivot, checkPivot.scanCol] at h
       by_cases hcol : col < n
       · simp only [hcol] at h
         cases hscan : checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row with
         | some p =>
-            -- pivot in this column
+            -- Pivot found in this column; delegate row bound to `scanRow` lemma.
             have h' :
             checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = some (pr, pc) := by
               simpa [hscan] using h
             have hrowge := scanRow_some_row_ge (M := M) col row hcol h'
             exact hrowge
         | none =>
+            -- No pivot in this column; recurse to the next column.
             have hnext : checkPivot M row (col + 1) = some (pr, pc) := by
               simpa [hscan] using h
             have hk' : n - (col + 1) = k :=
@@ -248,41 +305,50 @@ lemma checkPivot_some_row_ge
       · simp [hcol] at h
   exact hrec (n - col) row col rfl h
 
+/--
+If `checkPivot M row col = some (pr, pc)`, then every earlier column `j < pc`
+with `j ≥ col` is zero below `row`.
+-/
 lemma checkPivot_some_minimal
     (M : Matrix (Fin m) (Fin n) R) (row col : Nat)
     {pr : Fin m} {pc : Fin n}
     (h : checkPivot M row col = some (pr, pc)) :
     ∀ j : Fin n, col ≤ j.1 → j < pc → ∀ r : Fin m, row ≤ r.1 → M r j = 0 := by
   classical
+  -- Recursion invariant over columns for the minimal-column property.
   have hrec :
       ∀ k row col, n - col = k →
         checkPivot M row col = some (pr, pc) →
         ∀ j : Fin n, col ≤ j.1 → j < pc → ∀ r : Fin m, row ≤ r.1 → M r j = 0 := by
     refine Nat.rec ?base ?step
     · intro row col hk h j hj hlt r hr
+      -- Base case: impossible ordering once `col ≥ n`.
       have hcol : n ≤ col := Nat.le_of_sub_eq_zero hk
       have hlt' : j.1 < col := lt_of_lt_of_le j.2 hcol
       exact (False.elim (impossible_lt_self_from_bounds hlt' hj))
     · intro k ih row col hk h j hj hlt r hr
+      -- Step case: analyze current column `col`.
       by_cases hcol : col < n
       · dsimp [checkPivot] at h
         rw [checkPivot.scanCol] at h
         simp only [hcol] at h
         cases hscan : checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row with
         | some p =>
-            -- pivot in current column
+            -- Pivot appears in the current column, so `pc = col`.
             have h' : some p = some (pr, pc) := by simpa [hscan] using h
             cases h'
             have hpc : pc = ⟨col, hcol⟩ :=
               scanRow_some_col_eq (M := M) col row hcol hscan
+            -- Then `j < pc` forces `j < col`, contradicting `col ≤ j`.
             have hlt' : j.1 < col := by simpa [hpc] using hlt
             exact (False.elim (impossible_lt_self_from_bounds hlt' hj))
         | none =>
-            -- column col is zero below row
+            -- Current column is all zero from `row` down.
             have hcol_zero : ∀ r : Fin m, row ≤ r.1 → M r ⟨col, hcol⟩ = 0 :=
               scanRow_none_col_zero (M := M) col row hcol hscan
             have hnext : checkPivot M row (col + 1) = some (pr, pc) := by
               simpa [checkPivot, hscan] using h
+            -- Either `j = col` (use `hcol_zero`) or `j > col` (recurse).
             have hj' := lt_or_eq_of_le hj
             cases hj' with
             | inl hjlt =>
@@ -291,36 +357,46 @@ lemma checkPivot_some_minimal
                 have hj_ge : col + 1 ≤ j.1 := Nat.succ_le_of_lt hjlt
                 exact ih row (col + 1) hk' hnext j hj_ge hlt r hr
             | inr hjeq =>
-                subst hjeq
-                exact hcol_zero r hr
+              subst hjeq
+              exact hcol_zero r hr
       · have hcol' : n ≤ col := Nat.le_of_not_gt hcol
+        -- Contradict `n - col = succ k` once outside valid column range.
         have h' : n - col = 0 := Nat.sub_eq_zero_iff_le.mpr hcol'
         rw [hk] at h'
         exact (False.elim ((Nat.ne_of_lt (Nat.succ_pos k)) h'.symm))
   exact hrec (n - col) row col rfl h
 
+/--
+Internal recursive witness that the pivot returned by `checkPivot` is nonzero.
+-/
 private def pivot_ne_zero (pivotRow : Fin m) (pivotCol : Fin n) (M : Matrix (Fin m) (Fin n) R)
     (r c : Nat) (h : checkPivot M r c = some (pivotRow, pivotCol))
     : M pivotRow pivotCol ≠ 0 := by
+  -- Unfold `checkPivot` one layer and follow the branch that produced `some`.
   rw [checkPivot, checkPivot.scanCol] at h
   split_ifs at h with h1
   · split at h
     · rename_i x p heq
+      -- We are in the branch where `scanRow` reported `some`.
       rw [checkPivot.scanCol.scanRow] at heq
       split_ifs at heq with h2 h3
       · rw [h] at heq
         injection heq with heq'
         cases heq'
+        -- Here `h3` is exactly the nonzero proof of the returned pivot entry.
         exact h3
       · have h' : checkPivot M (r + 1) c = some (pivotRow, pivotCol) := by
           rw [checkPivot, checkPivot.scanCol]
           aesop
+        -- Current row entry is zero; continue scanning the same column downward.
         exact pivot_ne_zero pivotRow pivotCol M (r + 1) c h'
     · rename_i x heq
       have h' : checkPivot M r (c + 1) = some (pivotRow, pivotCol) := by
         aesop
+      -- Current column failed; recurse to the next column.
       exact pivot_ne_zero pivotRow pivotCol M r (c + 1) h'
 
+/-- Any pivot pair returned by `checkPivot` points to a nonzero matrix entry. -/
 lemma checkPivot_some_nonzero
     (M : Matrix (Fin m) (Fin n) R) (row col : Nat)
     {pr : Fin m} {pc : Fin n}
@@ -328,8 +404,9 @@ lemma checkPivot_some_nonzero
     M pr pc ≠ 0 := by
   exact pivot_ne_zero pr pc M row col h
 
-/-! Lemmas about `replace` and `eliminateCol`. -/
+/-! ## `replace` and `eliminateCol` behavior lemmas -/
 
+-- If `r ≠ toReplace`, then `replace` does not modify entry `(r,j)`.
 omit [DecidableEq R] in
 private lemma replace_apply_of_ne
     (M : Matrix (Fin m) (Fin n) R) (use toReplace : Fin m) (k : R)
@@ -337,6 +414,7 @@ private lemma replace_apply_of_ne
     replace M use toReplace k r j = M r j := by
   simp [replace, huse, hrow, of_apply]
 
+-- On the target row, `replace` realizes the affine row update formula.
 omit [DecidableEq R] in
 private lemma replace_apply_eq
     (M : Matrix (Fin m) (Fin n) R) (use toReplace : Fin m) (k : R)
@@ -344,6 +422,7 @@ private lemma replace_apply_eq
     replace M use toReplace k toReplace j = M toReplace j + k * M use j := by
   simp [replace, huse, of_apply]
 
+-- If the pivot entry is normalized to `1`, the elimination replacement zeros it.
 omit [DecidableEq R] in
 private lemma replace_pivot_col_zero
     (M : Matrix (Fin m) (Fin n) R) (pivotRow toReplace : Fin m) (pivotCol : Fin n)
@@ -351,11 +430,16 @@ private lemma replace_pivot_col_zero
     replace M pivotRow toReplace (-M toReplace pivotCol) toReplace pivotCol = 0 := by
   simp [replace, huse, of_apply, h1]
 
+/--
+The matrix output of `eliminateCol.go` is independent of the current `steps`
+list; `steps` only records operations.
+-/
 private theorem eliminateCol_go_matrix_irrel
     (pivotRow : Fin m) (pivotCol : Fin n) (r : Nat)
     (cur : Matrix (Fin m) (Fin n) R) (steps₁ steps₂ : List (RowOp m R)) :
     (eliminateCol.go pivotRow pivotCol r cur steps₁).1 =
       (eliminateCol.go pivotRow pivotCol r cur steps₂).1 := by
+  -- Recursion invariant over remaining rows.
   have hrec :
       ∀ k (r : Nat) (cur : Matrix (Fin m) (Fin n) R) (steps₁ steps₂ : List (RowOp m R)),
         m - r = k →
@@ -363,9 +447,11 @@ private theorem eliminateCol_go_matrix_irrel
             (eliminateCol.go pivotRow pivotCol r cur steps₂).1 := by
     refine Nat.rec ?base ?step
     · intro r cur steps₁ steps₂ hk
+      -- Base case: loop terminates once `r ≥ m`.
       have hr : m ≤ r := Nat.le_of_sub_eq_zero hk
       simp [eliminateCol.go, Nat.not_lt_of_ge hr]
     · intro k ih r cur steps₁ steps₂ hk
+      -- Step case: unfold one iteration and mirror branch choices on both sides.
       have hr : r < m := sub_pos_of_sub_eq_succ (h := hk)
       have hk' : m - (r + 1) = k :=
         sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
@@ -375,8 +461,10 @@ private theorem eliminateCol_go_matrix_irrel
       · simpa [hEq, List.concat_eq_append, dite_eq_ite] using
           ih (r + 1) cur steps₁ steps₂ hk'
       · by_cases hzero : cur ⟨r, hr⟩ pivotCol = 0
+        -- When coefficient is already zero, both executions recurse on same `cur`.
         · simpa [hEq, hzero, List.concat_eq_append, dite_eq_ite] using
             ih (r + 1) cur steps₁ steps₂ hk'
+        -- When replacement happens, both sides recurse on the same updated matrix.
         · simpa [hEq, hzero, List.concat_eq_append, dite_eq_ite] using
             ih (r + 1)
             (replace cur pivotRow ⟨r, hr⟩ (-cur ⟨r, hr⟩ pivotCol))
@@ -384,6 +472,7 @@ private theorem eliminateCol_go_matrix_irrel
             (steps₂ ++ [RowOp.replace pivotRow ⟨r, hr⟩ (-cur ⟨r, hr⟩ pivotCol)]) hk'
   exact hrec (m - r) r cur steps₁ steps₂ rfl
 
+/-- Specialization of `eliminateCol_go_matrix_irrel` to the top-level `eliminateCol`. -/
 lemma eliminateCol_matrix_irrel
     (M : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n)
     (steps : List (RowOp m R)) :
@@ -391,40 +480,47 @@ lemma eliminateCol_matrix_irrel
   simpa [eliminateColM, eliminateCol] using
     eliminateCol_go_matrix_irrel pivotRow pivotCol 0 M steps List.nil
 
+/--
+If column `j` of `pivotRow` is zero in `cur`, then `eliminateCol.go` preserves
+column `j` for every row.
+-/
 lemma eliminateCol_go_preserves_col
     (cur : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n)
     (r : Nat) (steps : List (RowOp m R)) (j : Fin n)
     (hzero : cur pivotRow j = 0) :
     ∀ i : Fin m, (eliminateColGo pivotRow pivotCol r cur steps) i j = cur i j := by
   classical
+  -- Recursion invariant over remaining rows for fixed comparison column `j`.
   have hrec :
       ∀ k (r : Nat) (cur : Matrix (Fin m) (Fin n) R) (steps : List (RowOp m R)), m - r = k →
         cur pivotRow j = 0 →
         ∀ i : Fin m, (eliminateColGo pivotRow pivotCol r cur steps) i j = cur i j := by
     refine Nat.rec ?base ?step
     · intro r cur steps hk hzero i
-      -- r ≥ m
+      -- Base case: loop ended.
       have hr : m ≤ r := Nat.le_of_sub_eq_zero hk
       rw [eliminateColGo, eliminateCol.go, dif_neg (not_lt_of_ge hr)]
     · intro k ih r cur steps hk hzero i
+      -- Step case: inspect row `r`.
       have hr : r < m := sub_pos_of_sub_eq_succ (h := hk)
       rw [eliminateColGo, eliminateCol.go, dif_pos hr]
       by_cases hEq : (⟨r, hr⟩ : Fin m) = pivotRow
+      -- If current row is the pivot row, `eliminateCol.go` skips it.
       · simp only [hEq]
         have hk' : m - (r + 1) = k :=
           sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
         exact ih (r + 1) cur steps hk' hzero i
       · by_cases hcoeff : cur ⟨r, hr⟩ pivotCol ≠ 0
-        · -- replace row r
+        · -- Nonzero coefficient: a replacement is performed on row `r`.
           simp only [hEq, ↓reduceDIte, ne_eq, hcoeff, not_false_eq_true, ↓reduceIte]
           have hk' : m - (r + 1) = k :=
             sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
           let i0 : Fin m := ⟨r, hr⟩
           let cur' := replace cur pivotRow i0 (-cur i0 pivotCol)
+          -- Show pivot-row value in column `j` stays zero after replacement.
           have huse : pivotRow ≠ i0 := by
             intro hpr
             exact hEq hpr.symm
-          -- replacement preserves column j because pivotRow column j is zero
           have hzero' : cur' pivotRow j = 0 := by
             have h :=
               replace_apply_of_ne
@@ -439,19 +535,22 @@ lemma eliminateCol_go_preserves_col
             have h' : cur' pivotRow j = cur pivotRow j := by
               simpa [cur'] using h
             simpa [h'] using hzero
+          -- Apply induction to the recursive call.
           let steps' := List.concat steps (.replace pivotRow i0 (-cur i0 pivotCol))
           have hih := ih (r + 1) cur' steps' hk' hzero' i
           have hih' :
               (eliminateCol.go pivotRow pivotCol (r + 1) cur' steps').1 i j =
                 cur' i j := by
             simpa [eliminateColGo, steps'] using hih
+          -- Relate `cur' i j` back to `cur i j`.
           have hcur' : cur' i j = cur i j := by
             by_cases hi : i = i0
             · subst hi
               have h := replace_apply_eq (M := cur) (use := pivotRow) (toReplace := i0)
                 (k := -cur i0 pivotCol) (huse := huse) (j := j)
-              -- pivotRow column j is zero
+              -- In the replaced row, added multiple vanishes since `cur pivotRow j = 0`.
               simpa [cur', hzero, mul_zero, add_zero] using h
+            -- Any non-replaced row is untouched.
             · simpa [cur'] using
                 replace_apply_of_ne
                 (M := cur)
@@ -464,39 +563,47 @@ lemma eliminateCol_go_preserves_col
               (eliminateCol.go pivotRow pivotCol (r + 1) cur' steps').1 i j =
                   cur' i j := hih'
               _ = cur i j := hcur')
+        -- Zero coefficient: no row update; recurse directly.
         · simp (config := { failIfUnchanged := false }) only [hEq, ↓reduceDIte, hcoeff, ↓reduceIte]
           have hk' : m - (r + 1) = k :=
             sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
           exact ih (r + 1) cur steps hk' hzero i
   exact hrec (m - r) r cur steps rfl hzero
 
+/--
+`eliminateCol.go` never changes the pivot row, regardless of the current
+iterator position or step log.
+-/
 lemma eliminateCol_go_pivotRow
     (cur : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n)
     (steps : List (RowOp m R)) :
     ∀ r j, (eliminateColGo pivotRow pivotCol r cur steps) pivotRow j = cur pivotRow j := by
   classical
+  -- Recursion invariant over remaining rows, with row value fixed to `pivotRow`.
   have hrec :
       ∀ k (r : Nat) (cur : Matrix (Fin m) (Fin n) R) (steps : List (RowOp m R)), m - r = k →
         ∀ j, (eliminateColGo pivotRow pivotCol r cur steps) pivotRow j = cur pivotRow j := by
     refine Nat.rec ?base ?step
     · intro r cur steps hk j
+      -- Base case: recursion ended.
       have hr : m ≤ r := Nat.le_of_sub_eq_zero hk
       rw [eliminateColGo, eliminateCol.go, dif_neg (not_lt_of_ge hr)]
     · intro k ih r cur steps hk j
+      -- Step case: inspect behavior at row `r`.
       have hr : r < m := sub_pos_of_sub_eq_succ (h := hk)
       let i0 : Fin m := ⟨r, hr⟩
       by_cases hEq : i0 = pivotRow
       · have hk' : m - (r + 1) = k :=
           sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
-        -- eliminateCol.go skips pivotRow
+        -- If `i0` is the pivot row, the algorithm skips replacement.
         rw [eliminateColGo, eliminateCol.go, dif_pos hr]
         simp only [i0, hEq]
         exact ih (r + 1) cur steps hk' j
       · by_cases hcoeff : cur i0 pivotCol ≠ 0
+        -- Replacement branch: prove pivot row value is unchanged by `replace`.
         · have hk' : m - (r + 1) = k :=
             sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
           let cur' := replace cur pivotRow i0 (-cur i0 pivotCol)
-          -- pivotRow unchanged by replace
           have hpr : cur' pivotRow j = cur pivotRow j := by
             have huse : pivotRow ≠ i0 := by
               intro hpr
@@ -512,6 +619,7 @@ lemma eliminateCol_go_pivotRow
                   (huse := huse)
                   (hrow := huse)
             simpa [cur'] using h
+          -- Recurse and stitch equalities.
           let steps' := List.concat steps (.replace pivotRow i0 (-cur i0 pivotCol))
           have hih := ih (r + 1) cur' steps' hk' j
           have hstep :
@@ -526,6 +634,7 @@ lemma eliminateCol_go_pivotRow
                   (List.concat steps (.replace pivotRow i0 (-cur i0 pivotCol))) pivotRow j := hstep
             _ = cur' pivotRow j := hih
             _ = cur pivotRow j := hpr
+        -- No replacement branch: recurse with unchanged state.
         · have hk' : m - (r + 1) = k :=
             sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
           have hih := ih (r + 1) cur steps hk' j
@@ -541,6 +650,7 @@ lemma eliminateCol_go_pivotRow
   intro r j
   exact hrec (m - r) r cur steps rfl j
 
+/-- Top-level `eliminateColM` preserves the pivot row entrywise. -/
 lemma eliminateCol_pivotRow
     (M : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n) :
     ∀ j : Fin n, (eliminateColM M pivotRow pivotCol) pivotRow j = M pivotRow j := by
@@ -549,12 +659,18 @@ lemma eliminateCol_pivotRow
     (eliminateCol_go_pivotRow
       (cur := M) (pivotRow := pivotRow) (pivotCol := pivotCol) (steps := List.nil) 0 j)
 
+/--
+Assuming the pivot entry is normalized to `1`, `eliminateColM` zeroes the
+pivot column at every non-pivot row.
+-/
 lemma eliminateCol_pivotCol_zero
     (M : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n)
     (h1 : M pivotRow pivotCol = 1) :
     ∀ r : Fin m, r ≠ pivotRow → (eliminateColM M pivotRow pivotCol) r pivotCol = 0 := by
   classical
   intro r hr
+  -- Invariant: rows already processed (< `r`) are zero in pivot column,
+  -- except possibly `pivotRow`.
   have hrec :
       ∀ k (r : Nat) (cur : Matrix (Fin m) (Fin n) R) (steps : List (RowOp m R)),
         m - r = k →
@@ -564,16 +680,18 @@ lemma eliminateCol_pivotCol_zero
           (eliminateColGo pivotRow pivotCol r cur steps) i pivotCol = 0 := by
     refine Nat.rec ?base ?step
     · intro r cur steps hk hpre h1 i hi
+      -- Base case: no rows left to process; use the precondition directly.
       have hr : m ≤ r := Nat.le_of_sub_eq_zero hk
       have hir : i.1 < r := lt_of_lt_of_le i.2 hr
       rw [eliminateColGo, eliminateCol.go, dif_neg (not_lt_of_ge hr)]
       exact hpre i hir hi
     · intro k ih r cur steps hk hpre h1 i hi
+      -- Step case: process current row `i0 = ⟨r,hr⟩`.
       have hr : r < m := sub_pos_of_sub_eq_succ (h := hk)
       rw [eliminateColGo, eliminateCol.go, dif_pos hr]
       let i0 : Fin m := ⟨r, hr⟩
       by_cases hi0 : i0 = pivotRow
-      · -- skip pivotRow
+      · -- Pivot row is skipped; only strengthen the processed-prefix invariant.
         simp only [i0, hi0]
         have hk' : m - (r + 1) = k :=
           sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
@@ -589,17 +707,19 @@ lemma eliminateCol_pivotCol_zero
               simp [hEq, i0]
             exact (False.elim (hne (by simp [this, hi0])))
         exact ih (r + 1) cur steps hk' hpre' h1 i hi
-      · -- process row i0
+      · -- Non-pivot row: either eliminate (if coefficient nonzero) or keep as-is.
         simp only [i0, hi0]
         by_cases hcoeff : cur i0 pivotCol ≠ 0
         · have hk' : m - (r + 1) = k :=
             sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
           let cur' := replace cur pivotRow i0 (-cur i0 pivotCol)
+          -- After replacement, pivot-row pivot-column entry remains `1`.
           have huse : pivotRow ≠ i0 := by
             intro hpr
             exact hi0 hpr.symm
           have h1' : cur' pivotRow pivotCol = 1 := by
             simp [cur', replace, huse, of_apply, h1]
+          -- Rebuild processed-prefix zero invariant for `cur'`.
           have hpre' :
               ∀ i : Fin m, i.1 < r + 1 → i ≠ pivotRow → cur' i pivotCol = 0 := by
             intro i hi' hne
@@ -619,12 +739,14 @@ lemma eliminateCol_pivotCol_zero
                 replace_pivot_col_zero (M := cur) (pivotRow := pivotRow) (toReplace := i0)
                   (pivotCol := pivotCol) (huse := huse) h1
               exact hzero
+          -- Apply induction on recursive call and rewrite back.
           let steps' := List.concat steps (.replace pivotRow i0 (-cur i0 pivotCol))
           have hih := ih (r + 1) cur' steps' hk' hpre' h1' i hi
           have hih' :
               (eliminateCol.go pivotRow pivotCol (r + 1) cur' steps').1 i pivotCol = 0 := by
             simpa [eliminateColGo, steps'] using hih
           simpa [i0, hi0, hcoeff, cur', steps'] using hih'
+        -- Coefficient already zero: propagate invariant without modifying `cur`.
         · have hk' : m - (r + 1) = k :=
             sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
           have hcoeff' : cur i0 pivotCol = 0 := by
@@ -643,9 +765,11 @@ lemma eliminateCol_pivotCol_zero
               exact hcoeff'
           have hih := ih (r + 1) cur steps hk' hpre' h1 i hi
           simpa [i0, hi0, hcoeff'] using hih
+  -- Initial processed-prefix invariant is vacuous at `r = 0`.
   have hpre0 : ∀ i : Fin m, i.1 < 0 → i ≠ pivotRow → M i pivotCol = 0 := by
     intro i hi
     exact (False.elim (Nat.not_lt_zero _ hi))
+  -- Instantiate the recursive invariant from the initial state.
   have hrec' := hrec (m - 0) 0 M List.nil rfl hpre0 h1
   simpa [eliminateColM, eliminateCol] using hrec' r hr
 
