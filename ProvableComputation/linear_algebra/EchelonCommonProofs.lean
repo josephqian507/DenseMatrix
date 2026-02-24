@@ -18,7 +18,7 @@ open Matrix
 namespace Matrix
 
 variable {R : Type} [Field R] [DecidableEq R]
-variable {m n : ℕ} [Nonempty (Fin m)] [Nonempty (Fin n)]
+variable {m n : ℕ}
 
 /-- Matrix output of `eliminateCol` when the step log starts as `[]` and `reduced = true`. -/
 abbrev eliminateColM
