@@ -10,7 +10,7 @@ def sampleMatrix : Matrix (Fin 3) (Fin 3) ℚ :=
     ![4, 8, 12]]
 
 variable {R : Type} [Field R] [DecidableEq R]
-variable {a b : ℕ} [Nonempty (Fin a)] [Nonempty (Fin b)]
+variable {a b : ℕ}
 variable {ha : a > 0} {hb : b > 0}
 
 inductive RowOp (a : ℕ) (R : Type) : Type where

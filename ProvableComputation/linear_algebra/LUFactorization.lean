@@ -3,7 +3,7 @@ import ProvableComputation.linear_algebra.rref_proofs
 import ProvableComputation.linear_algebra.RowEquivalent
 
 variable {R : Type} [Field R] [DecidableEq R]
-variable {a : ℕ} [Nonempty (Fin a)]
+variable {a : ℕ}
 variable {ha : a > 0}
 
 abbrev squareMatrix (a : ℕ) (R : Type) := Matrix (Fin a) (Fin a) R

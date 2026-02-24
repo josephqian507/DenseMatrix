@@ -9,7 +9,7 @@ import ProvableComputation.linear_algebra.RowEquivalent
 open Matrix
 
 variable {R : Type} [Field R]
-variable {a b : Nat} [Nonempty (Fin a)] [Nonempty (Fin b)]
+variable {a b : Nat}
 
 /- Row operation lemmas
 -- Performing a row operation is equivalent to multiplying by the elementary matrix -/
@@ -350,153 +350,63 @@ theorem row_reduction_adds_steps (M : Matrix (Fin a) (Fin b) R) (r c : Nat)
         [RowOp.swap ⟨r, h⟩ pivotRow, RowOp.factor ⟨r, h⟩ (swapRow M ⟨r, h⟩ pivotRow ⟨r, h⟩ pivotCol)⁻¹]
         reduced
 
-lemma empty_list_iff_no_change (M M' : Matrix (Fin a) (Fin b) R) (r c : Nat)
-    (ops : List (RowOp a R)) (reduced : Bool)
-    : rrefAux M r c ops reduced = (M', []) → M = M' := by
-  unfold rrefAux
-  split <;> simp
-  · split_ifs with h1
-    · split
-      · simp
-        sorry
-      ·
-        sorry
-    ·
-      sorry
-  ·
-    sorry
-
-def steps_helper (M M' : Matrix (Fin a) (Fin b) R) (r c : Nat)
-    (ops_head ops_tail ops_final : List (RowOp a R)) (reduced : Bool)
-    (h_ops : ops_final = ops_head ++ ops_tail)
-    : rrefAux M r c ops_head reduced = (M', ops_head ++ ops_tail) → ops_tail.foldl applyRowOp M = M' := by
-  intro h
-  rw [rrefAux] at h
-  split_ifs at h with h1 h2
-  · simp at h
-    split at h
-    · aesop
-    · aesop
-      ·
-        sorry
-      ·
-        sorry
-      ·
-        sorry
-      ·
-        sorry
-  ·
-    sorry
-  ·
-    sorry
-
-theorem steps (M M' : Matrix (Fin a) (Fin b) R) (ops : List (RowOp a R))
-    : rowEchelonForm M = (M', ops) → ops.foldl applyRowOp M = M' := by
-  intro h
-  unfold rowEchelonForm at h
-  induction ops with
-  | nil =>
-    rw [List.foldl_nil]
-    have h_append : ([] : List (RowOp a R)) = [] ++ [] := by
-      rw [List.append_nil]
-    have hfold : [].foldl applyRowOp M = M' := by
-      rw [steps_helper M M' 0 0 [] [] [] false h_append h]
-    simp at hfold
-    exact hfold
-  | cons op ops' ih =>
-    rw [List.foldl_cons]
-    have h_append : op :: ops' = [] ++ op :: ops' := by
-      rw [List.nil_append]
-    have hfold : (op :: ops').foldl applyRowOp M = M' := by
-      rw [steps_helper M M' 0 0 [] (op :: ops') (op :: ops') false h_append h]
-    exact hfold
-
--- -- Folding over a list with one more element is applying the op to the previous result
--- omit [DecidableEq R] in
--- lemma foldl_applyRowOp_concat (M : Matrix (Fin a) (Fin b) R)
---     (ops : List (RowOp a R)) (op : RowOp a R)
---     : (ops.concat op).foldl applyRowOp M = applyRowOp (ops.foldl applyRowOp M) op := by
---   simp [List.foldl_append, applyRowOp]
-
-
-
--- def steps_helper (M M' : Matrix (Fin a) (Fin b) R) (r c : Nat) (ops : List (RowOp a R))
---     (reduced : Bool) : rrefAux M r c ops reduced = (M', ops) ↔ M' = ops.foldl applyRowOp M := by
---   rw [rrefAux]
---   split_ifs with h1 h2
---   · simp
---     split
---     · constructor
---       · intro h
---         rcases h
---         rw [List.foldl_nil]
---       · intro h
-
---         sorry
---     rw [steps_helper, eliminate_proof]
---     split_ifs with h3 h4 h5
---     · rfl
---     · rw [factor_proof]
---       rename_i pivotRow pivotCol heq
---       have hr : pivotRow = ⟨r, h1⟩ := by
---         ext
---         exact h3
---       rw [← hr]
---       rw [ne_eq, inv_eq_iff_eq_inv, _root_.inv_zero]
---       exact pivot_ne_zero pivotRow pivotCol M r c heq
---     · rw [swap_proof]
---     rw [factor_proof, swap_proof]
---     rename_i pivotRow pivotCol heq
---     rw [swapRow, of_apply]
---     split_ifs with h6 h7
---     · rw [ne_eq, inv_eq_iff_eq_inv, _root_.inv_zero]
---       exact pivot_ne_zero pivotRow pivotCol M r c heq
---     · rw [h7]
---       rw [ne_eq, inv_eq_iff_eq_inv, _root_.inv_zero]
---       exact pivot_ne_zero pivotRow pivotCol M r c heq
---     · contradiction
---   · rfl
---   rfl
-
-
-
-
--- lemma empty_list_iff_no_change (M M' : Matrix (Fin a) (Fin b) R) (r c : Nat) (ops : List (RowOp a R)) (reduced : Bool)
---     : rrefAux M r c ops reduced = (M', []) ↔ M = M' := by
+-- lemma empty_list_iff_no_change (M M' : Matrix (Fin a) (Fin b) R) (r c : Nat)
+--     (ops : List (RowOp a R)) (reduced : Bool)
+--     : rrefAux M r c ops reduced = (M', []) → M = M' := by
 --   unfold rrefAux
 --   split <;> simp
---   · sorry
+--   · split_ifs with h1
+--     · split
+--       · simp
+--         sorry
+--       ·
+--         sorry
+--     ·
+--       sorry
 --   ·
 --     sorry
 
--- theorem rrefAux_steps (m : Matrix (Fin a) (Fin b) R) (r c : Nat) (ops : List (RowOp a R))
---     (red : Bool) (M_init : Matrix (Fin a) (Fin b) R) (h_init : m = ops.foldl applyRowOp M_init)
---     : let (m_final, ops_final) := rrefAux m r c ops red
---       m_final = ops_final.foldl applyRowOp M_init := by
---   -- Proof by induction on the recursion of rrefAux
---   split
---   rename_i x m_final ops_final heq
---   induction ops_final with
---   | nil =>
---     rw [List.foldl_nil]
---     rw [empty_list_iff_no_change] at heq
+-- def steps_helper (M M' : Matrix (Fin a) (Fin b) R) (r c : Nat)
+--     (ops_head ops_tail ops_final : List (RowOp a R)) (reduced : Bool)
+--     (h_ops : ops_final = ops_head ++ ops_tail)
+--     : rrefAux M r c ops_head reduced = (M', ops_head ++ ops_tail) → ops_tail.foldl applyRowOp M = M' := by
+--   intro h
+--   rw [rrefAux] at h
+--   split_ifs at h with h1 h2
+--   · simp at h
+--     split at h
+--     · aesop
+--     · aesop
+--       ·
+--         sorry
+--       ·
+--         sorry
+--       ·
+--         sorry
+--       ·
+--         sorry
+--   ·
 --     sorry
---   | cons op ops' ih =>
+--   ·
 --     sorry
 
--- /-- The final proof simply calls the generalized version -/
--- lemma steps (M M' : Matrix (Fin a) (Fin b) R) (ops : List (RowOp a R))
---     : rowEchelonForm M = (M', ops) ↔ M' = ops.foldl applyRowOp M := by
---   constructor
---   · intro h
---     unfold rowEchelonForm at h
---     induction ops with
---     | nil =>
---       rw [List.foldl_nil]
---       rw [empty_list_iff_no_change] at h
---       exact h.symm
---     | cons op ops' ih =>
---       rw [List.foldl_cons]
---       sorry
---   · intro h
---     sorry
+-- theorem steps (M M' : Matrix (Fin a) (Fin b) R) (ops : List (RowOp a R))
+--     : rowEchelonForm M = (M', ops) → ops.foldl applyRowOp M = M' := by
+--   intro h
+--   unfold rowEchelonForm at h
+--   induction ops with
+--   | nil =>
+--     rw [List.foldl_nil]
+--     have h_append : ([] : List (RowOp a R)) = [] ++ [] := by
+--       rw [List.append_nil]
+--     have hfold : [].foldl applyRowOp M = M' := by
+--       rw [steps_helper M M' 0 0 [] [] [] false h_append h]
+--     simp at hfold
+--     exact hfold
+--   | cons op ops' ih =>
+--     rw [List.foldl_cons]
+--     have h_append : op :: ops' = [] ++ op :: ops' := by
+--       rw [List.nil_append]
+--     have hfold : (op :: ops').foldl applyRowOp M = M' := by
+--       rw [steps_helper M M' 0 0 [] (op :: ops') (op :: ops') false h_append h]
+--     exact hfold
