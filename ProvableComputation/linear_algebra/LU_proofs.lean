@@ -3,8 +3,14 @@ import ProvableComputation.linear_algebra.LUFactorization
 import ProvableComputation.linear_algebra.rref_proofs
 
 variable {R : Type} [Field R] [DecidableEq R]
-variable {a : ℕ}
-variable {ha : a > 0}
+variable {a : ℕ} [Nonempty (Fin a)]
+
+lemma unfoldSteps (step : RowOp a R) (steps : List (RowOp a R)) (M U : squareMatrix a R)
+    (h : rowEchelonForm M = (U, step :: steps))
+    : rowEchelonForm (M * Matrix.elementaryMatrixOfRowOp step) = (U, steps) := by
+  sorry
+
+lemma
 
 def unfoldBuildPL (steps : List (RowOp a R)) (M₁ M₂ M P L U : squareMatrix a R)
     (h1 : rowEchelonForm M = (U, steps))
@@ -90,12 +96,18 @@ def unfoldBuildPL (steps : List (RowOp a R)) (M₁ M₂ M P L U : squareMatrix a
             [RowOp.swap ⟨0, h3⟩ pivotRow,
             RowOp.factor ⟨0, h3⟩ (swapRow M ⟨0, h3⟩ pivotRow ⟨0, h3⟩ pivotCol)⁻¹] [] false
         aesop
-    · contradiction
-  · rename_i ops
+    · rename_i a_ne
+      rw [← Fin.pos_iff_nonempty] at a_ne
+      contradiction
+  · rename_i op ops
     aesop
     -- Need to find decreasing measure, e.g. find a way to use `ops` instead of `op :: ops`
-    · apply unfoldBuildPL (RowOp.swap a_2 a_3 :: ops) M₁ M₂ M P L U h1
-      exact h2
+    ·
+      have h1' : rowEchelonForm (M * Matrix.elementaryMatrixOfRowOp (RowOp.swap a_2 a_3)) = (U, ops) := by sorry
+      have := unfoldBuildPL ops M₁ M₂ (M * (Matrix.elementaryMatrixOfRowOp (RowOp.swap a_2 a_3))) ((Matrix.elementaryMatrixOfRowOp (RowOp.swap a_2 a_3)) * P) L U h1'
+      sorry
+      -- apply unfoldBuildPL (RowOp.swap a_2 a_3 :: ops) M₁ M₂ M P L U h1
+      -- exact h2
     · apply unfoldBuildPL (RowOp.factor row scale :: ops) M₁ M₂ M P L U h1
       exact h2
     · apply unfoldBuildPL (RowOp.replace use toReplace scale :: ops) M₁ M₂ M P L U h1
@@ -113,7 +125,3 @@ theorem lu_matrix_eq_matrix (M : Matrix (Fin a) (Fin a) R)
       -- Unfold buildPL call
       apply unfoldBuildPL steps 1 1 M P L U heq₁
       · exact heq₂
-      · rename_i a_ne
-        simp
-        rw [Fin.pos_iff_nonempty]
-        exact a_ne
