@@ -89,15 +89,18 @@ private lemma scanRow_none_col_zero
       ∀ k row, m - row = k →
         checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = none →
         ∀ r : Fin m, row ≤ r.1 → M r ⟨col, hcol⟩ = 0 := by
-    refine Nat.rec ?base ?step
-    · intro row hk h r hr
+    intro k
+    induction k with
+    | zero =>
+      intro row hk h r hr
       -- Base case: `row ≥ m`, so there is no `r : Fin m` with `row ≤ r.1`.
       have hrow : m ≤ row := Nat.le_of_sub_eq_zero hk
       have : r.1 < row := lt_of_lt_of_le r.2 hrow
       exact (False.elim ((Nat.not_lt_of_ge hr) this))
-    · intro k ih row hk h r hr
+    | succ k ih =>
+      intro row hk h r hr
       -- Step case: unfold one iteration of `scanRow` at this concrete `row`.
-      have hrow : row < m := sub_pos_of_sub_eq_succ (h := hk)
+      have hrow : row < m := by omega
       rw [checkPivot.scanCol.scanRow, dif_pos hrow] at h
       -- If current entry is nonzero, `scanRow` would return `some`, contradiction.
       by_cases hzero : M ⟨row, hrow⟩ ⟨col, hcol⟩ ≠ 0
@@ -107,7 +110,7 @@ private lemma scanRow_none_col_zero
           simp only [hzero] at h
           exact h
         have hk' : m - (row + 1) = k :=
-          sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hrow) (h := hk)
+          by omega
         -- Split target row `r` into exact-hit (`r = row`) or strict-after (`r > row`).
         by_cases hreq : r.1 = row
         · have hr' : r = ⟨row, hrow⟩ := by
@@ -138,13 +141,16 @@ lemma checkPivot_none_zero
       ∀ k row col, n - col = k →
         checkPivot M row col = none →
         ∀ j : Fin n, col ≤ j.1 → ∀ r : Fin m, row ≤ r.1 → M r j = 0 := by
-    refine Nat.rec ?base ?step
-    · intro row col hk hnone j hj r hr
+    intro k
+    induction k with
+    | zero =>
+      intro row col hk hnone j hj r hr
       -- Base case: `col ≥ n`; impossible to pick `j : Fin n` with `col ≤ j.1`.
       have hcol : n ≤ col := Nat.le_of_sub_eq_zero hk
       have hlt : j.1 < col := lt_of_lt_of_le j.2 hcol
-      exact (False.elim (impossible_lt_self_from_bounds hlt hj))
-    · intro k ih row col hk hnone j hj r hr
+      exact by omega
+    | succ k ih =>
+      intro row col hk hnone j hj r hr
       -- Step case: inspect the current column and then recurse if needed.
       rw [checkPivot, checkPivot.scanCol] at hnone
       by_cases hcol : col < n
@@ -165,7 +171,7 @@ lemma checkPivot_none_zero
             cases hj' with
             | inl hjlt =>
                 have hk' : n - (col + 1) = k :=
-                  sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hcol) (h := hk)
+                  by omega
                 have hj_ge : col + 1 ≤ j.1 := Nat.succ_le_of_lt hjlt
                 exact ih row (col + 1) hk' hnext j hj_ge r hr
             | inr hjeq =>
@@ -193,15 +199,18 @@ private lemma scanRow_some_row_ge
       ∀ k row, m - row = k →
         checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = some (pr, pc) →
           row ≤ pr.1 := by
-    refine Nat.rec ?base ?step
-    · intro row hk h
+    intro k
+    induction k with
+    | zero =>
+      intro row hk h
       have hrow : m ≤ row := Nat.le_of_sub_eq_zero hk
       -- Base case: if `row ≥ m`, `scanRow` must be `none`, contradiction.
       rw [checkPivot.scanCol.scanRow, dif_neg (not_lt_of_ge hrow)] at h
       cases h
-    · intro k ih row hk h
+    | succ k ih =>
+      intro row hk h
       -- Step case: unfold `scanRow row` and inspect the current entry.
-      have hrow : row < m := sub_pos_of_sub_eq_succ (h := hk)
+      have hrow : row < m := by omega
       rw [checkPivot.scanCol.scanRow, dif_pos hrow] at h
       by_cases hzero : M ⟨row, hrow⟩ ⟨col, hcol⟩ ≠ 0
       · simp only [ne_eq, hzero, not_false_eq_true, ↓reduceIte, Option.some.injEq,
@@ -216,7 +225,7 @@ private lemma scanRow_some_row_ge
           exact h
         -- No hit at `row`; recurse from `row + 1` and weaken.
         have hk' : m - (row + 1) = k :=
-          sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hrow) (h := hk)
+          by omega
         have hge : row + 1 ≤ pr.1 := ih (row + 1) hk' hnext
         exact Nat.le_trans (Nat.le_succ _) hge
   exact hrec (m - row) row rfl h
@@ -235,15 +244,18 @@ private lemma scanRow_some_col_eq
       ∀ k row, m - row = k →
         checkPivot.scanCol.scanRow (M := M) col (hcol := hcol) row = some (pr, pc) →
           pc = ⟨col, hcol⟩ := by
-    refine Nat.rec ?base ?step
-    · intro row hk h
+    intro k
+    induction k with
+    | zero =>
+      intro row hk h
       have hrow : m ≤ row := Nat.le_of_sub_eq_zero hk
       -- Base case contradiction: out-of-range start cannot produce `some`.
       rw [checkPivot.scanCol.scanRow, dif_neg (not_lt_of_ge hrow)] at h
       cases h
-    · intro k ih row hk h
+    | succ k ih =>
+      intro row hk h
       -- Step case: unfold one scan step in column `col`.
-      have hrow : row < m := sub_pos_of_sub_eq_succ (h := hk)
+      have hrow : row < m := by omega
       rw [checkPivot.scanCol.scanRow, dif_pos hrow] at h
       by_cases hzero : M ⟨row, hrow⟩ ⟨col, hcol⟩ ≠ 0
       · simp only [ne_eq, hzero, not_false_eq_true, ↓reduceIte, Option.some.injEq,
@@ -257,7 +269,7 @@ private lemma scanRow_some_col_eq
           exact h
         -- Otherwise move to `row + 1` and reuse the induction hypothesis.
         have hk' : m - (row + 1) = k :=
-          sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hrow) (h := hk)
+          by omega
         exact ih (row + 1) hk' hnext
   exact hrec (m - row) row rfl h
 
@@ -275,13 +287,16 @@ lemma checkPivot_some_row_ge
   have hrec :
       ∀ k row col, n - col = k →
         checkPivot M row col = some (pr, pc) → row ≤ pr.1 := by
-    refine Nat.rec ?base ?step
-    · intro row col hk h
+    intro k
+    induction k with
+    | zero =>
+      intro row col hk h
       have hcol : n ≤ col := Nat.le_of_sub_eq_zero hk
       -- Base case contradiction: no candidate column exists when `col ≥ n`.
       rw [checkPivot, checkPivot.scanCol, dif_neg (not_lt_of_ge hcol)] at h
       cases h
-    · intro k ih row col hk h
+    | succ k ih =>
+      intro row col hk h
       -- Step case: inspect current column then recurse to `col + 1` if needed.
       rw [checkPivot, checkPivot.scanCol] at h
       by_cases hcol : col < n
@@ -299,7 +314,7 @@ lemma checkPivot_some_row_ge
             have hnext : checkPivot M row (col + 1) = some (pr, pc) := by
               simpa [hscan] using h
             have hk' : n - (col + 1) = k :=
-              sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hcol) (h := hk)
+              by omega
             exact ih row (col + 1) hk' hnext
       · simp [hcol] at h
   exact hrec (n - col) row col rfl h
@@ -319,13 +334,16 @@ lemma checkPivot_some_minimal
       ∀ k row col, n - col = k →
         checkPivot M row col = some (pr, pc) →
         ∀ j : Fin n, col ≤ j.1 → j < pc → ∀ r : Fin m, row ≤ r.1 → M r j = 0 := by
-    refine Nat.rec ?base ?step
-    · intro row col hk h j hj hlt r hr
+    intro k
+    induction k with
+    | zero =>
+      intro row col hk h j hj hlt r hr
       -- Base case: impossible ordering once `col ≥ n`.
       have hcol : n ≤ col := Nat.le_of_sub_eq_zero hk
       have hlt' : j.1 < col := lt_of_lt_of_le j.2 hcol
-      exact (False.elim (impossible_lt_self_from_bounds hlt' hj))
-    · intro k ih row col hk h j hj hlt r hr
+      exact by omega
+    | succ k ih =>
+      intro row col hk h j hj hlt r hr
       -- Step case: analyze current column `col`.
       by_cases hcol : col < n
       · dsimp [checkPivot] at h
@@ -340,7 +358,7 @@ lemma checkPivot_some_minimal
               scanRow_some_col_eq (M := M) col row hcol hscan
             -- Then `j < pc` forces `j < col`, contradicting `col ≤ j`.
             have hlt' : j.1 < col := by simpa [hpc] using hlt
-            exact (False.elim (impossible_lt_self_from_bounds hlt' hj))
+            exact by omega
         | none =>
             -- Current column is all zero from `row` down.
             have hcol_zero : ∀ r : Fin m, row ≤ r.1 → M r ⟨col, hcol⟩ = 0 :=
@@ -352,7 +370,7 @@ lemma checkPivot_some_minimal
             cases hj' with
             | inl hjlt =>
                 have hk' : n - (col + 1) = k :=
-                  sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hcol) (h := hk)
+                  by omega
                 have hj_ge : col + 1 ≤ j.1 := Nat.succ_le_of_lt hjlt
                 exact ih row (col + 1) hk' hnext j hj_ge hlt r hr
             | inr hjeq =>
