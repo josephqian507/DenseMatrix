@@ -462,16 +462,19 @@ private theorem eliminateCol_go_matrix_irrel
         m - r = k →
           (eliminateCol.go pivotRow pivotCol r cur steps₁).1 =
             (eliminateCol.go pivotRow pivotCol r cur steps₂).1 := by
-    refine Nat.rec ?base ?step
-    · intro r cur steps₁ steps₂ hk
+    intro k
+    induction k with
+    | zero =>
+      intro r cur steps₁ steps₂ hk
       -- Base case: loop terminates once `r ≥ m`.
       have hr : m ≤ r := Nat.le_of_sub_eq_zero hk
       simp [eliminateCol.go, Nat.not_lt_of_ge hr]
-    · intro k ih r cur steps₁ steps₂ hk
+    | succ k ih =>
+      intro r cur steps₁ steps₂ hk
       -- Step case: unfold one iteration and mirror branch choices on both sides.
-      have hr : r < m := sub_pos_of_sub_eq_succ (h := hk)
+      have hr : r < m := by omega
       have hk' : m - (r + 1) = k :=
-        sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+        by omega
       rw [eliminateCol.go, dif_pos hr]
       conv_rhs => rw [eliminateCol.go, dif_pos hr]
       by_cases hEq : (⟨r, hr⟩ : Fin m) = pivotRow
@@ -512,26 +515,29 @@ lemma eliminateCol_go_preserves_col
       ∀ k (r : Nat) (cur : Matrix (Fin m) (Fin n) R) (steps : List (RowOp m R)), m - r = k →
         cur pivotRow j = 0 →
         ∀ i : Fin m, (eliminateColGo pivotRow pivotCol r cur steps) i j = cur i j := by
-    refine Nat.rec ?base ?step
-    · intro r cur steps hk hzero i
+    intro k
+    induction k with
+    | zero =>
+      intro r cur steps hk hzero i
       -- Base case: loop ended.
       have hr : m ≤ r := Nat.le_of_sub_eq_zero hk
       rw [eliminateColGo, eliminateCol.go, dif_neg (not_lt_of_ge hr)]
-    · intro k ih r cur steps hk hzero i
+    | succ k ih =>
+      intro r cur steps hk hzero i
       -- Step case: inspect row `r`.
-      have hr : r < m := sub_pos_of_sub_eq_succ (h := hk)
+      have hr : r < m := by omega
       rw [eliminateColGo, eliminateCol.go, dif_pos hr]
       by_cases hEq : (⟨r, hr⟩ : Fin m) = pivotRow
       -- If current row is the pivot row, `eliminateCol.go` skips it.
       · simp only [hEq]
         have hk' : m - (r + 1) = k :=
-          sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+          by omega
         exact ih (r + 1) cur steps hk' hzero i
       · by_cases hcoeff : cur ⟨r, hr⟩ pivotCol ≠ 0
         · -- Nonzero coefficient: a replacement is performed on row `r`.
           simp only [hEq, ↓reduceDIte, ne_eq, hcoeff, not_false_eq_true, ↓reduceIte]
           have hk' : m - (r + 1) = k :=
-            sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+            by omega
           let i0 : Fin m := ⟨r, hr⟩
           let cur' := replace cur pivotRow i0 (-cur i0 pivotCol)
           -- Show pivot-row value in column `j` stays zero after replacement.
@@ -575,15 +581,14 @@ lemma eliminateCol_go_preserves_col
                   (toReplace := i0)
                   (k := -cur i0 pivotCol)
                   (r := i) (j := j) (huse := huse) (hrow := hi)
-          exact (by
-            calc
-              (eliminateCol.go pivotRow pivotCol (r + 1) cur' steps').1 i j =
-                  cur' i j := hih'
-              _ = cur i j := hcur')
+          calc
+            (eliminateCol.go pivotRow pivotCol (r + 1) cur' steps').1 i j =
+                cur' i j := hih'
+            _ = cur i j := hcur'
         -- Zero coefficient: no row update; recurse directly.
         · simp (config := { failIfUnchanged := false }) only [hEq, ↓reduceDIte, hcoeff, ↓reduceIte]
           have hk' : m - (r + 1) = k :=
-            sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+            by omega
           exact ih (r + 1) cur steps hk' hzero i
   exact hrec (m - r) r cur steps rfl hzero
 
@@ -600,18 +605,21 @@ lemma eliminateCol_go_pivotRow
   have hrec :
       ∀ k (r : Nat) (cur : Matrix (Fin m) (Fin n) R) (steps : List (RowOp m R)), m - r = k →
         ∀ j, (eliminateColGo pivotRow pivotCol r cur steps) pivotRow j = cur pivotRow j := by
-    refine Nat.rec ?base ?step
-    · intro r cur steps hk j
+    intro k
+    induction k with
+    | zero =>
+      intro r cur steps hk j
       -- Base case: recursion ended.
       have hr : m ≤ r := Nat.le_of_sub_eq_zero hk
       rw [eliminateColGo, eliminateCol.go, dif_neg (not_lt_of_ge hr)]
-    · intro k ih r cur steps hk j
+    | succ k ih =>
+      intro r cur steps hk j
       -- Step case: inspect behavior at row `r`.
-      have hr : r < m := sub_pos_of_sub_eq_succ (h := hk)
+      have hr : r < m := by omega
       let i0 : Fin m := ⟨r, hr⟩
       by_cases hEq : i0 = pivotRow
       · have hk' : m - (r + 1) = k :=
-          sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+          by omega
         -- If `i0` is the pivot row, the algorithm skips replacement.
         rw [eliminateColGo, eliminateCol.go, dif_pos hr]
         simp only [i0, hEq]
@@ -619,7 +627,7 @@ lemma eliminateCol_go_pivotRow
       · by_cases hcoeff : cur i0 pivotCol ≠ 0
         -- Replacement branch: prove pivot row value is unchanged by `replace`.
         · have hk' : m - (r + 1) = k :=
-            sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+            by omega
           let cur' := replace cur pivotRow i0 (-cur i0 pivotCol)
           have hpr : cur' pivotRow j = cur pivotRow j := by
             have huse : pivotRow ≠ i0 := by
@@ -653,7 +661,7 @@ lemma eliminateCol_go_pivotRow
             _ = cur pivotRow j := hpr
         -- No replacement branch: recurse with unchanged state.
         · have hk' : m - (r + 1) = k :=
-            sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+            by omega
           have hih := ih (r + 1) cur steps hk' j
           have hstep :
               eliminateColGo pivotRow pivotCol r cur steps pivotRow j =
@@ -695,23 +703,26 @@ lemma eliminateCol_pivotCol_zero
         cur pivotRow pivotCol = 1 →
         ∀ i : Fin m, i ≠ pivotRow →
           (eliminateColGo pivotRow pivotCol r cur steps) i pivotCol = 0 := by
-    refine Nat.rec ?base ?step
-    · intro r cur steps hk hpre h1 i hi
+    intro k
+    induction k with
+    | zero =>
+      intro r cur steps hk hpre h1 i hi
       -- Base case: no rows left to process; use the precondition directly.
       have hr : m ≤ r := Nat.le_of_sub_eq_zero hk
       have hir : i.1 < r := lt_of_lt_of_le i.2 hr
       rw [eliminateColGo, eliminateCol.go, dif_neg (not_lt_of_ge hr)]
       exact hpre i hir hi
-    · intro k ih r cur steps hk hpre h1 i hi
+    | succ k ih =>
+      intro r cur steps hk hpre h1 i hi
       -- Step case: process current row `i0 = ⟨r,hr⟩`.
-      have hr : r < m := sub_pos_of_sub_eq_succ (h := hk)
+      have hr : r < m := by omega
       rw [eliminateColGo, eliminateCol.go, dif_pos hr]
       let i0 : Fin m := ⟨r, hr⟩
       by_cases hi0 : i0 = pivotRow
       · -- Pivot row is skipped; only strengthen the processed-prefix invariant.
         simp only [i0, hi0]
         have hk' : m - (r + 1) = k :=
-          sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+          by omega
         have hpre' :
             ∀ i : Fin m, i.1 < r + 1 → i ≠ pivotRow → cur i pivotCol = 0 := by
           intro i hi' hne
@@ -728,7 +739,7 @@ lemma eliminateCol_pivotCol_zero
         simp only [i0, hi0]
         by_cases hcoeff : cur i0 pivotCol ≠ 0
         · have hk' : m - (r + 1) = k :=
-            sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+            by omega
           let cur' := replace cur pivotRow i0 (-cur i0 pivotCol)
           -- After replacement, pivot-row pivot-column entry remains `1`.
           have huse : pivotRow ≠ i0 := by
@@ -765,7 +776,7 @@ lemma eliminateCol_pivotCol_zero
           simpa [i0, hi0, hcoeff, cur', steps'] using hih'
         -- Coefficient already zero: propagate invariant without modifying `cur`.
         · have hk' : m - (r + 1) = k :=
-            sub_tail_eq_of_sub_eq_succ (hle := Nat.le_of_lt hr) (h := hk)
+            by omega
           have hcoeff' : cur i0 pivotCol = 0 := by
             by_contra hne; exact hcoeff hne
           have hpre' :
