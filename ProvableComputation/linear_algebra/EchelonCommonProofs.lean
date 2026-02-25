@@ -39,40 +39,17 @@ omit [DecidableEq R] in
 lemma IsPivot.eq_of_left {m n : Type*} [LinearOrder n]
     {M : Matrix m n R} {i : m} {p q : n} (hp : IsPivot M i p) (hq : IsPivot M i q) :
     p = q := by
-  have hnot_lt_pq : ¬ p < q := by
-    intro hlt
-    exact hp.1 (hq.2 p hlt)
-  have hnot_lt_qp : ¬ q < p := by
-    intro hlt
-    exact hq.1 (hp.2 q hlt)
+  have hnot_lt_pq : ¬ p < q := fun hlt ↦ hp.1 (hq.2 p hlt)
+  have hnot_lt_qp : ¬ q < p := fun hlt ↦ hq.1 (hp.2 q hlt)
   exact le_antisymm (le_of_not_gt hnot_lt_qp) (le_of_not_gt hnot_lt_pq)
 
 -- A zero row cannot contain a pivot.
 omit [DecidableEq R] in
 lemma RowIsZero.not_isPivot {m n : Type*} [LinearOrder n]
     {M : Matrix m n R} {i : m} {p : n} (hzero : RowIsZero M i) (hp : IsPivot M i p) :
-    False := by
-  exact hp.1 (hzero p)
+    False := hp.1 (hzero p)
 
 /-! ## `checkPivot` search invariants -/
-
-/-- Convert `a - b = succ k` into the strict inequality `b < a`. -/
-private lemma sub_pos_of_sub_eq_succ {a b k : Nat}
-    (h : a - b = Nat.succ k) : b < a := by
-  have hpos : 0 < a - b := by simp [h]
-  exact (Nat.sub_pos_iff_lt).1 hpos
-
-/-- Tail subtraction identity used when advancing a recursive index by one. -/
-private lemma sub_tail_eq_of_sub_eq_succ {a b k : Nat}
-    (hle : b ≤ a) (h : a - b = Nat.succ k) : a - (b + 1) = k := by
-  have hab : a = b + Nat.succ k := (Nat.sub_eq_iff_eq_add' hle).1 h
-  rw [hab, Nat.add_sub_add_left]
-  simp
-
-/-- Contradiction helper for `a < b` together with `b ≤ a`. -/
-private lemma impossible_lt_self_from_bounds {a b : Nat}
-    (h : a < b) (h' : b ≤ a) : False := by
-  exact (Nat.lt_irrefl _ (lt_of_lt_of_le h h'))
 
 /--
 If scanning column `col` from row `row` returns `none`, then every entry in
@@ -408,18 +385,15 @@ private def pivot_ne_zero (pivotRow : Fin m) (pivotCol : Fin n) (M : Matrix (Fin
         -- Current row entry is zero; continue scanning the same column downward.
         exact pivot_ne_zero pivotRow pivotCol M (r + 1) c h'
     · rename_i x heq
-      have h' : checkPivot M r (c + 1) = some (pivotRow, pivotCol) := by
-        exact h
       -- Current column failed; recurse to the next column.
-      exact pivot_ne_zero pivotRow pivotCol M r (c + 1) h'
+      exact pivot_ne_zero pivotRow pivotCol M r (c + 1) h
 
 /-- Any pivot pair returned by `checkPivot` points to a nonzero matrix entry. -/
 lemma checkPivot_some_nonzero
     (M : Matrix (Fin m) (Fin n) R) (row col : Nat)
     {pr : Fin m} {pc : Fin n}
     (h : checkPivot M row col = some (pr, pc)) :
-    M pr pc ≠ 0 := by
-  exact pivot_ne_zero pr pc M row col h
+    M pr pc ≠ 0 := pivot_ne_zero pr pc M row col h
 
 /-! ## `replace` and `eliminateCol` behavior lemmas -/
 
