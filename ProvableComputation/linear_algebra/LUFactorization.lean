@@ -28,13 +28,6 @@ def setList (l : List (squareMatrix a R)) (op : RowOp a R) (multiply : Bool)
   else
     l.concat (Matrix.elementaryMatrixOfRowOp op)
 
-def invertAtomicMatrix (M : squareMatrix a R) : squareMatrix a R :=
-  Matrix.of fun a b =>
-    if a = b then
-      M a b
-    else
-      -(M a b)
-
 /-- Build lists of length n for P and L such that l[0]l[1]...l[n-2]l[n-1]U = M, where even indices
     are permutations (elements of P) and odd indices are lower triangular products of elementary
     matrices (elements of L).
@@ -65,22 +58,6 @@ def buildPL (steps : List (RowOp a R)) : (squareMatrix a R × squareMatrix a R) 
   let Λ := (PList.reverse.foldl (· * ·) 1) * A
   (P, Λ)
 
--- -- Old buildPL algorithm, keeping here just in case we need to revert
--- def buildPL (steps : List (RowOp a R)) (P L : squareMatrix a R)
---     : (squareMatrix a R × squareMatrix a R) :=
---   match steps with
---   | List.nil => (P, L)
---   | List.cons a as =>
---     match a with
---     | .swap _ _ =>
---       buildPL as (P * Matrix.elementaryMatrixOfRowOp a) L
---     | .factor row scale =>
---       let a_inv := RowOp.factor row scale⁻¹
---       buildPL as P (L * Matrix.elementaryMatrixOfRowOp a_inv)
---     | .replace use toReplace scale =>
---       let a_inv := RowOp.replace use toReplace (-scale)
---       buildPL as P (L * Matrix.elementaryMatrixOfRowOp a_inv)
-
 def LUFactorization (M : Matrix (Fin a) (Fin a) R)
     : (squareMatrix a R × squareMatrix a R × squareMatrix a R) :=
   let (U, steps) := rowEchelonForm M
@@ -91,3 +68,4 @@ def LUFactorization (M : Matrix (Fin a) (Fin a) R)
 #eval (LUFactorization sampleMatrix).1 * (LUFactorization sampleMatrix).2.1 * (LUFactorization sampleMatrix).2.2
 
 #eval LUFactorization sampleMatrix2
+#eval (LUFactorization sampleMatrix2).1 * (LUFactorization sampleMatrix2).2.1 * (LUFactorization sampleMatrix2).2.2
