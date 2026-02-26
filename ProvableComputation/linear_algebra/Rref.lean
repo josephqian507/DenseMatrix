@@ -97,9 +97,8 @@ def eliminateCol
         -- pivotCol entry to 0.
         let coeff := cur i pivotCol
         if coeff ≠ 0 then  -- eliminate unnecessary calls to `replace`
-          let cur' := replace cur pivotRow i (-coeff)
-          let steps := List.concat steps (.replace pivotRow i (-coeff))
-          go (r + 1) cur' steps
+          go (r + 1) (replace cur pivotRow i (-coeff))
+            (List.concat steps (.replace pivotRow i (-coeff)))
         else
           go (r + 1) cur steps
     else
@@ -125,14 +124,14 @@ def rrefAux
             m
           else
             swapRow m ⟨row, hrow⟩ pivotRow
-            let steps := List.concat steps (.swap ⟨row, hrow⟩ pivotRow)
+        let steps := List.concat steps (.swap ⟨row, hrow⟩ pivotRow)
         let pivotVal : R := m1 ⟨row, hrow⟩ pivotCol
         let m2 :=
           if pivotVal = 1 then
             m1
           else
             factor m1 ⟨row, hrow⟩ (pivotVal)⁻¹
-            let steps := List.concat steps (.factor ⟨row, hrow⟩ (pivotVal)⁻¹)
+        let steps := List.concat steps (.factor ⟨row, hrow⟩ (pivotVal)⁻¹)
         let (m3, steps) := eliminateCol m2 ⟨row, hrow⟩ pivotCol steps reduced
 
         rrefAux m3 (row + 1) (col + 1) steps reduced
