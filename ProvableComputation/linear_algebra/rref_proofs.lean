@@ -8,7 +8,7 @@ import ProvableComputation.linear_algebra.RowEquivalent
 open Matrix
 
 variable {R : Type} [Field R]
-variable {a b : Nat} [Nonempty (Fin a)] [Nonempty (Fin b)]
+variable {a b : Nat}
 
 /- Row operation lemmas
 -- Performing a row operation is equivalent to multiplying by the elementary matrix -/

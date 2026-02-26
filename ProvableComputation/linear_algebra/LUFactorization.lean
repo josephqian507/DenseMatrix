@@ -2,6 +2,8 @@ import ProvableComputation.linear_algebra.Rref
 import ProvableComputation.linear_algebra.rref_proofs
 import ProvableComputation.linear_algebra.RowEquivalent
 
+-- import Mathlib.Data.Matrix.Basic
+
 variable {R : Type} [Field R] [DecidableEq R]
 variable {a : ℕ}
 variable {ha : a > 0}
@@ -12,6 +14,24 @@ def sampleMatrix2 : Matrix (Fin 3) (Fin 3) ℚ :=
   ![![1, 2, 3],
     ![4, 8, 12],
     ![2, 5, 6]]
+
+def sampleMatrix3 : Matrix (Fin 10) (Fin 10) ℚ :=
+  ![![9, 8, 6, 9, 7, 4, 6, 8, 4, 7],
+    ![27, 30, 22, 34, 29, 17, 23, 31, 20, 24],
+    ![36, 86, 61, 106, 134, 66, 77, 100, 97, 64],
+    ![9, 212, 153, 327, 658, 236, 272, 307, 384, 215],
+    ![27, 24, 22, 61, 168, 52, 74, 65, 71, 79],
+    ![0, 180, 124, 244, 387, 198, 214, 258, 304, 150],
+    ![9, 26, 20, 71, 152, 148, 193, 181, 247, 169],
+    ![27, 78, 58, 133, 262, 184, 307, 296, 753, 237],
+    ![27, 30, 54, 267, 1141, 316, 511, 427, 943, 514],
+    ![18, 16, 16, 52, 169, 96, 216, 207, 680, 240]]
+
+def sampleMatrix4 : Matrix (Fin 4) (Fin 4) ℚ :=
+  ![![3, 5, 1, 9],
+    ![94, 2, 8, 0],
+    ![9, 3, 2, 9],
+    ![45, 3, 9, 8]]
 
 def getLastSafe (l : List (squareMatrix a R)) : squareMatrix a R :=
   if h : l.length = 0 then
@@ -64,8 +84,13 @@ def LUFactorization (M : Matrix (Fin a) (Fin a) R)
   let (P, L) := buildPL steps
   (P, L, U)
 
-#eval LUFactorization sampleMatrix
-#eval (LUFactorization sampleMatrix).1 * (LUFactorization sampleMatrix).2.1 * (LUFactorization sampleMatrix).2.2
+#time #eval LUFactorization sampleMatrix
+#time #eval (LUFactorization sampleMatrix).1 * (LUFactorization sampleMatrix).2.1 * (LUFactorization sampleMatrix).2.2
 
-#eval LUFactorization sampleMatrix2
-#eval (LUFactorization sampleMatrix2).1 * (LUFactorization sampleMatrix2).2.1 * (LUFactorization sampleMatrix2).2.2
+#time #eval LUFactorization sampleMatrix2
+#time #eval (LUFactorization sampleMatrix2).1 * (LUFactorization sampleMatrix2).2.1 * (LUFactorization sampleMatrix2).2.2
+
+#time #eval LUFactorization sampleMatrix4
+
+-- #time #eval LUFactorization sampleMatrix3
+-- #time #eval (LUFactorization sampleMatrix3).1 * (LUFactorization sampleMatrix3).2.1 * (LUFactorization sampleMatrix3).2.2
