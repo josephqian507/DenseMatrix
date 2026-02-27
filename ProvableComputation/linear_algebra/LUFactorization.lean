@@ -5,8 +5,8 @@ import ProvableComputation.linear_algebra.RowEquivalent
 -- import Mathlib.Data.Matrix.Basic
 
 variable {R : Type} [Field R] [DecidableEq R]
-variable {a : Nat}
-variable {ha : a > 0}
+variable {a : Nat} {b : Nat}
+variable {ha : a > 0} {hb : b > 0}
 
 abbrev squareMatrix (a : Nat) (R : Type) := Matrix (Fin a) (Fin a) R
 
@@ -187,11 +187,18 @@ def buildPL (steps : List (RowOp a R)) : Prod (squareMatrix a R) (squareMatrix a
   let L := swaps.foldl (fun acc ij => denseSwapRow acc ij.1 ij.2) A
   (matrixOfDense P, matrixOfDense L)
 
-def LUFactorization (M : Matrix (Fin a) (Fin a) R)
-    : Prod (squareMatrix a R) (Prod (squareMatrix a R) (squareMatrix a R)) :=
+def LUFactorization (M : Matrix (Fin a) (Fin b) R)
+    : Prod (squareMatrix a R) (Prod (squareMatrix a R) (Matrix (Fin a) (Fin b) R)) :=
   let (U, steps) := rowEchelonForm M
   let (P, L) := buildPL steps
   (P, (L, U))
+
+def testLU : Bool :=
+  let (P, L, U) := LUFactorization sampleMatrix2
+  have : P * L * U = sampleMatrix2 := by
+    rfl
+    sorry
+  True
 
 #time #eval LUFactorization sampleMatrix
 #time #eval (LUFactorization sampleMatrix).1 * (LUFactorization sampleMatrix).2.1 * (LUFactorization sampleMatrix).2.2
@@ -199,7 +206,7 @@ def LUFactorization (M : Matrix (Fin a) (Fin a) R)
 #time #eval LUFactorization sampleMatrix2
 #time #eval (LUFactorization sampleMatrix2).1 * (LUFactorization sampleMatrix2).2.1 * (LUFactorization sampleMatrix2).2.2
 
--- #time #eval LUFactorization sampleMatrix4
+#time #eval LUFactorization sampleMatrix4
 
--- #time #eval LUFactorization sampleMatrix3
--- #time #eval (LUFactorization sampleMatrix3).1 * (LUFactorization sampleMatrix3).2.1 * (LUFactorization sampleMatrix3).2.2
+#time #eval LUFactorization sampleMatrix3
+#time #eval (LUFactorization sampleMatrix3).1 * (LUFactorization sampleMatrix3).2.1 * (LUFactorization sampleMatrix3).2.2
