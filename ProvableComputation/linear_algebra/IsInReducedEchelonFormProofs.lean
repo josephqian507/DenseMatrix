@@ -5,6 +5,11 @@ namespace Matrix
 variable {R : Type} [Field R] [DecidableEq R]
 variable {m n : ℕ}
 
+private lemma fin_eq_of_val_eq {n : ℕ} {i : Fin n} {k : ℕ} (hk : k < n) (h : i.1 = k) :
+    i = ⟨k, hk⟩ := by
+  ext
+  exact h
+
 /-- Matrix output of `rrefAux` when starting from an empty step log. -/
 abbrev rrefAuxM
     (M : Matrix (Fin m) (Fin n) R) (row col : Nat) (steps : List (RowOp m R)) :
@@ -77,14 +82,14 @@ lemma echelon_of_state
     · right
       refine ⟨pivs i hi, hcore.pivot_row i hi⟩
     · left
-      have hi' : row ≤ i.1 := le_of_not_gt hi
+      have hi' : row ≤ i.1 := by omega
       exact hzero i hi'
   · intro i j hij hzi
     by_cases hi : i.1 < row
     · have : False := RowIsZero.not_isPivot (M := M) (i := i)
         (p := pivs i hi) hzi (hcore.pivot_row i hi)
       exact (False.elim this)
-    · have hi' : row ≤ i.1 := le_of_not_gt hi
+    · have hi' : row ≤ i.1 := by omega
       have hj' : row ≤ j.1 := le_trans hi' (le_of_lt hij)
       exact hzero j hj'
   · intro i j p q hij hp hq
@@ -94,10 +99,10 @@ lemma echelon_of_state
         have hq' : q = pivs j hj := IsPivot.eq_of_left hq (hcore.pivot_row j hj)
         subst hp'; subst hq'
         exact hcore.pivot_strict i j hi hj (by simpa using hij)
-      · have hj' : row ≤ j.1 := le_of_not_gt hj
+      · have hj' : row ≤ j.1 := by omega
         have hz : RowIsZero M j := hzero j hj'
         exact (False.elim (RowIsZero.not_isPivot (M := M) (i := j) (p := q) hz hq))
-    · have hi' : row ≤ i.1 := le_of_not_gt hi
+    · have hi' : row ≤ i.1 := by omega
       have hz : RowIsZero M i := hzero i hi'
       exact (False.elim (RowIsZero.not_isPivot (M := M) (i := i) (p := p) hz hp))
 
@@ -117,7 +122,7 @@ lemma reduced_of_state
     · have hp' : p = pivs i hi := IsPivot.eq_of_left hp (hcore.pivot_row i hi)
       subst hp'
       exact hextras.pivot_one i hi
-    · have hi' : row ≤ i.1 := le_of_not_gt hi
+    · have hi' : row ≤ i.1 := by omega
       have hz : RowIsZero M i := hzero i hi'
       exact (False.elim (RowIsZero.not_isPivot (M := M) (i := i) (p := p) hz hp))
   · intro i r p hr hp
@@ -129,19 +134,9 @@ lemma reduced_of_state
         cases hEq
         exact lt_irrefl _ hr
       exact hextras.pivot_col_zero i hi r hrne
-    · have hi' : row ≤ i.1 := le_of_not_gt hi
+    · have hi' : row ≤ i.1 := by omega
       have hz : RowIsZero M i := hzero i hi'
       exact (False.elim (RowIsZero.not_isPivot (M := M) (i := i) (p := p) hz hp))
-
-omit [DecidableEq R] in
-private lemma reduced_of_echelon_state
-    (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
-    (pivs : ∀ i : Fin m, i.1 < row → Fin n)
-    (hstate : EchelonState (M := M) row col bound pivs)
-    (hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r) :
-    IsReducedEchelonForm (M := M) :=
-  reduced_of_state (M := M) row col bound pivs
-    hstate.toEchelonStateCore hstate.toReducedStateExtras hzero
 
 omit [DecidableEq R] in
 private lemma zero_rows_of_row_ge
@@ -161,7 +156,7 @@ private lemma zero_rows_of_checkPivot_none
   by_cases hjb : j.1 < bound
   · exact hstate.cols_lt_bound_zero r hr j hjb
   · have hjc : col ≤ j.1 := by
-      have : bound ≤ j.1 := le_of_not_gt hjb
+      have : bound ≤ j.1 := by omega
       exact le_trans hstate.col_le this
     exact checkPivot_none_zero (M := M) row col hnone j hjc r hr
 
@@ -176,7 +171,7 @@ private lemma zero_rows_of_col_ge
   have hbound : bound = n := by
     have hcolle : col ≤ bound := hstate.col_le
     have hboundle : bound ≤ n := hstate.bound_le
-    exact le_antisymm hboundle (le_trans (le_of_not_gt hcol) hcolle)
+    omega
   have hj : j.1 < bound := by
     rw [hbound]
     exact j.2
@@ -184,8 +179,9 @@ private lemma zero_rows_of_col_ge
 
 omit [DecidableEq R] in
 private def emptyPivs :
-    ∀ i : Fin m, i.1 < 0 → Fin n := fun _ hi =>
-      False.elim (Nat.not_lt_zero _ hi)
+    ∀ i : Fin m, i.1 < 0 → Fin n := by
+  intro _ hi
+  omega
 
 omit [DecidableEq R] in
 private lemma initial_state (M : Matrix (Fin m) (Fin n) R) :
@@ -198,15 +194,15 @@ private lemma initial_state (M : Matrix (Fin m) (Fin n) R) :
     ?cols_zero
     ?pivot_one
     ?pivot_col_zero
-  · exact Nat.zero_le _
-  · exact Nat.zero_le _
-  · exact Nat.zero_le _
-  · intro i hi; exact (False.elim (Nat.not_lt_zero _ hi))
-  · intro i j hi hj hij; exact (False.elim (Nat.not_lt_zero _ hi))
-  · intro i hi; exact (False.elim (Nat.not_lt_zero _ hi))
-  · intro r hr j hj; exact (False.elim (Nat.not_lt_zero _ hj))
-  · intro i hi; exact (False.elim (Nat.not_lt_zero _ hi))
-  · intro i hi r hr; exact (False.elim (Nat.not_lt_zero _ hi))
+  · omega
+  · omega
+  · omega
+  · intro i hi; omega
+  · intro i j hi hj hij; omega
+  · intro i hi; omega
+  · intro r hr j hj; omega
+  · intro i hi; omega
+  · intro i hi r hr; omega
 
 /-! Step lemma: update state after a pivot. -/
 
@@ -243,7 +239,7 @@ private lemma pivot_row_zero_left
     by_cases h1 : j.1 < bound
     · left; exact h1
     · right
-      have : bound ≤ j.1 := le_of_not_gt h1
+      have : bound ≤ j.1 := by omega
       exact le_trans (hstate.col_le) this
   cases hj' with
   | inl hlt =>
@@ -274,20 +270,6 @@ private lemma isPivot_factor_of_ne
   · intro j hj
     simp [factor, of_apply, h, hp.2 j hj]
 
-omit [DecidableEq R] in
-private lemma isPivot_replace_preserve
-    (M : Matrix (Fin m) (Fin n) R) (pivotRow i : Fin m) (pivotCol p : Fin n)
-    (k : R) (hp : IsPivot M i p) (huse : pivotRow ≠ i)
-    (hzero : ∀ j : Fin n, j < pivotCol → M pivotRow j = 0) (hp_lt : p < pivotCol) :
-    IsPivot (replace M pivotRow i k) i p := by
-  refine ⟨?h0, ?hleft⟩
-  · -- pivot entry unchanged
-    have hp0 : M pivotRow p = 0 := hzero p hp_lt
-    simp [replace, huse, of_apply, hp0, hp.1]
-  · intro j hj
-    have hzero' : M pivotRow j = 0 := hzero j (lt_of_lt_of_le hj (le_of_lt hp_lt))
-    simp [replace, huse, of_apply, hzero', hp.2 j hj]
-
 private lemma isPivot_eliminate_preserve
     (M : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n)
     {i : Fin m} {p : Fin n} (hp : IsPivot M i p)
@@ -309,6 +291,18 @@ private lemma isPivot_eliminate_preserve
   · intro j hj
     have h0 := hpres j (lt_of_lt_of_le hj (le_of_lt hp_lt))
     simpa [h0] using hp.2 j hj
+
+omit [DecidableEq R] in
+private lemma pivot_lt_newPivot
+    (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
+    (pivs : ∀ i : Fin m, i.1 < row → Fin n)
+    (hstate : EchelonState (M := M) row col bound pivs)
+    {pc : Fin n} (hbound : bound ≤ pc.1)
+    (i : Fin m) (hlt : i.1 < row) :
+    pivs i hlt < pc := by
+  have hltb : (pivs i hlt).1 < bound := hstate.pivot_lt_bound i hlt
+  have hltpc : (pivs i hlt).1 < pc.1 := lt_of_lt_of_le hltb hbound
+  simpa using hltpc
 
 private lemma step_pivot_row
     (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
@@ -332,7 +326,7 @@ private lemma step_pivot_row
       have : i.1 = row := by simpa using congrArg Fin.val hEq
       exact (lt_irrefl _ (this ▸ hlt))
     have hne2 : i ≠ pr := by
-      have hltpr : i.1 < pr.1 := lt_of_lt_of_le hlt hpr_ge
+      have hltpr : i.1 < pr.1 := by omega
       intro hEq
       have : i.1 = pr.1 := by simpa using congrArg Fin.val hEq
       exact (lt_irrefl _ (this ▸ hltpr))
@@ -350,19 +344,15 @@ private lemma step_pivot_row
           isPivot_factor_of_ne (M := m1) (i := i) (r := ⟨row, hrow⟩)
             (p := pivs i hlt) (s := pivotVal⁻¹) hne1 hp1
         simpa [m2, hpv] using hp2'
-    have hp_lt : pivs i hlt < pc := by
-      have hltb : (pivs i hlt).1 < bound := hstate.pivot_lt_bound i hlt
-      have hltpc : (pivs i hlt).1 < pc.1 := lt_of_lt_of_le hltb hbound
-      simpa using hltpc
+    have hp_lt : pivs i hlt < pc :=
+      pivot_lt_newPivot (M := M) row col bound pivs hstate (pc := pc) hbound i hlt
     have hp3 : IsPivot m3 i (pivs i hlt) :=
       isPivot_eliminate_preserve (M := m2) (pivotRow := ⟨row, hrow⟩) (pivotCol := pc)
         (p := pivs i hlt) (hp := hp2) (hzero := hzero_left_m2) hp_lt
     simpa [extendPivs, hlt] using hp3
-  · have hi_le : i.1 ≤ row := Nat.lt_succ_iff.mp hi
-    have hi_eq : i.1 = row := le_antisymm hi_le (le_of_not_gt hlt)
-    have hrowi : i = ⟨row, hrow⟩ := by
-      ext
-      simp [hi_eq]
+  · have hi_le : i.1 ≤ row := by omega
+    have hi_eq : i.1 = row := by omega
+    have hrowi : i = ⟨row, hrow⟩ := fin_eq_of_val_eq hrow hi_eq
     subst hrowi
     have hp : IsPivot m3 ⟨row, hrow⟩ pc := by
       refine ⟨?h0, ?hleft⟩
@@ -391,16 +381,14 @@ private lemma step_pivot_strict
   · by_cases hj' : j.1 < row
     · have hp_lt := hstate.pivot_strict i j hi' hj' hij
       simpa [extendPivs, hi', hj'] using hp_lt
-    · have hj_le : j.1 ≤ row := Nat.lt_succ_iff.mp hj
-      have hj_eq : j.1 = row := le_antisymm hj_le (le_of_not_gt hj')
-      have hp_lt : pivs i hi' < pc := by
-        have hltb : (pivs i hi').1 < bound := hstate.pivot_lt_bound i hi'
-        have hltpc : (pivs i hi').1 < pc.1 := lt_of_lt_of_le hltb hbound
-        simpa using hltpc
+    · have hj_le : j.1 ≤ row := by omega
+      have hj_eq : j.1 = row := by omega
+      have hp_lt : pivs i hi' < pc :=
+        pivot_lt_newPivot (M := M) row col bound pivs hstate (pc := pc) hbound i hi'
       simpa [extendPivs, hi', hj_eq] using hp_lt
-  · have hi_le : i.1 ≤ row := Nat.lt_succ_iff.mp hi
-    have hi_eq : i.1 = row := le_antisymm hi_le (le_of_not_gt hi')
-    have hj_le : j.1 ≤ row := Nat.lt_succ_iff.mp hj
+  · have hi_le : i.1 ≤ row := by omega
+    have hi_eq : i.1 = row := by omega
+    have hj_le : j.1 ≤ row := by omega
     have hlt' : row < j.1 := by
       simpa [hi_eq] using hij
     exact (False.elim (not_lt_of_ge hj_le hlt'))
@@ -414,14 +402,14 @@ private lemma step_pivot_lt_bound
     ∀ i : Fin m, ∀ hi : i.1 < row + 1, ((extendPivs row pivs pc i hi).1 < pc.1 + 1) := by
   intro i hi
   by_cases hi' : i.1 < row
-  · have hltb : (pivs i hi').1 < bound := hstate.pivot_lt_bound i hi'
-    have hltpc : (pivs i hi').1 < pc.1 := lt_of_lt_of_le hltb hbound
-    have hlt' : (pivs i hi').1 < pc.1 + 1 := Nat.lt_succ_of_lt hltpc
+  · have hltpc : (pivs i hi').1 < pc.1 := by
+      simpa using (pivot_lt_newPivot (M := M) row col bound pivs hstate (pc := pc) hbound i hi')
+    have hlt' : (pivs i hi').1 < pc.1 + 1 := by omega
     simp [extendPivs, hi', hlt']
   · have hi_eq : i.1 = row := by
-      have hi_le : i.1 ≤ row := Nat.lt_succ_iff.mp hi
-      exact le_antisymm hi_le (le_of_not_gt hi')
-    have hlt' : pc.1 < pc.1 + 1 := Nat.lt_succ_self _
+      have hi_le : i.1 ≤ row := by omega
+      exact le_antisymm hi_le (by omega)
+    have hlt' : pc.1 < pc.1 + 1 := by omega
     simp [extendPivs, hi', hlt']
 
 private lemma step_cols_lt_bound_zero
@@ -439,24 +427,17 @@ private lemma step_cols_lt_bound_zero
     m2 ⟨row, hrow⟩ pc = 1 →
     ∀ r : Fin m, row + 1 ≤ r.1 → ∀ j : Fin n, j.1 < pc.1 + 1 → m3 r j = 0 := by
   intro m1 pivotVal m2 m3 hzero_left_m2 h1 r hr j hj
-  have hr_ge : row ≤ r.1 := le_trans (Nat.le_succ _) hr
+  have hr_ge : row ≤ r.1 := by omega
   have hrrow : r ≠ ⟨row, hrow⟩ := by
     intro hEq
     cases hEq
     exact (Nat.not_succ_le_self _ hr)
   have hcol' : j.1 < pc.1 ∨ j.1 = pc.1 := by
-    have : j.1 < pc.1 + 1 := hj
-    exact Nat.lt_succ_iff.mp this |> lt_or_eq_of_le
+    omega
   cases hcol' with
   | inl hjlt =>
-      have hzero_row : m2 ⟨row, hrow⟩ j = 0 := by
-        have hjlt' : j < pc := by
-          exact hjlt
-        exact hzero_left_m2 j hjlt'
-      have hpres : m3 r j = m2 r j := by
-        simpa [m3] using
-          (eliminateCol_go_preserves_col (cur := m2) (pivotRow := ⟨row, hrow⟩)
-            (pivotCol := pc) (r := 0) (steps := List.nil) (j := j) (hzero := hzero_row) r)
+      have hjlt' : j < pc := by
+        exact hjlt
       have hzeroM : ∀ r : Fin m, row ≤ r.1 → M r j = 0 := by
         intro r hr'
         by_cases hjb : j.1 < bound
@@ -465,22 +446,27 @@ private lemma step_cols_lt_bound_zero
             have hb : bound ≤ j.1 := le_of_not_gt hjb
             exact le_trans hstate.col_le hb
           exact checkPivot_some_minimal (M := M) row col h j hjc (by simpa using hjlt) r hr'
-      have hzeroM_r : M r j = 0 := hzeroM r hr_ge
-      have hzeroM_row : M ⟨row, hrow⟩ j = 0 := hzeroM ⟨row, hrow⟩ (Nat.le_refl _)
       have hm1r : m1 r j = 0 := by
         by_cases hpr : pr.1 = row
-        · simp [m1, hpr, hzeroM_r]
+        · simp [m1, hpr, hzeroM r hr_ge]
         · by_cases hrpr : r = pr
           · have hnepr : pr ≠ ⟨row, hrow⟩ := by
               intro hEq
               exact hpr (by simpa using congrArg Fin.val hEq)
-            simp [m1, hpr, swapRow, of_apply, hrpr, hnepr, hzeroM_row]
-          · simp [m1, hpr, swapRow, of_apply, hrpr, hrrow, hzeroM_r]
-      have hm2r : m2 r j = 0 := by
-        by_cases hpv : pivotVal = 1
-        · simp [m2, hpv, hm1r]
-        · simp [m2, hpv, factor, of_apply, hrrow, hm1r]
-      exact hpres.trans hm2r
+            simp [m1, hpr, swapRow, of_apply, hrpr, hnepr,
+              hzeroM ⟨row, hrow⟩ (Nat.le_refl _)]
+          · simp [m1, hpr, swapRow, of_apply, hrpr, hrrow, hzeroM r hr_ge]
+      exact
+        (calc
+          m3 r j = m2 r j := by
+            simpa [m3] using
+              (eliminateCol_go_preserves_col (cur := m2) (pivotRow := ⟨row, hrow⟩)
+                (pivotCol := pc) (r := 0) (steps := List.nil) (j := j)
+                (hzero := hzero_left_m2 j hjlt') r)
+          _ = 0 := by
+            by_cases hpv : pivotVal = 1
+            · simp [m2, hpv, hm1r]
+            · simp [m2, hpv, factor, of_apply, hrrow, hm1r])
   | inr hjEq =>
       have hjeq : j = pc := Fin.ext (by simpa using hjEq)
       subst hjeq
@@ -511,50 +497,41 @@ private lemma step_pivot_one
   intro m1 pivotVal m2 m3 hzero_left_m1 hzero_left_m2 hrow_unchanged h1 i hi
   by_cases hlt : i.1 < row
   · have hp : M i (pivs i hlt) = 1 := hstate.pivot_one i hlt
-    have hp_lt : pivs i hlt < pc := by
-      have hltb : (pivs i hlt).1 < bound := hstate.pivot_lt_bound i hlt
-      have hltpc : (pivs i hlt).1 < pc.1 := lt_of_lt_of_le hltb hbound
-      simpa using hltpc
-    have hzero_row : m2 ⟨row, hrow⟩ (pivs i hlt) = 0 :=
-      hzero_left_m2 (pivs i hlt) hp_lt
-    have hpres : m3 i (pivs i hlt) = m2 i (pivs i hlt) := by
-      simpa [m3] using
-        (eliminateCol_go_preserves_col (cur := m2) (pivotRow := ⟨row, hrow⟩)
-          (pivotCol := pc) (r := 0) (steps := List.nil) (j := pivs i hlt) (hzero := hzero_row) i)
-    have hm2 : m2 i (pivs i hlt) = m1 i (pivs i hlt) := by
-      by_cases hpv : pivotVal = 1
-      · simp [m2, hpv]
-      · have hne : i ≠ ⟨row, hrow⟩ := by
-          intro hEq
-          have : i.1 = row := by simpa using congrArg Fin.val hEq
-          exact (lt_irrefl _ (this ▸ hlt))
-        simp [m2, hpv, factor, of_apply, hne]
-    have hm1 : m1 i (pivs i hlt) = M i (pivs i hlt) := by
-      by_cases hpr : pr.1 = row
-      · simp [m1, hpr]
-      · have hne1 : i ≠ ⟨row, hrow⟩ := by
-          intro hEq
-          have : i.1 = row := by simpa using congrArg Fin.val hEq
-          exact (lt_irrefl _ (this ▸ hlt))
-        have hne2 : i ≠ pr := by
-          have hltpr : i.1 < pr.1 := lt_of_lt_of_le hlt hpr_ge
-          intro hEq
-          have : i.1 = pr.1 := by simpa using congrArg Fin.val hEq
-          exact (lt_irrefl _ (this ▸ hltpr))
-        simp [m1, hpr, swapRow, of_apply, hne1, hne2]
-    have hcalc : m3 i (pivs i hlt) = 1 := by
-      calc
-        m3 i (pivs i hlt) = m2 i (pivs i hlt) := hpres
-        _ = m1 i (pivs i hlt) := hm2
-        _ = M i (pivs i hlt) := hm1
-        _ = 1 := hp
-    simpa [extendPivs, hlt] using hcalc
+    have hp_lt : pivs i hlt < pc :=
+      pivot_lt_newPivot (M := M) row col bound pivs hstate (pc := pc) hbound i hlt
+    simpa [extendPivs, hlt] using
+      (calc
+        m3 i (pivs i hlt) = m2 i (pivs i hlt) := by
+          simpa [m3] using
+            (eliminateCol_go_preserves_col (cur := m2) (pivotRow := ⟨row, hrow⟩)
+              (pivotCol := pc) (r := 0) (steps := List.nil) (j := pivs i hlt)
+              (hzero := hzero_left_m2 (pivs i hlt) hp_lt) i)
+        _ = m1 i (pivs i hlt) := by
+          by_cases hpv : pivotVal = 1
+          · simp [m2, hpv]
+          · have hne : i ≠ ⟨row, hrow⟩ := by
+              intro hEq
+              have : i.1 = row := by simpa using congrArg Fin.val hEq
+              exact (lt_irrefl _ (this ▸ hlt))
+            simp [m2, hpv, factor, of_apply, hne]
+        _ = M i (pivs i hlt) := by
+          by_cases hpr : pr.1 = row
+          · simp [m1, hpr]
+          · have hne1 : i ≠ ⟨row, hrow⟩ := by
+              intro hEq
+              have : i.1 = row := by simpa using congrArg Fin.val hEq
+              exact (lt_irrefl _ (this ▸ hlt))
+            have hne2 : i ≠ pr := by
+              have hltpr : i.1 < pr.1 := by omega
+              intro hEq
+              have : i.1 = pr.1 := by simpa using congrArg Fin.val hEq
+              exact (lt_irrefl _ (this ▸ hltpr))
+            simp [m1, hpr, swapRow, of_apply, hne1, hne2]
+        _ = 1 := hp)
   · have hi_eq : i.1 = row := by
-      have hi_le : i.1 ≤ row := Nat.lt_succ_iff.mp hi
-      exact le_antisymm hi_le (le_of_not_gt hlt)
-    have hrowi : i = ⟨row, hrow⟩ := by
-      ext
-      simp [hi_eq]
+      have hi_le : i.1 ≤ row := by omega
+      exact le_antisymm hi_le (by omega)
+    have hrowi : i = ⟨row, hrow⟩ := fin_eq_of_val_eq hrow hi_eq
     subst hrowi
     have hrowpc : m3 ⟨row, hrow⟩ pc = 1 := by
       have := hrow_unchanged pc
@@ -578,16 +555,8 @@ private lemma step_pivot_col_zero
       m3 r ((extendPivs row pivs pc) i hi) = 0 := by
   intro m1 pivotVal m2 m3 hzero_left_m1 hzero_left_m2 h1 i hi r hrne
   by_cases hlt : i.1 < row
-  · have hp_lt : pivs i hlt < pc := by
-      have hltb : (pivs i hlt).1 < bound := hstate.pivot_lt_bound i hlt
-      have hltpc : (pivs i hlt).1 < pc.1 := lt_of_lt_of_le hltb hbound
-      simpa using hltpc
-    have hzero_row : m2 ⟨row, hrow⟩ (pivs i hlt) = 0 :=
-      hzero_left_m2 (pivs i hlt) hp_lt
-    have hpres : m3 r (pivs i hlt) = m2 r (pivs i hlt) := by
-      simpa [m3] using
-        (eliminateCol_go_preserves_col (cur := m2) (pivotRow := ⟨row, hrow⟩)
-          (pivotCol := pc) (r := 0) (steps := List.nil) (j := pivs i hlt) (hzero := hzero_row) r)
+  · have hp_lt : pivs i hlt < pc :=
+      pivot_lt_newPivot (M := M) row col bound pivs hstate (pc := pc) hbound i hlt
     have hzeroM : M r (pivs i hlt) = 0 := hstate.pivot_col_zero i hlt r hrne
     have hzero_row_M : M ⟨row, hrow⟩ (pivs i hlt) = 0 := by
       have hne : (⟨row, hrow⟩ : Fin m) ≠ i := by
@@ -597,7 +566,7 @@ private lemma step_pivot_col_zero
       exact hstate.pivot_col_zero i hlt ⟨row, hrow⟩ hne
     have hzero_pr_M : M pr (pivs i hlt) = 0 := by
       have hne : pr ≠ i := by
-        have hltpr : i.1 < pr.1 := lt_of_lt_of_le hlt hpr_ge
+        have hltpr : i.1 < pr.1 := by omega
         intro hEq
         have : pr.1 = i.1 := by simpa using congrArg Fin.val hEq
         exact (lt_irrefl _ (this ▸ hltpr))
@@ -618,22 +587,25 @@ private lemma step_pivot_col_zero
               exact hpr (by simpa using congrArg Fin.val hEq)
             simp [m1, hpr, swapRow, of_apply, hzero_pr_M]
           · simp [m1, hpr, swapRow, of_apply, hrpr, hrrow, hzeroM]
-    have hm2 : m2 r (pivs i hlt) = 0 := by
-      by_cases hpv : pivotVal = 1
-      · simp [m2, hpv, hm1]
-      · by_cases hrrow : r = ⟨row, hrow⟩
-        · subst hrrow
-          have h0 : m1 ⟨row, hrow⟩ (pivs i hlt) = 0 := hzero_left_m1 (pivs i hlt) hp_lt
-          simp [m2, hpv, factor, of_apply, h0]
-        · simp [m2, hpv, factor, of_apply, hrrow, hm1]
-    have hcalc : m3 r (pivs i hlt) = 0 := hpres.trans hm2
-    simpa [extendPivs, hlt] using hcalc
+    simpa [extendPivs, hlt] using
+      (calc
+        m3 r (pivs i hlt) = m2 r (pivs i hlt) := by
+          simpa [m3] using
+            (eliminateCol_go_preserves_col (cur := m2) (pivotRow := ⟨row, hrow⟩)
+              (pivotCol := pc) (r := 0) (steps := List.nil) (j := pivs i hlt)
+              (hzero := hzero_left_m2 (pivs i hlt) hp_lt) r)
+        _ = 0 := by
+          by_cases hpv : pivotVal = 1
+          · simp [m2, hpv, hm1]
+          · by_cases hrrow : r = ⟨row, hrow⟩
+            · subst hrrow
+              have h0 : m1 ⟨row, hrow⟩ (pivs i hlt) = 0 := hzero_left_m1 (pivs i hlt) hp_lt
+              simp [m2, hpv, factor, of_apply, h0]
+            · simp [m2, hpv, factor, of_apply, hrrow, hm1])
   · have hi_eq : i.1 = row := by
-      have hi_le : i.1 ≤ row := Nat.lt_succ_iff.mp hi
-      exact le_antisymm hi_le (le_of_not_gt hlt)
-    have hrowi : i = ⟨row, hrow⟩ := by
-      ext
-      simp [hi_eq]
+      have hi_le : i.1 ≤ row := by omega
+      exact le_antisymm hi_le (by omega)
+    have hrowi : i = ⟨row, hrow⟩ := fin_eq_of_val_eq hrow hi_eq
     subst hrowi
     have hzeror : m3 r pc = 0 := by
       simpa [m3] using
@@ -656,14 +628,13 @@ private lemma step_state
     let m3 := eliminateColM m2 ⟨row, hrow⟩ pc
     EchelonState (M := m3) (row := row + 1) (col := col + 1) (bound := pc.1 + 1)
       (extendPivs row pivs pc) := by
-  classical
   intro m1 pivotVal m2 m3
   -- basic bounds
   have hrowle : row ≤ m := Nat.le_of_lt hrow
-  have hrow1 : row + 1 ≤ m := Nat.succ_le_of_lt hrow
+  have hrow1 : row + 1 ≤ m := by omega
   have hbound : bound ≤ pc.1 := pivotCol_ge_bound (M := M) row col bound pivs hstate h
   have hcolle : col ≤ pc.1 := le_trans hstate.col_le hbound
-  have hbound' : pc.1 + 1 ≤ n := Nat.succ_le_of_lt pc.2
+  have hbound' : pc.1 + 1 ≤ n := by omega
   -- show pivotRow ≥ row
   have hpr_ge : row ≤ pr.1 := checkPivot_some_row_ge (M := M) row col h
   -- pivot row zeros left of pc in M
@@ -716,44 +687,6 @@ private lemma step_state
     · simp [m2, hpv, hzero_left_m1 j hj]
     · -- factor does not change zeros
       simp [m2, hpv, factor, of_apply, hzero_left_m1 j hj]
-  have hzero_left_m1_exp :
-      ∀ j : Fin n, j < pc →
-        (if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr) ⟨row, hrow⟩ j = 0 := by
-    simpa [m1] using hzero_left_m1
-  have hzero_left_m2_exp :
-      ∀ j : Fin n, j < pc →
-        (if (if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr) ⟨row, hrow⟩ pc = 1 then
-              if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr
-            else
-              factor (if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr) ⟨row, hrow⟩
-                ((if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr) ⟨row, hrow⟩ pc)⁻¹)
-          ⟨row, hrow⟩ j = 0 := by
-    simpa [m2, pivotVal, m1] using hzero_left_m2
-  have hrow_unchanged_exp :
-      ∀ j : Fin n,
-        (eliminateColM
-            (if (if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr) ⟨row, hrow⟩ pc = 1 then
-                if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr
-              else
-                factor (if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr) ⟨row, hrow⟩
-                  ((if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr) ⟨row, hrow⟩ pc)⁻¹)
-            ⟨row, hrow⟩ pc) ⟨row, hrow⟩ j
-          =
-        (if (if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr) ⟨row, hrow⟩ pc = 1 then
-            if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr
-          else
-            factor (if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr) ⟨row, hrow⟩
-              ((if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr) ⟨row, hrow⟩ pc)⁻¹)
-          ⟨row, hrow⟩ j := by
-    simpa [m3, m2, pivotVal, m1] using hrow_unchanged
-  have h1_exp :
-      (if (if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr) ⟨row, hrow⟩ pc = 1 then
-            if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr
-          else
-            factor (if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr) ⟨row, hrow⟩
-              ((if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr) ⟨row, hrow⟩ pc)⁻¹)
-        ⟨row, hrow⟩ pc = 1 := by
-    simpa [m2, pivotVal, m1] using h1
   -- build new state
   refine mkEchelonState (M := m3) (row := row + 1) (col := col + 1) (bound := pc.1 + 1)
     (pivs := extendPivs row pivs pc)
@@ -769,26 +702,26 @@ private lemma step_state
   · exact hrow1
   · exact hbound'
   · exact Nat.succ_le_succ hcolle
-  · exact
-      step_pivot_row (M := M) row col bound pivs hstate hrow
+  · simpa [m1, pivotVal, m2, m3] using
+      (step_pivot_row (M := M) row col bound pivs hstate hrow
         (pr := pr) (pc := pc) hbound hpr_ge
-        hzero_left_m2_exp hrow_unchanged_exp h1_exp
+        hzero_left_m2 hrow_unchanged h1)
   · exact
       step_pivot_strict (M := M) row col bound pivs hstate (pc := pc) hbound
   · exact
       step_pivot_lt_bound (M := M) row col bound pivs hstate (pc := pc) hbound
-  · exact
-      step_cols_lt_bound_zero (M := M) row col bound pivs hstate hrow
+  · simpa [m1, pivotVal, m2, m3] using
+      (step_cols_lt_bound_zero (M := M) row col bound pivs hstate hrow
         (pr := pr) (pc := pc) h hbound
-        hzero_left_m2_exp h1_exp
-  · exact
-      step_pivot_one (M := M) row col bound pivs hstate hrow
+        hzero_left_m2 h1)
+  · simpa [m1, pivotVal, m2, m3] using
+      (step_pivot_one (M := M) row col bound pivs hstate hrow
         (pr := pr) (pc := pc) hbound hpr_ge
-        hzero_left_m1_exp hzero_left_m2_exp hrow_unchanged_exp h1_exp
-  · exact
-      step_pivot_col_zero (M := M) row col bound pivs hstate hrow
+        hzero_left_m1 hzero_left_m2 hrow_unchanged h1)
+  · simpa [m1, pivotVal, m2, m3] using
+      (step_pivot_col_zero (M := M) row col bound pivs hstate hrow
         (pr := pr) (pc := pc) hbound hpr_ge
-        hzero_left_m1_exp hzero_left_m2_exp h1_exp
+        hzero_left_m1 hzero_left_m2 h1)
 
 /-! Main theorem. -/
 
@@ -798,7 +731,6 @@ private lemma rrefAux_isReducedEchelon
     (pivs : ∀ i : Fin m, i.1 < row → Fin n)
     (hstate : EchelonState (M := M) row col bound pivs) :
     IsReducedEchelonForm (M := rrefAuxM M row col steps) := by
-  classical
   -- induction on remaining rows
   have hrec :
       ∀ k (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
@@ -806,77 +738,68 @@ private lemma rrefAux_isReducedEchelon
         m - row = k →
         EchelonState (M := M) row col bound pivs →
         IsReducedEchelonForm (M := rrefAuxM M row col steps) := by
-    refine Nat.rec ?base ?step
-    · intro M row col bound steps pivs hk hstate
-      -- row ≥ m, so rrefAuxM returns M
-      have hrow : ¬ row < m := by
-        have hrow' : m ≤ row := Nat.le_of_sub_eq_zero hk
-        exact not_lt_of_ge hrow'
-      rw [rrefAuxM, rrefAux.eq_1]
-      simp only [hrow]
-      have hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r :=
-        zero_rows_of_row_ge (M := M) row (Nat.le_of_sub_eq_zero hk)
-      exact reduced_of_echelon_state (M := M) row col bound pivs hstate hzero
-    · intro k ih M row col bound steps pivs hk hstate
-      by_cases hrow : row < m
-      · by_cases hcol : col < n
-        · -- unfold rrefAuxM one step and analyze checkPivot
-          rw [rrefAuxM, rrefAux.eq_1]
-          simp only [hrow, hcol]
-          cases hcp : checkPivot M row col with
-          | none =>
-              -- no pivot: remaining submatrix is zero
-              have hnone : checkPivot M row col = none := hcp
-              have hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r :=
-                zero_rows_of_checkPivot_none (M := M) row col bound pivs hstate hnone
-              exact reduced_of_echelon_state (M := M) row col bound pivs hstate hzero
-          | some prpc =>
-              cases prpc with
-              | mk pr pc =>
-                  -- build step state and recurse
-                  have hstate' := step_state (M := M) row col bound pivs hstate hrow hcol hcp
-                  -- compute new matrix
-                  let m1 := if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr
-                  let pivotVal : R := m1 ⟨row, hrow⟩ pc
-                  let m2 := if pivotVal = 1 then m1 else factor m1 ⟨row, hrow⟩ (pivotVal)⁻¹
-                  let m3 := eliminateColM m2 ⟨row, hrow⟩ pc
-                  let steps' :=
-                    steps ++
-                      [RowOp.swap ⟨row, hrow⟩ pr,
-                        RowOp.factor ⟨row, hrow⟩ (pivotVal)⁻¹]
-                  -- apply IH
-                  have hk' : m - (row + 1) = k := by
-                    have hrowle : row ≤ m := Nat.le_of_lt hrow
-                    have hm : m = row + Nat.succ k :=
-                      (Nat.sub_eq_iff_eq_add' hrowle).1 hk
-                    rw [hm, Nat.add_sub_add_left]
-                    simp
-                  have helim :
-                      (eliminateCol m2 ⟨row, hrow⟩ pc steps' true).1 = m3 := by
-                    simpa [m3, steps'] using
-                      (eliminateCol_matrix_irrel
-                        (M := m2)
-                        (pivotRow := ⟨row, hrow⟩)
-                        (pivotCol := pc)
-                        (steps := steps'))
-                  simpa [m1, pivotVal, m2, m3, steps', helim] using
-                    ih m3 (row + 1) (col + 1) (pc.1 + 1)
-                      ((eliminateCol m2 ⟨row, hrow⟩ pc steps' true).2)
-                      (extendPivs row pivs pc) hk' hstate'
-        · -- col ≥ n, so rrefAuxM returns M
-          have hcol' : ¬ col < n := hcol
-          rw [rrefAuxM, rrefAux.eq_1]
-          simp only [hrow, hcol']
-          have hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r :=
-            zero_rows_of_col_ge (M := M) row col bound pivs hstate hcol'
-          exact reduced_of_echelon_state (M := M) row col bound pivs hstate hzero
-      · -- row ≥ m
-        have hrow' : ¬ row < m := hrow
+    intro k
+    refine Nat.strongRecOn k ?_
+    intro k ih M row col bound steps pivs hk hstate
+    by_cases hrow : row < m
+    · by_cases hcol : col < n
+      · -- unfold rrefAuxM one step and analyze checkPivot
         rw [rrefAuxM, rrefAux.eq_1]
-        simp only [hrow']
+        simp only [hrow, hcol]
+        cases hcp : checkPivot M row col with
+        | none =>
+            -- no pivot: remaining submatrix is zero
+            have hnone : checkPivot M row col = none := hcp
+            have hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r :=
+              zero_rows_of_checkPivot_none (M := M) row col bound pivs hstate hnone
+            exact reduced_of_state (M := M) row col bound pivs
+              hstate.toEchelonStateCore hstate.toReducedStateExtras hzero
+        | some prpc =>
+            cases prpc with
+            | mk pr pc =>
+                -- build step state and recurse
+                have hstate' := step_state (M := M) row col bound pivs hstate hrow hcol hcp
+                -- compute new matrix
+                let m1 := if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr
+                let pivotVal : R := m1 ⟨row, hrow⟩ pc
+                let m2 := if pivotVal = 1 then m1 else factor m1 ⟨row, hrow⟩ (pivotVal)⁻¹
+                let m3 := eliminateColM m2 ⟨row, hrow⟩ pc
+                let steps' :=
+                  steps ++
+                    [RowOp.swap ⟨row, hrow⟩ pr,
+                      RowOp.factor ⟨row, hrow⟩ (pivotVal)⁻¹]
+                have hklt : m - (row + 1) < k := by
+                  have hlt : m - (row + 1) < m - row := by omega
+                  simpa [hk] using hlt
+                have helim :
+                    (eliminateCol m2 ⟨row, hrow⟩ pc steps' true).1 = m3 := by
+                  simpa [m3, steps'] using
+                    (eliminateCol_matrix_irrel
+                      (M := m2)
+                      (pivotRow := ⟨row, hrow⟩)
+                      (pivotCol := pc)
+                      (steps := steps'))
+                simpa [m1, pivotVal, m2, m3, steps', helim] using
+                  ih (m - (row + 1)) hklt
+                    m3 (row + 1) (col + 1) (pc.1 + 1)
+                    ((eliminateCol m2 ⟨row, hrow⟩ pc steps' true).2)
+                    (extendPivs row pivs pc) rfl hstate'
+      · -- col ≥ n, so rrefAuxM returns M
+        have hcol' : ¬ col < n := hcol
+        rw [rrefAuxM, rrefAux.eq_1]
+        simp only [hrow, hcol']
         have hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r :=
-          zero_rows_of_row_ge (M := M) row (Nat.le_of_not_gt hrow')
-        exact reduced_of_echelon_state (M := M) row col bound pivs hstate hzero
+          zero_rows_of_col_ge (M := M) row col bound pivs hstate hcol'
+        exact reduced_of_state (M := M) row col bound pivs
+          hstate.toEchelonStateCore hstate.toReducedStateExtras hzero
+    · -- row ≥ m
+      have hrow' : ¬ row < m := hrow
+      rw [rrefAuxM, rrefAux.eq_1]
+      simp only [hrow']
+      have hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r :=
+        zero_rows_of_row_ge (M := M) row (by omega)
+      exact reduced_of_state (M := M) row col bound pivs
+        hstate.toEchelonStateCore hstate.toReducedStateExtras hzero
   exact hrec (m - row) M row col bound steps pivs rfl hstate
 
 /-! Final theorem. -/
