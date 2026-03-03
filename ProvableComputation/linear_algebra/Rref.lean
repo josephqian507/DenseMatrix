@@ -27,7 +27,6 @@ def swapRow (given : Matrix (Fin a) (Fin b) R)
       given row1 b
     else
       given a b
-#eval swapRow sampleMatrix 1 2
 
 def factor (given : Matrix (Fin a) (Fin b) R) (i : Fin a)
   (j : R) : Matrix (Fin a) (Fin b) R :=
@@ -36,7 +35,6 @@ def factor (given : Matrix (Fin a) (Fin b) R) (i : Fin a)
       j * given a1 b1
     else
       given a1 b1
-#eval factor sampleMatrix 1 2
 
 def replace (given : Matrix (Fin a) (Fin b) R)
 (use toReplace : Fin a) (k : R) : Matrix (Fin a) (Fin b) R:=
@@ -48,15 +46,11 @@ def replace (given : Matrix (Fin a) (Fin b) R)
         given toReplace b2 + k * given use b2
       else
         given a2 b2
-#eval replace sampleMatrix 1 2 3
-#eval replace sampleMatrix 1 1 3  -- should output the same matrix as the factor call below
-#eval factor sampleMatrix 1 4
 
 def checkPivot
   (M : Matrix (Fin a) (Fin b) R)
   (startRow startCol : Nat)
   : Option (Fin a × Fin b) :=
-
   let rec scanCol (col : Nat) : Option (Fin a × Fin b) :=
     if hcol : col < b then
       -- now scan all rows in this column
@@ -74,8 +68,6 @@ def checkPivot
     else
       none
   scanCol startCol
-
-#eval checkPivot sampleMatrix 0 0
 
 -- `eliminateCol` iterates through the matrix row by row, and uses the `replace` operation
 -- to set the value in column `pivotCol` of the row to 0.
@@ -107,14 +99,12 @@ def eliminateCol
     go 0 given steps
   else
     go pivotRow.val given steps
-#eval (eliminateCol sampleMatrix 0 0 List.nil true).1
 
 def rrefAux
   (m : Matrix (Fin a) (Fin b) R) (row col : Nat) (steps : List (RowOp a R)) (reduced : Bool)
   : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
   if hrow : row < a then
     if col < b then
-
       let pivot_location := checkPivot m row col
       match pivot_location with
       | none => (m, steps)
@@ -133,7 +123,6 @@ def rrefAux
             factor m1 ⟨row, hrow⟩ (pivotVal)⁻¹
         let steps := List.concat steps (.factor ⟨row, hrow⟩ (pivotVal)⁻¹)
         let (m3, steps) := eliminateCol m2 ⟨row, hrow⟩ pivotCol steps reduced
-
         rrefAux m3 (row + 1) (col + 1) steps reduced
     else
       (m, steps)
@@ -148,5 +137,3 @@ def rowReducedEchelonForm
  (given : Matrix (Fin a) (Fin b) R)
 : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
   rrefAux given 0 0 List.nil true
-
-#eval (rowReducedEchelonForm sampleMatrix).1

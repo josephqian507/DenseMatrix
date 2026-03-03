@@ -50,13 +50,10 @@ def gaussDetAux
           let (M1, d1) := swapRowDet M rowFin pivotRow d
           let pivotVal := M1 rowFin pivotCol
           let (M2, d2) := factorDet M1 rowFin pivotVal d1
-          let M3 := eliminateCol M2 rowFin pivotCol
+          let (M3, _) := eliminateCol M2 rowFin pivotCol List.nil false
           gaussDetAux M3 (row + 1) d2
   else
     d
 
 def gaussDet {R : Type} [Field R] [DecidableEq R] {n : ℕ} (M : Matrix (Fin n) (Fin n) R) : R :=
   gaussDetAux M 0 1
-
-#time #eval toString (gaussDet matrix2)
-#time #eval toString (matrix2.det)

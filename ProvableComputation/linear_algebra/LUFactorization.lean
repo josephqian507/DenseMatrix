@@ -192,21 +192,3 @@ def LUFactorization (M : Matrix (Fin a) (Fin b) R)
   let (U, steps) := rowEchelonForm M
   let (P, L) := buildPL steps
   (P, (L, U))
-
-def testLU : Bool :=
-  let (P, L, U) := LUFactorization sampleMatrix2
-  have : P * L * U = sampleMatrix2 := by
-    rfl
-    sorry
-  True
-
-#time #eval LUFactorization sampleMatrix
-#time #eval (LUFactorization sampleMatrix).1 * (LUFactorization sampleMatrix).2.1 * (LUFactorization sampleMatrix).2.2
-
-#time #eval LUFactorization sampleMatrix2
-#time #eval (LUFactorization sampleMatrix2).1 * (LUFactorization sampleMatrix2).2.1 * (LUFactorization sampleMatrix2).2.2
-
-#time #eval LUFactorization sampleMatrix4
-
-#time #eval LUFactorization sampleMatrix3
-#time #eval (LUFactorization sampleMatrix3).1 * (LUFactorization sampleMatrix3).2.1 * (LUFactorization sampleMatrix3).2.2
