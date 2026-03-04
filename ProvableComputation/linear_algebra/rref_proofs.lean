@@ -23,7 +23,7 @@ private lemma factor_one (M : Matrix (Fin a) (Fin b) R) (r : Fin a) :
   ext i j
   by_cases h : i = r
   · simp [factor, h]
-  · simp [factor, h]
+  · simp [factor]
 
 /- Row operation lemmas
 -- Performing a row operation is equivalent to multiplying by the elementary matrix -/
@@ -90,11 +90,10 @@ lemma mul_by_inv (A : Matrix (Fin a) (Fin a) R) (A_inv : Matrix (Fin a) (Fin a) 
     -- use invertibility: A * ⅟A = 1
     rw [hA] at h1
     -- finish: 1 * (M * x) = M * x and A * 0 = 0
-    simp at h1
-    exact h1
+    simpa only [Matrix.one_mul, Matrix.mul_zero] using h1
   · intro h
     -- if M * x = 0, then (⅟A) * (M * x) = (⅟A) * 0 = 0
-    simp [h]
+    rw [h, Matrix.mul_zero]
 
 variable [DecidableEq R]
 
@@ -223,7 +222,7 @@ def eliminate_proof_helper (r : Fin a) (c : Fin b) (row : Nat) (M : Matrix (Fin 
     : (eliminateCol.go r c row M steps).1 * x = 0 ↔ M * x = 0 := by
   rw [eliminateCol.go]
   split
-  · simp
+  · simp only [ne_eq, List.concat_eq_append, ite_not, dite_eq_ite]
     split_ifs with h1 h2
     · exact eliminate_proof_helper r c (row+1) M x steps reduced
     · exact eliminate_proof_helper r c (row+1) M x steps reduced
@@ -231,7 +230,7 @@ def eliminate_proof_helper (r : Fin a) (c : Fin b) (row : Nat) (M : Matrix (Fin 
       · push_neg at h1
         apply h1.symm
       · exact reduced
-  · simp
+  · rfl
 
 def eliminate_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
     (r : Fin a) (c : Fin b) (steps : List (RowOp a R)) (reduced : Bool)
@@ -247,7 +246,7 @@ def rref_proof_helper (M : Matrix (Fin a) (Fin b) R) (r c : Nat) (x : Matrix (Fi
     : (rrefAux M r c steps reduced).1 * x = 0 ↔ M * x = 0 := by
   rw [rrefAux]
   split_ifs with h1 h2
-  · simp
+  · simp only [List.concat_eq_append, List.append_assoc, List.cons_append, List.nil_append]
     split
     · rfl
     rw [rref_proof_helper, eliminate_proof]
@@ -290,14 +289,11 @@ def elim_col_go_adds_steps_helper (pivotRow : Fin a) (pivotCol : Fin b) (r : Nat
     : (eliminateCol.go pivotRow pivotCol r M steps).2.length ≥ steps.length := by
   rw [eliminateCol.go]
   split_ifs with h
-  · simp
+  · simp only [ne_eq, List.concat_eq_append, ite_not, dite_eq_ite]
     split_ifs
-    · rw [← ge_iff_le]
-      exact elim_col_go_adds_steps_helper pivotRow pivotCol (r+1) M steps
-    · rw [← ge_iff_le]
-      exact elim_col_go_adds_steps_helper pivotRow pivotCol (r+1) M steps
-    · rw [← ge_iff_le]
-      trans (steps ++ [RowOp.replace pivotRow ⟨r, h⟩ (-M ⟨r, h⟩ pivotCol)]).length
+    · exact elim_col_go_adds_steps_helper pivotRow pivotCol (r+1) M steps
+    · exact elim_col_go_adds_steps_helper pivotRow pivotCol (r+1) M steps
+    · trans (steps ++ [RowOp.replace pivotRow ⟨r, h⟩ (-M ⟨r, h⟩ pivotCol)]).length
       · exact elim_col_go_adds_steps_helper pivotRow pivotCol (r+1)
           (replace M pivotRow ⟨r, h⟩ (-M ⟨r, h⟩ pivotCol))
           (steps ++ [RowOp.replace pivotRow ⟨r, h⟩ (-M ⟨r, h⟩ pivotCol)])
@@ -323,45 +319,66 @@ theorem row_reduction_adds_steps (M : Matrix (Fin a) (Fin b) R) (r c : Nat)
     (steps : List (RowOp a R)) (reduced : Bool)
     : (rrefAux M r c steps reduced).2.length >= steps.length := by
   rw [rrefAux]
-  aesop
-  · let res := eliminateCol M pivotRow pivotCol
-      (steps ++ [RowOp.swap pivotRow pivotRow, RowOp.factor pivotRow 1]) reduced
-    rw [← ge_iff_le]
-    trans res.2.length
-    · exact row_reduction_adds_steps res.1 (↑pivotRow + 1) (c + 1) res.2 reduced
-    · unfold res
-      exact elim_col_adds_steps M pivotRow pivotCol steps
-        [RowOp.swap pivotRow pivotRow, RowOp.factor pivotRow 1] reduced
-  · let res := eliminateCol (factor M pivotRow (M pivotRow pivotCol)⁻¹) pivotRow pivotCol
-      (steps ++ [RowOp.swap pivotRow pivotRow, RowOp.factor pivotRow (M pivotRow pivotCol)⁻¹])
-      reduced
-    rw [← ge_iff_le]
-    trans res.2.length
-    · exact row_reduction_adds_steps res.1 (↑pivotRow + 1) (c + 1) res.2 reduced
-    · unfold res
-      exact elim_col_adds_steps (factor M pivotRow (M pivotRow pivotCol)⁻¹) pivotRow pivotCol steps
-        [RowOp.swap pivotRow pivotRow, RowOp.factor pivotRow (M pivotRow pivotCol)⁻¹] reduced
-  · let res := eliminateCol (swapRow M ⟨r, h⟩ pivotRow) ⟨r, h⟩ pivotCol
-      (steps ++ [RowOp.swap ⟨r, h⟩ pivotRow, RowOp.factor ⟨r, h⟩ 1]) reduced
-    rw [← ge_iff_le]
-    trans res.2.length
-    · exact row_reduction_adds_steps res.1 (r + 1) (c + 1) res.2 reduced
-    · unfold res
-      exact elim_col_adds_steps (swapRow M ⟨r, h⟩ pivotRow) ⟨r, h⟩ pivotCol steps
-        [RowOp.swap ⟨r, h⟩ pivotRow, RowOp.factor ⟨r, h⟩ 1] reduced
-  · let res := eliminateCol
-      (factor (swapRow M ⟨r, h⟩ pivotRow) ⟨r, h⟩ (swapRow M ⟨r, h⟩ pivotRow ⟨r, h⟩ pivotCol)⁻¹)
-      ⟨r, h⟩ pivotCol (steps ++ [RowOp.swap ⟨r, h⟩ pivotRow,
-      RowOp.factor ⟨r, h⟩ (swapRow M ⟨r, h⟩ pivotRow ⟨r, h⟩ pivotCol)⁻¹]) reduced
-    rw [← ge_iff_le]
-    trans res.2.length
-    · exact row_reduction_adds_steps res.1 (r + 1) (c + 1) res.2 reduced
-    · unfold res
-      exact elim_col_adds_steps
-        (factor (swapRow M ⟨r, h⟩ pivotRow) ⟨r, h⟩ (swapRow M ⟨r, h⟩ pivotRow ⟨r, h⟩ pivotCol)⁻¹)
-        ⟨r, h⟩ pivotCol steps
-        [RowOp.swap ⟨r, h⟩ pivotRow, RowOp.factor ⟨r, h⟩ (swapRow M ⟨r, h⟩ pivotRow ⟨r, h⟩ pivotCol)⁻¹]
-        reduced
+  split_ifs with hrow hcol
+  · cases hcp : checkPivot M r c with
+    | none =>
+        simpa only [hcp] using (show steps.length ≥ steps.length from le_rfl)
+    | some p =>
+        rcases p with ⟨pivotRow, pivotCol⟩
+        simp only [List.concat_eq_append, List.append_assoc]
+        split_ifs with hswap hpivot
+        · let rowFin : Fin a := ⟨r, hrow⟩
+          let res := eliminateCol M rowFin pivotCol
+            (steps ++
+              ([RowOp.swap rowFin pivotRow] ++ [RowOp.factor rowFin (M rowFin pivotCol)⁻¹]))
+            reduced
+          trans res.2.length
+          · exact row_reduction_adds_steps res.1 (r + 1) (c + 1) res.2 reduced
+          · unfold res
+            exact elim_col_adds_steps M rowFin pivotCol steps
+              ([RowOp.swap rowFin pivotRow] ++
+                [RowOp.factor rowFin (M rowFin pivotCol)⁻¹]) reduced
+        · let rowFin : Fin a := ⟨r, hrow⟩
+          let res := eliminateCol (factor M rowFin (M rowFin pivotCol)⁻¹) rowFin pivotCol
+            (steps ++
+              ([RowOp.swap rowFin pivotRow] ++ [RowOp.factor rowFin (M rowFin pivotCol)⁻¹]))
+            reduced
+          trans res.2.length
+          · exact row_reduction_adds_steps res.1 (r + 1) (c + 1) res.2 reduced
+          · unfold res
+            exact elim_col_adds_steps (factor M rowFin (M rowFin pivotCol)⁻¹) rowFin pivotCol
+              steps
+              ([RowOp.swap rowFin pivotRow] ++ [RowOp.factor rowFin (M rowFin pivotCol)⁻¹])
+              reduced
+        · let rowFin : Fin a := ⟨r, hrow⟩
+          let res := eliminateCol (swapRow M rowFin pivotRow) rowFin pivotCol
+            (steps ++
+              ([RowOp.swap rowFin pivotRow] ++
+                [RowOp.factor rowFin (swapRow M rowFin pivotRow rowFin pivotCol)⁻¹]))
+            reduced
+          trans res.2.length
+          · exact row_reduction_adds_steps res.1 (r + 1) (c + 1) res.2 reduced
+          · unfold res
+            exact elim_col_adds_steps (swapRow M rowFin pivotRow) rowFin pivotCol steps
+              ([RowOp.swap rowFin pivotRow] ++
+                [RowOp.factor rowFin (swapRow M rowFin pivotRow rowFin pivotCol)⁻¹]) reduced
+        · let rowFin : Fin a := ⟨r, hrow⟩
+          let swapped := swapRow M rowFin pivotRow
+          let res := eliminateCol (factor swapped rowFin (swapped rowFin pivotCol)⁻¹) rowFin
+            pivotCol
+            (steps ++
+              ([RowOp.swap rowFin pivotRow] ++ [RowOp.factor rowFin (swapped rowFin pivotCol)⁻¹]))
+            reduced
+          trans res.2.length
+          · exact row_reduction_adds_steps res.1 (r + 1) (c + 1) res.2 reduced
+          · unfold res
+            exact elim_col_adds_steps
+              (factor swapped rowFin (swapped rowFin pivotCol)⁻¹) rowFin pivotCol steps
+              ([RowOp.swap rowFin pivotRow] ++
+                [RowOp.factor rowFin (swapped rowFin pivotCol)⁻¹])
+              reduced
+  · exact le_rfl
+  · exact le_rfl
 
 private theorem eliminateCol_go_log_correct
     (pivotRow : Fin a) (pivotCol : Fin b) (r : Nat)
@@ -486,7 +503,7 @@ private theorem rrefAux_log_correct
                     (List.foldl applyRowOp M ([swapOp, factorOp] ++ ops_elim ++ ops_rec),
                       steps ++ ([swapOp, factorOp] ++ ops_elim ++ ops_rec)) := by
                 apply Prod.ext
-                · simp [steps1, steps2, List.foldl_append, List.append_assoc]
+                · simp only [List.cons_append, List.nil_append, List.foldl_cons, List.foldl_append]
                   rw [hm2, hm1]
                 · simp [steps1, steps2, List.append_assoc]
               simpa [hcp, rowFin, steps1, m1, pivotVal, steps2, m2, List.concat_eq_append] using
