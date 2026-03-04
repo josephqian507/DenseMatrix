@@ -1,1 +1,12 @@
 import ProvableComputation.Basic
+import ProvableComputation.certifiable_euclidean_alg
+import ProvableComputation.linear_algebra.Determinant
+import ProvableComputation.linear_algebra.EchelonCommonProofs
+import ProvableComputation.linear_algebra.IsInEchelonForm
+import ProvableComputation.linear_algebra.IsInReducedEchelonFormProofs
+import ProvableComputation.linear_algebra.LUFactorization
+import ProvableComputation.linear_algebra.RowEquivalent
+import ProvableComputation.linear_algebra.Rref
+import ProvableComputation.linear_algebra.RrefUniqueness
+import ProvableComputation.linear_algebra.determinant_proofs
+import ProvableComputation.linear_algebra.rref_proofs
