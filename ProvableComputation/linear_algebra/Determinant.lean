@@ -29,7 +29,7 @@ def matrix3 : Matrix (Fin 10) (Fin 10) ℚ :=
 def swapRowDet
   {R : Type} [Field R] {n : ℕ} (M : Matrix (Fin n) (Fin n) R) (i j : Fin n) (d : R) :
   Matrix (Fin n) (Fin n) R × R :=
-  if h : i = j then
+  if _h : i = j then
     (M, d)
   else
     (swapRow M i j, -d)

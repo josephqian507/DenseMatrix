@@ -544,7 +544,8 @@ private theorem reduced_rowMatch_of_rowEquivalent {m n : Nat}
                 | inl hZeroPair =>
                     exact (RowIsZero.not_isPivot (hzero := hZeroPair.1) (hp := hkB)).elim
                 | inr hPivotPair =>
-                    -- Two pivots in row `k` of `B` force same column; then strict increase gives `q < q`.
+                    -- Two pivots in row `k` of `B` force the same column.
+                    -- Then strict increase gives the contradiction `q < q`.
                     rcases hPivotPair with ⟨qk, hkB', hkCk⟩
                     have hqk : qk = q := IsPivot.eq_of_left hkB' hkB
                     have hkCq : IsPivot C k q := by simpa [hqk] using hkCk

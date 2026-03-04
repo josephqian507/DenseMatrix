@@ -59,6 +59,7 @@ private def replaceCol
     (given : squareMatrix a R) (use toReplace : Fin a) (k : R) : squareMatrix a R :=
   (replace given.transpose toReplace use k).transpose
 
+omit [DecidableEq R] in
 private lemma elem_swap_transpose (c1 c2 : Fin a) :
     (Matrix.elementaryMatrixOfRowOp (.swap c1 c2 : RowOp a R)).transpose =
       Matrix.elementaryMatrixOfRowOp (.swap c1 c2 : RowOp a R) := by
@@ -74,6 +75,7 @@ private lemma elem_swap_transpose (c1 c2 : Fin a) :
           simp [Matrix.elementaryMatrixOfRowOp, swapRow, Matrix.one_apply, hi1, hi2, hj1, hj2]
           try aesop
 
+omit [DecidableEq R] in
 private lemma elem_factor_transpose (c : Fin a) (s : R) :
     (Matrix.elementaryMatrixOfRowOp (.factor c s : RowOp a R)).transpose =
       Matrix.elementaryMatrixOfRowOp (.factor c s : RowOp a R) := by
@@ -85,6 +87,7 @@ private lemma elem_factor_transpose (c : Fin a) (s : R) :
       simp [Matrix.elementaryMatrixOfRowOp, factor, Matrix.one_apply, hi, hj]
       try aesop
 
+omit [DecidableEq R] in
 private lemma elem_replace_transpose (use toReplace : Fin a) (k : R) :
     (Matrix.elementaryMatrixOfRowOp (.replace use toReplace k : RowOp a R)).transpose =
       Matrix.elementaryMatrixOfRowOp (.replace toReplace use k : RowOp a R) := by
@@ -107,20 +110,25 @@ private lemma elem_replace_transpose (use toReplace : Fin a) (k : R) :
               h, hiUse, hiToReplace, hjUse, hjToReplace]
             try aesop
 
+omit [DecidableEq R] in
 private lemma swapCol_eq_mul_elem (M : squareMatrix a R) (c1 c2 : Fin a) :
     swapCol M c1 c2 = M * Matrix.elementaryMatrixOfRowOp (.swap c1 c2 : RowOp a R) := by
   let op : RowOp a R := .swap c1 c2
   have h := Matrix.elementaryMatrixOfRowOp_mul_eq_applyRowOp (op := op) (M := M.transpose)
   have ht := congrArg Matrix.transpose h
-  simpa [op, swapCol, Matrix.applyRowOp, Matrix.transpose_mul, elem_swap_transpose] using ht.symm
+  simpa [op, swapCol, Matrix.applyRowOp, Matrix.transpose_mul, elem_swap_transpose] using
+    ht.symm
 
+omit [DecidableEq R] in
 private lemma factorCol_eq_mul_elem (M : squareMatrix a R) (c : Fin a) (s : R) :
     factorCol M c s = M * Matrix.elementaryMatrixOfRowOp (.factor c s : RowOp a R) := by
   let op : RowOp a R := .factor c s
   have h := Matrix.elementaryMatrixOfRowOp_mul_eq_applyRowOp (op := op) (M := M.transpose)
   have ht := congrArg Matrix.transpose h
-  simpa [op, factorCol, Matrix.applyRowOp, Matrix.transpose_mul, elem_factor_transpose] using ht.symm
+  simpa [op, factorCol, Matrix.applyRowOp, Matrix.transpose_mul, elem_factor_transpose] using
+    ht.symm
 
+omit [DecidableEq R] in
 private lemma replaceCol_eq_mul_elem
     (M : squareMatrix a R) (use toReplace : Fin a) (k : R) :
     replaceCol M use toReplace k =
@@ -128,7 +136,8 @@ private lemma replaceCol_eq_mul_elem
   let opT : RowOp a R := .replace toReplace use k
   have h := Matrix.elementaryMatrixOfRowOp_mul_eq_applyRowOp (op := opT) (M := M.transpose)
   have ht := congrArg Matrix.transpose h
-  simpa [opT, replaceCol, Matrix.applyRowOp, Matrix.transpose_mul, elem_replace_transpose] using ht.symm
+  simpa [opT, replaceCol, Matrix.applyRowOp, Matrix.transpose_mul, elem_replace_transpose] using
+    ht.symm
 
 private abbrev DenseMatrix (R : Type) := Array (Array R)
 
