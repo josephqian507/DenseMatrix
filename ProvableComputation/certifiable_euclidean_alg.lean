@@ -50,13 +50,11 @@ lemma int_bezout_implies_nat_gcd (a b d : Nat) (x y : Int)
   -- that for any two natural numbers `m` and `n`, if `m ∣ n` and `n ∣ m`,
   -- then `m = n`.
   apply Nat.dvd_antisymm
-
   -- GOAL 1: Show `d ∣ Nat.gcd a b`
   -- This follows directly from the definition of GCD.
   -- Since `d` divides `a` and `d` divides `b`, it must also
   -- divide the *greatest* common divisor.
   { exact Nat.dvd_gcd h_d_dvd_a h_d_dvd_b }
-
   -- GOAL 2: Show `Nat.gcd a b ∣ d`
   -- This is where we use the Bézout hypothesis `h_bezout`.
   -- The hypothesis is in `Int`, so we must work with integers.
@@ -64,16 +62,13 @@ lemma int_bezout_implies_nat_gcd (a b d : Nat) (x y : Int)
   -- We want to prove `Nat.gcd a b ∣ d`.
   {
     rw [← Int.natCast_dvd_natCast]
-
     -- Our goal is now `(↑(Nat.gcd a b) : ℤ) ∣ (↑d : ℤ)`.
     -- We can rewrite the `↑d` using our Bézout hypothesis.
     -- `h_bezout` means rewrite from left-to-right (replace `↑d` with the sum).
     rw [h_bezout]
-
     -- Our goal is now `(↑(Nat.gcd a b) : ℤ) ∣ (↑a : ℤ) * x + (↑b : ℤ) * y`
     -- A number divides a sum if it divides both terms.
     apply Int.dvd_add
-
     -- GOAL 2a: Show `(↑(Nat.gcd a b) : ℤ) ∣ (↑a : ℤ) * x`
     · -- A number divides a product if it divides one of the factors.
       -- We will show it divides `↑a`.
@@ -90,7 +85,6 @@ lemma int_bezout_implies_nat_gcd (a b d : Nat) (x y : Int)
         apply Nat.gcd_dvd_left
       }
       { apply Int.one_dvd }
-
     -- GOAL 2b: Show `(↑(Nat.gcd a b) : ℤ) ∣ (↑b : ℤ) * y`
     · -- Similarly, we show it divides `↑b`.
       refine (mul_one (↑(a.gcd b))).symm ▸ ?_
@@ -132,7 +126,6 @@ def gcd_tactic_main (goal : MVarId) : TacticM Unit := do
             let mut unsolvedGoals : List MVarId := [];
             for goal in newGoals do
               let goalType ← goal.getType
-
               -- not sure why negating isAppOf is necessary, seems like it should be the opposite
               if (!goalType.isAppOf ``Dvd) then
                 try
@@ -148,7 +141,6 @@ def gcd_tactic_main (goal : MVarId) : TacticM Unit := do
                 catch e =>
                   logError m!"'abel' tactic failed on Bezout goal: {e.toMessageData}"
                   unsolvedGoals := goal :: unsolvedGoals
-
             replaceMainGoal unsolvedGoals.reverse;
             logInfo m!"'gcd_tactic' finished. {3 - unsolvedGoals.length}/3 subgoals solved."
           } else {
@@ -175,5 +167,5 @@ example : Nat.gcd 15 17 = 1 := by
 example : Nat.gcd 24 12 = 12 := by
   gcd_tactic
 
-example : Nat.gcd 15 3 = 5 := by
-  gcd_tactic
+--example : Nat.gcd 15 3 = 5 := by
+--  gcd_tactic
