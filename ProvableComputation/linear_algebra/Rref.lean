@@ -1,6 +1,5 @@
 import Mathlib.Data.Matrix.Basic
 import Mathlib.Algebra.Field.Rat
-set_option linter.hashCommand false
 
 open Matrix
 
