@@ -10,7 +10,7 @@ parallel viewpoints.
 * `IsReducedEchelonFormOf A B` is the semantic predicate saying that `B` is a
   valid RREF representative of `A`: it is row-equivalent to `A` and reduced.
 * `IsCanonicalRrefOf A B` is the canonical predicate saying that `B` is exactly
-  the algorithm output `(rowReducedEchelonForm A).1`.
+  the algorithm output `(reducedRowEchelonForm A).1`.
 * `RrefUniquenessSemanticGoal` states the stage-2 semantic specification: any
   two semantic representatives of the same source matrix are equal.
 
@@ -18,7 +18,7 @@ The bridge is built in two steps.
 
 1. Show the algorithmic pipeline preserves row-equivalence
    (`eliminateCol.go`, `eliminateCol`, `rrefAux`, and finally
-   `rowReducedEchelonForm`).
+   `reducedRowEchelonForm`).
 2. Prove semantic uniqueness of reduced representatives under row-equivalence
    and then derive canonical equalities as corollaries.
 -/
@@ -64,17 +64,17 @@ variable [DecidableEq R]
 Canonical representative predicate.
 
 This is intentionally algorithmic: `B` must be definitionally the selected
-output of `rowReducedEchelonForm`. It is not the semantic "any reduced
+output of `reducedRowEchelonForm`. It is not the semantic "any reduced
 representative" notion.
 -/
 def IsCanonicalRrefOf {m n : Nat}
     (A B : Matrix (Fin m) (Fin n) R) : Prop :=
-  B = (rowReducedEchelonForm A).1
+  B = (reducedRowEchelonForm A).1
 
 /-- The algorithm output is canonical for its own input matrix. -/
-lemma isCanonicalRrefOf_rowReducedEchelonForm {m n : Nat}
+lemma isCanonicalRrefOf_reducedRowEchelonForm {m n : Nat}
     (A : Matrix (Fin m) (Fin n) R) :
-    IsCanonicalRrefOf A (rowReducedEchelonForm A).1 :=
+    IsCanonicalRrefOf A (reducedRowEchelonForm A).1 :=
   rfl
 
 /--
@@ -89,21 +89,21 @@ theorem IsCanonicalRrefOf.unique {m n : Nat}
     (hB' : IsCanonicalRrefOf A B') :
     B = B' := by
   calc
-    B = (rowReducedEchelonForm A).1 := hB
+    B = (reducedRowEchelonForm A).1 := hB
     _ = B' := hB'.symm
 
 /--
 Canonical representative implies reduced form.
 
 This connects the algorithm-chosen representative to semantic properties by
-reusing `rowReducedEchelonForm_isReducedEchelon`.
+reusing `reducedRowEchelonForm_isReducedEchelon`.
 -/
 lemma IsCanonicalRrefOf.reduced {m n : Nat}
     {A B : Matrix (Fin m) (Fin n) R}
     (hB : IsCanonicalRrefOf A B) :
     IsReducedEchelonForm (M := B) := by
   rcases hB with rfl
-  simpa using rowReducedEchelonForm_isReducedEchelon (M := A)
+  simpa using reducedRowEchelonForm_isReducedEchelon (M := A)
 
 end Canonical
 
@@ -269,25 +269,25 @@ decreasing_by
 /--
 Top-level algorithmic invariant.
 
-`rowReducedEchelonForm` always returns a matrix row-equivalent to its input.
+`reducedRowEchelonForm` always returns a matrix row-equivalent to its input.
 -/
-theorem rowReducedEchelonForm_rowEquivalent
+theorem reducedRowEchelonForm_rowEquivalent
     {m n : Nat}
     (A : Matrix (Fin m) (Fin n) R) :
-    RowEquivalent A (rowReducedEchelonForm A).1 := by
-  simpa [rowReducedEchelonForm] using
+    RowEquivalent A (reducedRowEchelonForm A).1 := by
+  simpa [reducedRowEchelonForm] using
     (rrefAux_rowEquivalent (M := A) (row := 0) (col := 0) (steps := List.nil) (reduced := true))
 
 /--
 Bridge theorem from algorithm output to semantic predicate:
 the computed output is both row-equivalent to `A` and reduced.
 -/
-theorem rowReducedEchelonForm_isReducedEchelonFormOf
+theorem reducedRowEchelonForm_isReducedEchelonFormOf
     {m n : Nat}
     (A : Matrix (Fin m) (Fin n) R) :
-    IsReducedEchelonFormOf A (rowReducedEchelonForm A).1 := by
-  refine ⟨rowReducedEchelonForm_rowEquivalent (A := A), ?_⟩
-  simpa using rowReducedEchelonForm_isReducedEchelon (M := A)
+    IsReducedEchelonFormOf A (reducedRowEchelonForm A).1 := by
+  refine ⟨reducedRowEchelonForm_rowEquivalent (A := A), ?_⟩
+  simpa using reducedRowEchelonForm_isReducedEchelon (M := A)
 
 /--
 Auxiliary bridge theorem: algorithm output is also in echelon form.
@@ -295,18 +295,18 @@ Auxiliary bridge theorem: algorithm output is also in echelon form.
 This is weaker than reduced form but useful when a statement only requires
 `IsEchelonFormOf`.
 -/
-theorem rowReducedEchelonForm_isEchelonFormOf
+theorem reducedRowEchelonForm_isEchelonFormOf
     {m n : Nat}
     (A : Matrix (Fin m) (Fin n) R) :
-    IsEchelonFormOf (A := A) ((rowReducedEchelonForm A).1) := by
-  refine ⟨rowReducedEchelonForm_rowEquivalent (A := A), ?_⟩
-  exact (rowReducedEchelonForm_isReducedEchelon (M := A)).echelon
+    IsEchelonFormOf (A := A) ((reducedRowEchelonForm A).1) := by
+  refine ⟨reducedRowEchelonForm_rowEquivalent (A := A), ?_⟩
+  exact (reducedRowEchelonForm_isReducedEchelon (M := A)).echelon
 
 /-- The algorithm output is canonical by definition (`rfl`). -/
-lemma rowReducedEchelonForm_isCanonicalRrefOf
+lemma reducedRowEchelonForm_isCanonicalRrefOf
     {m n : Nat}
     (A : Matrix (Fin m) (Fin n) R) :
-    IsCanonicalRrefOf A (rowReducedEchelonForm A).1 :=
+    IsCanonicalRrefOf A (reducedRowEchelonForm A).1 :=
   rfl
 
 /--
@@ -314,13 +314,13 @@ If two matrices have the same computed RREF, then they are row-equivalent.
 -/
 theorem rowEquivalent_of_rref_eq {m n : Nat}
     {A B : Matrix (Fin m) (Fin n) R}
-    (hEq : (rowReducedEchelonForm A).1 = (rowReducedEchelonForm B).1) :
+    (hEq : (reducedRowEchelonForm A).1 = (reducedRowEchelonForm B).1) :
     RowEquivalent A B := by
-  let C : Matrix (Fin m) (Fin n) R := (rowReducedEchelonForm A).1
+  let C : Matrix (Fin m) (Fin n) R := (reducedRowEchelonForm A).1
   have hAC : RowEquivalent A C := by
-    simpa [C] using rowReducedEchelonForm_rowEquivalent (A := A)
+    simpa [C] using reducedRowEchelonForm_rowEquivalent (A := A)
   have hBC : RowEquivalent B C := by
-    simpa [C, hEq] using rowReducedEchelonForm_rowEquivalent (A := B)
+    simpa [C, hEq] using reducedRowEchelonForm_rowEquivalent (A := B)
   exact RowEquivalent.trans hAC (RowEquivalent.symm hBC)
 
 /--
@@ -332,7 +332,7 @@ example : RowEquivalent A B := by
 -/
 theorem rowEquivalent_of_decide_rref_eq_true {m n : Nat}
     {A B : Matrix (Fin m) (Fin n) R}
-    (hEq : decide ((rowReducedEchelonForm A).1 = (rowReducedEchelonForm B).1) = true) :
+    (hEq : decide ((reducedRowEchelonForm A).1 = (reducedRowEchelonForm B).1) = true) :
     RowEquivalent A B := by
   exact rowEquivalent_of_rref_eq (A := A) (B := B) (of_decide_eq_true hEq)
 
@@ -735,8 +735,8 @@ Any semantic representative `B` of `A` equals the canonical algorithm output.
 lemma IsReducedEchelonFormOf.canonical {m n : Nat}
     [DecidableEq R]
     {A B : Matrix (Fin m) (Fin n) R} (h : IsReducedEchelonFormOf (A := A) B) :
-    B = (rowReducedEchelonForm A).1 := by
-  exact IsReducedEchelonFormOf.unique h (rowReducedEchelonForm_isReducedEchelonFormOf (A := A))
+    B = (reducedRowEchelonForm A).1 := by
+  exact IsReducedEchelonFormOf.unique h (reducedRowEchelonForm_isReducedEchelonFormOf (A := A))
 
 /--
 Semantic stage-2 specification of RREF uniqueness.

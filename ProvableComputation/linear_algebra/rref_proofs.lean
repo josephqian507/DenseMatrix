@@ -117,41 +117,12 @@ def pivot_ne_zero (pivotRow : Fin a) (pivotCol : Fin b) (M : Matrix (Fin a) (Fin
         have h' : checkPivot M (r + 1) c = some (pivotRow, pivotCol) := by
           rw [checkPivot, checkPivot.scanCol]
           aesop
-          -- split_ifs
-          -- split
-          -- · rename_i p' heq'
-          --   rw [← heq', heq, h]
-          -- · rename_i heq'
-          --   rw [heq] at heq'
-          --   contradiction
         -- Recursively call pivot_ne_zero over the structure of checkPivot
         exact pivot_ne_zero pivotRow pivotCol M (r + 1) c h'
     · -- Case 2: did not find pivot, scanning next column
       rename_i x heq
       have h' : checkPivot M r (c + 1) = some (pivotRow, pivotCol) := by
         aesop
-        -- rw [checkPivot, checkPivot.scanCol]
-        -- split_ifs with h2
-        -- split
-        -- · rename_i p heq'
-        --   rw [checkPivot.scanCol] at h
-        --   split_ifs at h
-        --   split at h
-        --   · rename_i p' heq''
-        --     rw [← heq', heq'', h]
-        --   · rename_i heq''
-        --     rw [heq'] at heq''
-        --     contradiction
-        -- · rename_i heq'
-        --   rw [checkPivot.scanCol] at h
-        --   split_ifs at h
-        --   split at h
-        --   · rename_i heq''
-        --     rw [heq'] at heq''
-        --     contradiction
-        --   · exact h
-        -- · rw [checkPivot.scanCol] at h
-        --   split_ifs at h
       -- Recursively call pivot_ne_zero over the structure of checkPivot
       exact pivot_ne_zero pivotRow pivotCol M r (c + 1) h'
 
@@ -280,9 +251,11 @@ def ref_proof (M : Matrix (Fin a) (Fin b) R) (x : Matrix (Fin b) (Fin 1) R)
   exact rref_proof_helper M 0 0 x List.nil false
 
 def rref_proof (M : Matrix (Fin a) (Fin b) R) (x : Matrix (Fin b) (Fin 1) R)
-    : (rowReducedEchelonForm M).1 * x = 0 ↔ M * x = 0 := by
-  rw [rowReducedEchelonForm]
+    : (reducedRowEchelonForm M).1 * x = 0 ↔ M * x = 0 := by
+  rw [reducedRowEchelonForm]
   exact rref_proof_helper M 0 0 x List.nil true
+
+-- Length of steps list does not decrease after an iteration of Gaussian elimination algorithm
 
 def elim_col_go_adds_steps_helper (pivotRow : Fin a) (pivotCol : Fin b) (r : Nat)
     (M : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
@@ -379,6 +352,9 @@ theorem row_reduction_adds_steps (M : Matrix (Fin a) (Fin b) R) (r c : Nat)
               reduced
   · exact le_rfl
   · exact le_rfl
+
+-- Proof that we can apply the steps in the steps list to the original matrix to get its row
+-- echelon form
 
 private theorem eliminateCol_go_log_correct
     (pivotRow : Fin a) (pivotCol : Fin b) (r : Nat)
@@ -545,3 +521,11 @@ theorem steps (M M' : Matrix (Fin a) (Fin b) R) (ops : List (RowOp a R))
   have h' : rrefAux M 0 0 [] false = (M', [] ++ ops) := by
     simpa [rowEchelonForm]
   simpa using steps_helper M M' 0 0 [] ops ops false h_ops h'
+
+theorem steps_reduced (M M' : Matrix (Fin a) (Fin b) R) (ops : List (RowOp a R))
+    : reducedRowEchelonForm M = (M', ops) → ops.foldl applyRowOp M = M' := by
+  intro h
+  have h_ops : ops = [] ++ ops := by simp
+  have h' : rrefAux M 0 0 [] true = (M', [] ++ ops) := by
+    simpa [reducedRowEchelonForm]
+  simpa using steps_helper M M' 0 0 [] ops ops true h_ops h'

@@ -132,7 +132,7 @@ def rowEchelonForm (given : Matrix (Fin a) (Fin b) R)
     : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
   rrefAux given 0 0 List.nil false
 
-def rowReducedEchelonForm
+def reducedRowEchelonForm
  (given : Matrix (Fin a) (Fin b) R)
 : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
   rrefAux given 0 0 List.nil true

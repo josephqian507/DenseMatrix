@@ -9,7 +9,7 @@ import ProvableComputation.linear_algebra.Rref
 #eval factor sampleMatrix 1 4
 #eval checkPivot sampleMatrix 0 0
 #eval (eliminateCol sampleMatrix 0 0 List.nil true).1
-#eval (rowReducedEchelonForm sampleMatrix).1
+#eval (reducedRowEchelonForm sampleMatrix).1
 
 #time #eval toString (gaussDet matrix2)
 #time #eval toString (matrix2.det)

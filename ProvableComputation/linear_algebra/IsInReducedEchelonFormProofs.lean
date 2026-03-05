@@ -804,21 +804,21 @@ private lemma rrefAux_isReducedEchelon
 
 /-! Final theorem. -/
 
-theorem rowReducedEchelonForm_isReducedEchelon
+theorem reducedRowEchelonForm_isReducedEchelon
     (M : Matrix (Fin m) (Fin n) R) :
-    IsReducedEchelonForm (M := (rowReducedEchelonForm M).1) := by
+    IsReducedEchelonForm (M := (reducedRowEchelonForm M).1) := by
   classical
   have hstate : EchelonState (M := M) (row := 0) (col := 0) (bound := 0) emptyPivs :=
     initial_state (M := M)
-  simpa [rowReducedEchelonForm] using
+  simpa [reducedRowEchelonForm] using
     (rrefAux_isReducedEchelon (M := M) (row := 0) (col := 0) (bound := 0)
       (steps := List.nil) (pivs := emptyPivs)
       (hstate := hstate))
 
 /-- Compatibility theorem: derive REF directly from the stronger RREF result. -/
-theorem rowReducedEchelonForm_isEchelon
+theorem reducedRowEchelonForm_isEchelon
     (M : Matrix (Fin m) (Fin n) R) :
-    IsEchelonForm (M := (rowReducedEchelonForm M).1) :=
-  (rowReducedEchelonForm_isReducedEchelon (M := M)).echelon
+    IsEchelonForm (M := (reducedRowEchelonForm M).1) :=
+  (reducedRowEchelonForm_isReducedEchelon (M := M)).echelon
 
 end Matrix

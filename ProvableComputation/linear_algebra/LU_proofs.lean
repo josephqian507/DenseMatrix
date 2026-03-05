@@ -122,7 +122,9 @@ theorem lu_matrix_eq_matrix (M : Matrix (Fin a) (Fin a) R)
       simp
 
       rw [buildPL] at heq₂
+      split at heq₂
       simp at heq₂
+      rw [matrixOfDense] at heq₂
       apply unfoldBuildPL
 
 
