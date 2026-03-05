@@ -1,6 +1,5 @@
 import ProvableComputation.linear_algebra.Determinant
 import ProvableComputation.linear_algebra.LUFactorization
-import ProvableComputation.linear_algebra.Rref
 
 #eval swapRow sampleMatrix 1 2
 #eval factor sampleMatrix 1 2

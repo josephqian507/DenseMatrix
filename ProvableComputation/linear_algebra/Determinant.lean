@@ -1,6 +1,5 @@
 import ProvableComputation.linear_algebra.Rref
 import Mathlib.Algebra.Field.Rat
-import Mathlib.LinearAlgebra.Matrix.Determinant.Basic
 
 
 open Matrix
