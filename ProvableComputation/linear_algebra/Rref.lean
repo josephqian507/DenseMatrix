@@ -75,7 +75,6 @@ def checkPivot
 def eliminateCol
     (given : Matrix (Fin a) (Fin b) R) (pivotRow : Fin a) (pivotCol : Fin b)
     (steps : List (RowOp a R)) (reduced : Bool) : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
-  let pivot := given pivotRow pivotCol
   let rec go (r : Nat) (cur : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
       : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
     -- Iterate over each entry in pivotCol
@@ -89,8 +88,8 @@ def eliminateCol
         -- pivotCol entry to 0.
         let coeff := cur i pivotCol
         if coeff ≠ 0 then  -- eliminate unnecessary calls to `replace`
-          go (r + 1) (replace cur pivotRow i (-coeff/pivot))
-            (List.concat steps (.replace pivotRow i (-coeff/pivot)))
+          go (r + 1) (replace cur pivotRow i (-coeff))
+            (List.concat steps (.replace pivotRow i (-coeff)))
         else
           go (r + 1) cur steps
     else
