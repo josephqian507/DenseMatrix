@@ -1,5 +1,4 @@
 import Mathlib.Algebra.Field.Rat
-import Mathlib.LinearAlgebra.Matrix.Determinant.Basic
 
 import ProvableComputation.linear_algebra.LUFactorization
 import ProvableComputation.linear_algebra.Rref

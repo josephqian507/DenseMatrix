@@ -1,5 +1,4 @@
 import Mathlib.Data.Matrix.Basic
-import Mathlib.Algebra.Field.Rat
 
 open Matrix
 

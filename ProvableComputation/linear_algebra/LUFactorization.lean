@@ -1,5 +1,3 @@
-import ProvableComputation.linear_algebra.Rref
-import ProvableComputation.linear_algebra.rref_proofs
 import ProvableComputation.linear_algebra.RowEquivalent
 
 -- import Mathlib.Data.Matrix.Basic
