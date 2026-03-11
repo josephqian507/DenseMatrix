@@ -11,8 +11,34 @@ import ProvableComputation.linear_algebra.Rref
 #eval (eliminateCol sampleMatrix 0 0 List.nil true).1
 #eval (reducedRowEchelonForm sampleMatrix).1
 
-#time #eval toString (gaussDet matrix2)
-#time #eval toString (matrix2.det)
+-- Determinant runtime tests
+
+-- 3x3 matrices
+#time #eval LUDet sampleMatrix
+#time #eval (gaussDet sampleMatrix)
+#time #eval (sampleMatrix.det)
+#time #eval LUDet sampleMatrix2
+#time #eval (gaussDet sampleMatrix2)
+#time #eval (sampleMatrix2.det)
+
+-- 4x4 matrix
+#time #eval LUDet sampleMatrix4
+#time #eval (gaussDet sampleMatrix4)
+#time #eval (sampleMatrix4.det)
+
+-- 5x5 matrix
+#time #eval LUDet matrix2
+#time #eval (gaussDet matrix2)
+#time #eval (matrix2.det)
+
+-- 10x10 matrices
+-- Stack overflow, original determinant computation can't handle 10x10 matrices
+#time #eval LUDet sampleMatrix3
+#time #eval (gaussDet sampleMatrix3)
+--#time #eval (sampleMatrix3.det)
+#time #eval LUDet matrix3
+#time #eval (gaussDet matrix3)
+--#time #eval (matrix3.det)
 
 #time #eval LUFactorization sampleMatrix
 #time #eval (LUFactorization sampleMatrix).1 * (LUFactorization sampleMatrix).2.1 *
