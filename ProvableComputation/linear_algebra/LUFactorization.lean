@@ -1,7 +1,5 @@
 import ProvableComputation.linear_algebra.RowEquivalent
 
--- import Mathlib.Data.Matrix.Basic
-
 variable {R : Type} [Field R] [DecidableEq R]
 variable {a : Nat} {b : Nat}
 variable {ha : a > 0} {hb : b > 0}
