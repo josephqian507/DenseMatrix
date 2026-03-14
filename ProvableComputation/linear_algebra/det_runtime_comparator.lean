@@ -4,6 +4,8 @@ import Init.Data.Random
 
 import ProvableComputation.linear_algebra.Determinant
 
+set_option profiler true
+
 -- A simple way to generate a "random" matrix using a pseudo-random seed
 def randomMatrix (n : Nat) (seed : Nat) : Matrix (Fin n) (Fin n) Rat :=
   Matrix.of fun i j =>
@@ -23,14 +25,16 @@ def benchmark (n : Nat) (samples : Nat) : IO Unit := do
 
     -- Measure gaussDet
     let startLUDet ← IO.monoNanosNow
-    let _ := LUDet mat
+    let det := gaussDet mat
+    -- IO.println s!"{det}"
     let endLUDet ← IO.monoNanosNow
     let timeLUDet := (endLUDet - startLUDet).toFloat
     IO.println s!"LU time: {timeLUDet}"
 
     -- Measure Matrix.det
     let startLeibnizDet ← IO.monoNanosNow
-    let _ := mat.det
+    let det := mat.det
+    IO.println s!"{det}"
     let endLeibnizDet ← IO.monoNanosNow
     let timeLeibnizDet := (endLeibnizDet - startLeibnizDet).toFloat
     IO.println s!"det time: {timeLeibnizDet}"
@@ -46,4 +50,4 @@ def benchmark (n : Nat) (samples : Nat) : IO Unit := do
     IO.println "Samples ran too quickly to measure in ms."
 
 -- Run with a small n (like 6 or 7) to avoid the n! explosion
-#time #eval benchmark 10 10
+#time #eval benchmark 5 10
