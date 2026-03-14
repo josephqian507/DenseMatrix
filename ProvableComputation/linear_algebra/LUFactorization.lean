@@ -150,33 +150,25 @@ private def denseIdentity : DenseMatrix R :=
 
 private def matrixOfDense (M : DenseMatrix R) : squareMatrix a R :=
   Matrix.of fun i j =>
-    (M.getD i.1 #[]).getD j.1 0
+    (M.getD i #[]).getD j 0
 
-private def denseSwapCol (M : DenseMatrix R) (c1 c2 : Fin a) : DenseMatrix R :=
-  M.map fun row =>
-    let v1 := row.getD c1.1 0
-    let v2 := row.getD c2.1 0
-    (row.set! c1.1 v2).set! c2.1 v1
+private def denseSwap (M : DenseMatrix R) (r1 r2 : Fin a) : DenseMatrix R :=
+  let row1 := M.getD r1 #[]
+  let row2 := M.getD r2 #[]
+  (M.set! r1 row2).set! r2 row1
 
-private def denseFactorCol (M : DenseMatrix R) (c : Fin a) (s : R) : DenseMatrix R :=
-  M.map fun row =>
-    let v := row.getD c.1 0
-    row.set! c.1 (s * v)
+private def denseFactor (M : DenseMatrix R) (r : Fin a) (s : R) : DenseMatrix R :=
+  let row := M.getD r #[]
+  M.set! r (row.map (fun elem => elem * s))
 
-private def denseReplaceCol
+private def denseReplace
     (M : DenseMatrix R) (use toReplace : Fin a) (k : R) : DenseMatrix R :=
   if use = toReplace then
-    denseFactorCol M toReplace (k + 1)
+    denseFactor M toReplace (k + 1)
   else
-    M.map fun row =>
-      let vUse := row.getD use.1 0
-      let vToReplace := row.getD toReplace.1 0
-      row.set! use.1 (vUse + k * vToReplace)
-
-private def denseSwapRow (M : DenseMatrix R) (r1 r2 : Fin a) : DenseMatrix R :=
-  let row1 := M.getD r1.1 #[]
-  let row2 := M.getD r2.1 #[]
-  (M.set! r1.1 row2).set! r2.1 row1
+    let rowToUse := M.getD use #[]
+    let rowToReplace := M.getD toReplace #[]
+    M.set! toReplace (rowToReplace.mapIdx fun idx elem => elem + k * (rowToUse.getD idx 0))
 
 private def buildPLFastStep
     (state : Prod (List (Prod (Fin a) (Fin a))) (DenseMatrix R))
@@ -184,14 +176,14 @@ private def buildPLFastStep
   let swaps := state.1
   let A := state.2
   match op with
-  | .swap i j => (swaps.concat (i, j), denseSwapCol A i j)
-  | .factor row scale => (swaps, denseFactorCol A row (Inv.inv scale))
-  | .replace use toReplace scale => (swaps, denseReplaceCol A use toReplace (-scale))
+  | .swap i j => (swaps.concat (i, j), denseSwap A i j)
+  | .factor row scale => (swaps, denseFactor A row (Inv.inv scale))
+  | .replace use toReplace scale => (swaps, denseReplace A use toReplace (-scale))
 
 def buildPL (steps : List (RowOp a R)) : Prod (squareMatrix a R) (squareMatrix a R) :=
   let (swaps, A) := steps.foldl buildPLFastStep ([], denseIdentity (a := a) (R := R))
-  let P := swaps.foldl (fun acc ij => denseSwapCol acc ij.1 ij.2) (denseIdentity (a := a) (R := R))
-  let L := swaps.foldl (fun acc ij => denseSwapRow acc ij.1 ij.2) A
+  let P := swaps.foldl (fun acc ij => denseSwap acc ij.1 ij.2) (denseIdentity (a := a) (R := R))
+  let L := swaps.foldl (fun acc ij => denseSwap acc ij.1 ij.2) A
   (matrixOfDense P, matrixOfDense L)
 
 def LUFactorization (M : Matrix (Fin a) (Fin b) R)
@@ -199,3 +191,29 @@ def LUFactorization (M : Matrix (Fin a) (Fin b) R)
   let (U, steps) := rowEchelonForm M
   let (P, L) := buildPL steps
   (P, (L, U))
+
+#eval LUFactorization sampleMatrix3
+
+-- def mat : Matrix (Fin 10) (Fin 10) ℚ :=
+--   ![![10,  1,  2,  3,  4,  5,  6,  7,  8,  9],
+--     ![ 1, 20, 11, 12, 13, 14, 15, 16, 17, 18],
+--     ![ 2, 11, 30, 21, 22, 23, 24, 25, 26, 27],
+--     ![ 3, 12, 21, 40, 31, 32, 33, 34, 35, 36],
+--     ![ 4, 13, 22, 31, 50, 41, 42, 43, 44, 45],
+--     ![ 5, 14, 23, 32, 41, 60, 51, 52, 53, 54],
+--     ![ 6, 15, 24, 33, 42, 51, 70, 61, 62, 63],
+--     ![ 7, 16, 25, 34, 43, 52, 61, 80, 71, 72],
+--     ![ 8, 17, 26, 35, 44, 53, 62, 71, 90, 81],
+--     ![ 9, 18, 27, 36, 45, 54, 63, 72, 81, 99]]
+
+-- def denseMat : DenseMatrix ℚ :=
+--   #[#[10,  1,  2,  3,  4,  5,  6,  7,  8,  9],
+--     #[ 1, 20, 11, 12, 13, 14, 15, 16, 17, 18],
+--     #[ 2, 11, 30, 21, 22, 23, 24, 25, 26, 27],
+--     #[ 3, 12, 21, 40, 31, 32, 33, 34, 35, 36],
+--     #[ 4, 13, 22, 31, 50, 41, 42, 43, 44, 45],
+--     #[ 5, 14, 23, 32, 41, 60, 51, 52, 53, 54],
+--     #[ 6, 15, 24, 33, 42, 51, 70, 61, 62, 63],
+--     #[ 7, 16, 25, 34, 43, 52, 61, 80, 71, 72],
+--     #[ 8, 17, 26, 35, 44, 53, 62, 71, 90, 81],
+--     #[ 9, 18, 27, 36, 45, 54, 63, 72, 81, 99]]
