@@ -1,4 +1,3 @@
-import ProvableComputation.Basic
 import ProvableComputation.certifiable_euclidean_alg
 import ProvableComputation.linear_algebra.Determinant
 import ProvableComputation.linear_algebra.EchelonCommonProofs
