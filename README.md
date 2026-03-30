@@ -22,16 +22,17 @@ Provable Computation is a Lean 4 library for executable and certifiable algorith
 - Test file
   - [`Demos.lean`](./ProvableComputation/linear_algebra/Demos.lean)
 
-<!-- ## Toolchain
+## Toolchain
 
-- Lean toolchain: `leanprover/lean4:v4.24.0` (from [`lean-toolchain`](./lean-toolchain))
+- Lean toolchain: `leanprover/lean4:v4.29.0-rc8` (from [`lean-toolchain`](./lean-toolchain))
 - Build tool: Lake
+- This project is pinned to the latest official `mathlib4` tag available on the Lean 4.29 line.
 
 ## Quick start
 
 ```bash
 lake build
-``` -->
+```
 
 ## Current boundaries
 
