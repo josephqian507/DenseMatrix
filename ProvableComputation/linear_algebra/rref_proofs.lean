@@ -5,6 +5,8 @@ open Matrix
 variable {R : Type} [Field R]
 variable {a b : Nat}
 
+set_option linter.style.longLine false
+
 omit [Field R] in
 private lemma swapRow_self (M : Matrix (Fin a) (Fin b) R) (r : Fin a) :
     swapRow M r r = M := by
@@ -183,19 +185,50 @@ def replace_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
     rw [replace_matrix_eq_elem_mul_matrix, Matrix.mul_assoc]
     exact mul_by_inv _ A_inv hA M x
 
+private lemma eliminateColGoAux_eq
+    (pivotRow : Fin a) (pivotCol : Fin b) (pivotVal : R) (r : Nat)
+    (M : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
+    (hpivot : M pivotRow pivotCol = pivotVal) :
+    eliminateColGoAux pivotRow pivotCol pivotVal r M steps =
+      eliminateCol.go pivotRow pivotCol r M steps := by
+  simp [eliminateCol.go, _root_.eliminateColGo, hpivot]
+
 def eliminate_proof_helper (r : Fin a) (c : Fin b) (row : Nat) (M : Matrix (Fin a) (Fin b) R)
     (x : Matrix (Fin b) (Fin 1) R) (steps : List (RowOp a R)) (reduced : Bool)
     : (eliminateCol.go r c row M steps).1 * x = 0 ↔ M * x = 0 := by
-  rw [eliminateCol.go]
-  split
+  rw [eliminateCol.go, _root_.eliminateColGo, _root_.eliminateColGoAux]
+  split_ifs with hrow
   · simp only [ne_eq, List.concat_eq_append, ite_not, dite_eq_ite]
-    split_ifs with h1 h2
-    · exact eliminate_proof_helper r c (row+1) M x steps reduced
-    · exact eliminate_proof_helper r c (row+1) M x steps reduced
-    · rw [eliminate_proof_helper, replace_proof]
-      · push_neg at h1
-        apply h1.symm
-      · exact reduced
+    split_ifs with hEq hcoeff
+    · simpa [eliminateColGoAux_eq (pivotRow := r) (pivotCol := c) (pivotVal := M r c)
+        (r := row + 1) (M := M) (steps := steps) rfl] using
+        eliminate_proof_helper r c (row + 1) M x steps reduced
+    · simpa [eliminateColGoAux_eq (pivotRow := r) (pivotCol := c) (pivotVal := M r c)
+        (r := row + 1) (M := M) (steps := steps) rfl] using
+        eliminate_proof_helper r c (row + 1) M x steps reduced
+    · let i : Fin a := ⟨row, hrow⟩
+      let M' := replace M r i (-M i c / M r c)
+      let steps' := List.concat steps (.replace r i (-M i c / M r c))
+      have huse : r ≠ i := by
+        push_neg at hEq
+        exact hEq.symm
+      have hpivot' : M' r c = M r c := by
+        simp [M', replace, huse, of_apply]
+      have hrec :
+          (eliminateCol.go r c (row + 1) M' steps').1 * x = 0 ↔ M' * x = 0 := by
+        simpa [M', steps'] using eliminate_proof_helper r c (row + 1) M' x steps' reduced
+      have hrec' :
+          (eliminateColGoAux r c (M r c) (row + 1) M' steps').1 * x = 0 ↔ M' * x = 0 := by
+        simpa [eliminateColGoAux_eq (pivotRow := r) (pivotCol := c) (pivotVal := M r c)
+          (r := row + 1) (M := M') (steps := steps') hpivot'] using hrec
+      have hrec'' :
+          (eliminateColGoAux r c (M r c) (row + 1)
+              (replace M r ⟨row, hrow⟩ (-M ⟨row, hrow⟩ c / M r c))
+              (steps ++ [RowOp.replace r ⟨row, hrow⟩ (-M ⟨row, hrow⟩ c / M r c)])).1 * x = 0 ↔
+            M' * x = 0 := by
+        simpa [i, M', steps'] using hrec'
+      rw [hrec'', replace_proof]
+      exact huse
   · rfl
 
 def eliminate_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
@@ -255,16 +288,35 @@ def rref_proof (M : Matrix (Fin a) (Fin b) R) (x : Matrix (Fin b) (Fin 1) R)
 def elim_col_go_adds_steps_helper (pivotRow : Fin a) (pivotCol : Fin b) (r : Nat)
     (M : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
     : (eliminateCol.go pivotRow pivotCol r M steps).2.length ≥ steps.length := by
-  rw [eliminateCol.go]
-  split_ifs with h
+  rw [eliminateCol.go, _root_.eliminateColGo, _root_.eliminateColGoAux]
+  split_ifs with hrow
   · simp only [ne_eq, List.concat_eq_append, ite_not, dite_eq_ite]
-    split_ifs
-    · exact elim_col_go_adds_steps_helper pivotRow pivotCol (r+1) M steps
-    · exact elim_col_go_adds_steps_helper pivotRow pivotCol (r+1) M steps
-    · trans (steps ++ [RowOp.replace pivotRow ⟨r, h⟩ (-M ⟨r, h⟩ pivotCol)]).length
-      · exact elim_col_go_adds_steps_helper pivotRow pivotCol (r+1)
-          (replace M pivotRow ⟨r, h⟩ (-M ⟨r, h⟩ pivotCol))
-          (steps ++ [RowOp.replace pivotRow ⟨r, h⟩ (-M ⟨r, h⟩ pivotCol)])
+    split_ifs with hEq hcoeff
+    · simpa [eliminateColGoAux_eq (pivotRow := pivotRow) (pivotCol := pivotCol)
+        (pivotVal := M pivotRow pivotCol) (r := r + 1) (M := M) (steps := steps) rfl] using
+        elim_col_go_adds_steps_helper pivotRow pivotCol (r + 1) M steps
+    · simpa [eliminateColGoAux_eq (pivotRow := pivotRow) (pivotCol := pivotCol)
+        (pivotVal := M pivotRow pivotCol) (r := r + 1) (M := M) (steps := steps) rfl] using
+        elim_col_go_adds_steps_helper pivotRow pivotCol (r + 1) M steps
+    · let i : Fin a := ⟨r, hrow⟩
+      let M' := replace M pivotRow i (-M i pivotCol / M pivotRow pivotCol)
+      let steps' := steps ++ [RowOp.replace pivotRow i (-M i pivotCol / M pivotRow pivotCol)]
+      have huse : pivotRow ≠ i := by
+        push_neg at hEq
+        exact hEq.symm
+      have hpivot' : M' pivotRow pivotCol = M pivotRow pivotCol := by
+        simp [M', replace, huse, of_apply]
+      have hrec :
+          (eliminateCol.go pivotRow pivotCol (r + 1) M' steps').2.length ≥ steps'.length := by
+        simpa [M', steps'] using
+          elim_col_go_adds_steps_helper pivotRow pivotCol (r + 1) M' steps'
+      have hrec' :
+          (eliminateColGoAux pivotRow pivotCol (M pivotRow pivotCol) (r + 1) M' steps').2.length ≥
+            steps'.length := by
+        simpa [eliminateColGoAux_eq (pivotRow := pivotRow) (pivotCol := pivotCol)
+          (pivotVal := M pivotRow pivotCol) (r := r + 1) (M := M') (steps := steps') hpivot'] using hrec
+      trans steps'.length
+      · exact hrec'
       · aesop
   · simp
 
@@ -369,26 +421,37 @@ private theorem eliminateCol_go_log_correct
         intro r M steps hk
         have hr : a ≤ r := Nat.le_of_sub_eq_zero hk
         refine ⟨[], ?_⟩
-        simp [eliminateCol.go, Nat.not_lt_of_ge hr]
+        rw [eliminateCol.go, _root_.eliminateColGo, _root_.eliminateColGoAux, dif_neg (not_lt_of_ge hr)]
+        simp
     | succ k ih =>
         intro r M steps hk
         have hr : r < a := by omega
         have hk' : a - (r + 1) = k := by omega
         let i : Fin a := ⟨r, hr⟩
-        rw [eliminateCol.go, dif_pos hr]
+        rw [eliminateCol.go, _root_.eliminateColGo, _root_.eliminateColGoAux, dif_pos hr]
         by_cases hEq : i = pivotRow
         · obtain ⟨ops_tail, htail⟩ := ih (r + 1) M steps hk'
           exact ⟨ops_tail, by simpa [i, hEq, dite_eq_ite] using htail⟩
         · by_cases hcoeff : M i pivotCol ≠ 0
-          · let op : RowOp a R := .replace pivotRow i (-M i pivotCol)
-            let M' := replace M pivotRow i (-M i pivotCol)
+          · let op : RowOp a R := .replace pivotRow i (-M i pivotCol / M pivotRow pivotCol)
+            let M' := replace M pivotRow i (-M i pivotCol / M pivotRow pivotCol)
             let steps' := steps ++ [op]
+            have huse : pivotRow ≠ i := by
+              intro hpr
+              exact hEq hpr.symm
+            have hpivot' : M' pivotRow pivotCol = M pivotRow pivotCol := by
+              simp [M', replace, huse, of_apply]
             obtain ⟨ops_tail, htail⟩ := ih (r + 1) M' steps' hk'
             refine ⟨op :: ops_tail, ?_⟩
             simpa [i, hEq, hcoeff, op, M', steps', List.foldl_append, List.append_assoc,
-              applyRowOp, dite_eq_ite] using htail
+              applyRowOp, dite_eq_ite, eliminateColGoAux_eq (pivotRow := pivotRow)
+              (pivotCol := pivotCol) (pivotVal := M pivotRow pivotCol) (r := r + 1)
+              (M := M') (steps := steps') hpivot'] using htail
           · obtain ⟨ops_tail, htail⟩ := ih (r + 1) M steps hk'
-            exact ⟨ops_tail, by simpa [i, hEq, hcoeff, dite_eq_ite] using htail⟩
+            exact ⟨ops_tail, by
+              simpa [i, hEq, hcoeff, dite_eq_ite,
+                eliminateColGoAux_eq (pivotRow := pivotRow) (pivotCol := pivotCol)
+                  (pivotVal := M pivotRow pivotCol) (r := r + 1) (M := M) (steps := steps) rfl] using htail⟩
   exact hrec (a - r) r M steps rfl
 
 private theorem eliminateCol_log_correct

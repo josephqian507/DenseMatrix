@@ -71,32 +71,57 @@ def checkPivot
 -- to set the value in column `pivotCol` of the row to 0.
 -- `eliminateCol` calls replace between 0 and `a` times, so this algorithm's certificate
 -- should include a `replace` object for each `replace` call in `eliminateCol`
+def eliminateColGoAux
+    (pivotRow : Fin a) (pivotCol : Fin b) (pivotVal : R)
+    (r : Nat) (cur : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
+    : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
+  -- Iterate over each entry in pivotCol.
+  if hr : r < a then
+    let i : Fin a := ⟨r, hr⟩
+    -- Skip over pivotRow.
+    if h : i = pivotRow then
+      eliminateColGoAux pivotRow pivotCol pivotVal (r + 1) cur steps
+    else
+      -- Otherwise, use pivotRow to replace the current row, setting this row's
+      -- pivotCol entry to 0.
+      let coeff := cur i pivotCol
+      if coeff ≠ 0 then  -- eliminate unnecessary calls to `replace`
+        eliminateColGoAux pivotRow pivotCol pivotVal (r + 1)
+          (replace cur pivotRow i (-coeff / pivotVal))
+          (List.concat steps (.replace pivotRow i (-coeff / pivotVal)))
+      else
+        eliminateColGoAux pivotRow pivotCol pivotVal (r + 1) cur steps
+  else
+    (cur, steps)
+termination_by a - r
+decreasing_by
+  · omega
+  · omega
+  · omega
+
+def eliminateColGo
+    (pivotRow : Fin a) (pivotCol : Fin b)
+    (r : Nat) (cur : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
+    : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
+  eliminateColGoAux pivotRow pivotCol (cur pivotRow pivotCol) r cur steps
+
 def eliminateCol
     (given : Matrix (Fin a) (Fin b) R) (pivotRow : Fin a) (pivotCol : Fin b)
     (steps : List (RowOp a R)) (reduced : Bool) : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
-  let rec go (r : Nat) (cur : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
-      : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
-    -- Iterate over each entry in pivotCol
-    if hr : r < a then
-      let i : Fin a := ⟨r, hr⟩
-      -- Skip over pivotRow
-      if h : i = pivotRow then
-        go (r + 1) cur steps
-      else
-        -- Otherwise, use pivotRow to replace the current row, setting this row's
-        -- pivotCol entry to 0.
-        let coeff := cur i pivotCol
-        if coeff ≠ 0 then  -- eliminate unnecessary calls to `replace`
-          go (r + 1) (replace cur pivotRow i (-coeff))
-            (List.concat steps (.replace pivotRow i (-coeff)))
-        else
-          go (r + 1) cur steps
-    else
-      (cur, steps)
   if reduced then
-    go 0 given steps
+    eliminateColGo pivotRow pivotCol 0 given steps
   else
-    go pivotRow.val given steps
+    eliminateColGo pivotRow pivotCol pivotRow.val given steps
+
+namespace eliminateCol
+
+abbrev go
+    (pivotRow : Fin a) (pivotCol : Fin b)
+    (r : Nat) (cur : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
+    : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
+  eliminateColGo pivotRow pivotCol r cur steps
+
+end eliminateCol
 
 def rrefAux
   (m : Matrix (Fin a) (Fin b) R) (row col : Nat) (steps : List (RowOp a R)) (reduced : Bool)

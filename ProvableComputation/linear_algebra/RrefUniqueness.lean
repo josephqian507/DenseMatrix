@@ -27,6 +27,8 @@ namespace Matrix
 
 variable {R : Type} [Field R]
 
+set_option linter.style.longLine false
+
 /-- `B` is an RREF representative of `A`: row-equivalent to `A` and in reduced echelon form. -/
 def IsReducedEchelonFormOf {m n : Nat}
     [DecidableEq R]
@@ -122,7 +124,13 @@ private theorem eliminateColGo_rowEquivalent
     (pivotRow : Fin m) (pivotCol : Fin n) (row : Nat)
     (cur : Matrix (Fin m) (Fin n) R) (steps : List (RowOp m R)) :
     RowEquivalent cur (eliminateCol.go pivotRow pivotCol row cur steps).1 := by
-  rw [eliminateCol.go]
+  have goAux_matrix_eq
+      (pivotVal : R) (row : Nat) (cur : Matrix (Fin m) (Fin n) R) (steps : List (RowOp m R))
+      (hpivot : cur pivotRow pivotCol = pivotVal) :
+      (_root_.eliminateColGoAux pivotRow pivotCol pivotVal row cur steps).1 =
+        (_root_.eliminateColGo pivotRow pivotCol row cur steps).1 := by
+    simp [_root_.eliminateColGo, hpivot]
+  rw [eliminateCol.go, _root_.eliminateColGo, _root_.eliminateColGoAux]
   split_ifs with hr
   · let i : Fin m := ⟨row, hr⟩
     -- At a valid scan row `i`, split into "pivot row" versus "non-pivot row".
@@ -132,28 +140,33 @@ private theorem eliminateColGo_rowEquivalent
     -- For non-pivot rows, branch on whether elimination is needed.
     · by_cases hcoeff : cur i pivotCol ≠ 0
       -- Nonzero coefficient: perform one row replacement, then recurse.
-      · let cur' := replace cur pivotRow i (-cur i pivotCol)
-        let steps' := List.concat steps (.replace pivotRow i (-cur i pivotCol))
+      · let cur' := replace cur pivotRow i (-cur i pivotCol / cur pivotRow pivotCol)
+        let steps' := List.concat steps (.replace pivotRow i (-cur i pivotCol / cur pivotRow pivotCol))
         have hreplace : RowEquivalent cur cur' := by
           dsimp [cur']
           exact rowEquivalent_replace
-            (A := cur) (use := pivotRow) (toReplace := i) (k := -cur i pivotCol)
+            (A := cur) (use := pivotRow) (toReplace := i) (k := -cur i pivotCol / cur pivotRow pivotCol)
             (huse := by simpa [eq_comm] using hEq)
+        have hpivot' : cur' pivotRow pivotCol = cur pivotRow pivotCol := by
+          have huse : pivotRow ≠ i := by
+            intro hpr
+            exact hEq hpr.symm
+          simp [cur', replace, huse, of_apply]
         have hrec :
             RowEquivalent cur' (eliminateCol.go pivotRow pivotCol (row + 1) cur' steps').1 := by
           simpa [cur', steps'] using
             (eliminateColGo_rowEquivalent pivotRow pivotCol (row + 1) cur' steps')
-        simpa [i, hEq, hcoeff, cur', steps'] using RowEquivalent.trans hreplace hrec
+        have hrec' :
+            RowEquivalent cur'
+              (_root_.eliminateColGoAux pivotRow pivotCol (cur pivotRow pivotCol) (row + 1) cur' steps').1 := by
+          simpa [goAux_matrix_eq (pivotVal := cur pivotRow pivotCol) (row := row + 1)
+            (cur := cur') (steps := steps') hpivot'] using hrec
+        simpa [i, hEq, hcoeff, cur', steps'] using RowEquivalent.trans hreplace hrec'
       -- Zero coefficient: no operation at this row; recurse directly.
       · simpa [i, hEq, hcoeff] using
           (eliminateColGo_rowEquivalent pivotRow pivotCol (row + 1) cur steps)
   -- End of scan (`row` out of range): result is definitionally unchanged.
   · simpa using (RowEquivalent.refl cur)
-termination_by m - row
-decreasing_by
-  · omega
-  · omega
-  · omega
 
 /--
 Wrapper lemma for `eliminateCol`.
