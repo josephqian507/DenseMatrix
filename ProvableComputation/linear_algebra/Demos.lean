@@ -1,6 +1,21 @@
 import ProvableComputation.linear_algebra.Determinant
 import ProvableComputation.linear_algebra.LUFactorization
 
+def luCounterexample : Matrix (Fin 3) (Fin 3) Rat :=
+  ![![1, 0, 0],
+    ![2, 1, 0],
+    ![3, 5, 1]]
+
+def luNonsquare : Matrix (Fin 3) (Fin 4) Rat :=
+  ![![1, 0, 0, 7],
+    ![2, 1, 0, 8],
+    ![3, 5, 1, 9]]
+
+private def reconstructLU {R : Type} [Field R] [DecidableEq R] {a b : Nat}
+    (M : Matrix (Fin a) (Fin b) R) : Matrix (Fin a) (Fin b) R :=
+  let lu := LUFactorization M
+  lu.1 * lu.2.1 * lu.2.2
+
 #eval swapRow sampleMatrix 1 2
 #eval factor sampleMatrix 1 2
 #eval replace sampleMatrix 1 2 3
@@ -56,3 +71,11 @@ import ProvableComputation.linear_algebra.LUFactorization
 #time #eval LUFactorization sampleMatrix3
 #time #eval (LUFactorization sampleMatrix3).1 * (LUFactorization sampleMatrix3).2.1 *
   (LUFactorization sampleMatrix3).2.2
+
+#eval LUFactorization luCounterexample
+#eval reconstructLU luCounterexample
+#eval decide (reconstructLU luCounterexample = luCounterexample)
+
+#eval LUFactorization luNonsquare
+#eval reconstructLU luNonsquare
+#eval decide (reconstructLU luNonsquare = luNonsquare)
