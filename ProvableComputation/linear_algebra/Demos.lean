@@ -57,20 +57,20 @@ private def reconstructLU {R : Type} [Field R] [DecidableEq R] {a b : Nat}
 --#time #eval (matrix3.det)
 
 #time #eval LUFactorization sampleMatrix
-#time #eval (LUFactorization sampleMatrix).1 * (LUFactorization sampleMatrix).2.1 *
-  (LUFactorization sampleMatrix).2.2
+#time #eval reconstructLU sampleMatrix
+#eval decide (reconstructLU sampleMatrix = sampleMatrix)
 
 #time #eval LUFactorization sampleMatrix2
-#time #eval (LUFactorization sampleMatrix2).1 * (LUFactorization sampleMatrix2).2.1 *
-  (LUFactorization sampleMatrix2).2.2
+#time #eval reconstructLU sampleMatrix2
+#eval decide (reconstructLU sampleMatrix2 = sampleMatrix2)
 
 #time #eval LUFactorization sampleMatrix4
-#time #eval (LUFactorization sampleMatrix4).1 * (LUFactorization sampleMatrix4).2.1 *
-  (LUFactorization sampleMatrix4).2.2
+#time #eval reconstructLU sampleMatrix4
+#eval decide (reconstructLU sampleMatrix4 = sampleMatrix4)
 
 #time #eval LUFactorization sampleMatrix3
-#time #eval (LUFactorization sampleMatrix3).1 * (LUFactorization sampleMatrix3).2.1 *
-  (LUFactorization sampleMatrix3).2.2
+#time #eval reconstructLU sampleMatrix3
+#eval decide (reconstructLU sampleMatrix3 = sampleMatrix3)
 
 #eval LUFactorization luCounterexample
 #eval reconstructLU luCounterexample

@@ -29,22 +29,6 @@ def sampleMatrix4 : Matrix (Fin 4) (Fin 4) Rat :=
     ![9, 3, 2, 9],
     ![45, 3, 9, 8]]
 
-private def getLastSafe (l : List (squareMatrix a R)) : squareMatrix a R :=
-  if h : l.length = 0 then
-    1
-  else
-    have hl : l.length - 1 < l.length := by
-      exact Nat.sub_one_lt h
-    l.get <| Fin.mk (l.length - 1) hl
-
-private def setList (l : List (squareMatrix a R)) (op : RowOp a R) (multiply : Bool)
-    : List (squareMatrix a R) :=
-  if multiply then
-    l.set (l.length - 1)
-      ((getLastSafe l) * (Matrix.elementaryMatrixOfRowOp op))
-  else
-    l.concat (Matrix.elementaryMatrixOfRowOp op)
-
 private def swapCol (given : squareMatrix a R) (col1 col2 : Fin a) : squareMatrix a R :=
   (swapRow given.transpose col1 col2).transpose
 
@@ -155,47 +139,41 @@ private def denseSwapRow (M : DenseMatrix R) (r1 r2 : Fin a) : DenseMatrix R :=
   let row2 := M.getD r2 #[]
   (M.set! r1 row2).set! r2 row1
 
-private def denseSwapRowPrefix
-    (M : DenseMatrix R) (r1 r2 : Fin a) (bound : Nat) : DenseMatrix R :=
-  let row1 := M.getD r1 #[]
-  let row2 := M.getD r2 #[]
-  let row1' := row1.mapIdx fun idx elem => if idx < bound then row2.getD idx 0 else elem
-  let row2' := row2.mapIdx fun idx elem => if idx < bound then row1.getD idx 0 else elem
-  (M.set! r1 row1').set! r2 row2'
-
-private def denseFactor (M : DenseMatrix R) (r : Fin a) (s : R) : DenseMatrix R :=
-  let row := M.getD r #[]
-  M.set! r (row.map (fun elem => elem * s))
-
-private def denseSetEntry (M : DenseMatrix R) (r c : Fin a) (value : R) : DenseMatrix R :=
-  let row := M.getD r #[]
-  M.set! r (row.set! c.1 value)
-
 private def denseSwapCol (M : DenseMatrix R) (c1 c2 : Fin a) : DenseMatrix R :=
   M.map fun row =>
     let v1 := row.getD c1.1 0
     let v2 := row.getD c2.1 0
     (row.set! c1.1 v2).set! c2.1 v1
 
-private def buildPLStep
-    (state : Prod (DenseMatrix R) (DenseMatrix R))
-    (op : RowOp a R) : Prod (DenseMatrix R) (DenseMatrix R) :=
-  let P := state.1
-  let L := state.2
-  match op with
-  | .swap i j => (denseSwapCol P i j, denseSwapRowPrefix L i j i.1)
-  | .factor row scale => (P, denseFactor L row scale⁻¹)
-  | .replace use toReplace scale =>
-      if _h : use = toReplace then
-        (P, denseFactor L toReplace (scale + 1)⁻¹)
-      else
-        -- `rowEchelonForm` logs elimination as `replace pivotRow targetRow scale`;
-        -- `L` stores the inverse multipliers `-scale` in the pivot column.
-        (P, denseSetEntry L toReplace use (-scale))
+private def denseFactorCol (M : DenseMatrix R) (c : Fin a) (s : R) : DenseMatrix R :=
+  M.map fun row =>
+    let v := row.getD c.1 0
+    row.set! c.1 (s * v)
 
-def buildPL (steps : List (RowOp a R)) : Prod (squareMatrix a R) (squareMatrix a R) :=
-  let (P, L) := steps.foldl buildPLStep (denseIdentity (a := a) (R := R),
-    denseIdentity (a := a) (R := R))
+private def denseReplaceCol
+    (M : DenseMatrix R) (use toReplace : Fin a) (k : R) : DenseMatrix R :=
+  if use = toReplace then
+    denseFactorCol M toReplace (k + 1)
+  else
+    M.map fun row =>
+      let vUse := row.getD use.1 0
+      let vToReplace := row.getD toReplace.1 0
+      row.set! use.1 (vUse + k * vToReplace)
+
+private def buildPLStep
+    (state : (List ((Fin a) × (Fin a))) × (DenseMatrix R))
+    (op : RowOp a R) : (List ((Fin a) × (Fin a))) × (DenseMatrix R) :=
+  let swaps := state.1
+  let M_inv := state.2
+  match op with
+  | .swap i j => (swaps.concat (i, j), denseSwapCol M_inv i j)
+  | .factor row scale => (swaps, denseFactorCol M_inv row scale⁻¹)
+  | .replace use toReplace scale => (swaps, denseReplaceCol M_inv use toReplace (-scale))
+
+def buildPL (steps : List (RowOp a R)) : (squareMatrix a R) × (squareMatrix a R) :=
+  let (swaps, M_inv) := steps.foldl buildPLStep ([], denseIdentity (a := a) (R := R))
+  let P := swaps.foldl (fun acc ij => denseSwapCol acc ij.1 ij.2) (denseIdentity (a := a) (R := R))
+  let L := swaps.foldl (fun acc ij => denseSwapRow acc ij.1 ij.2) M_inv
   (matrixOfDense P, matrixOfDense L)
 
 def LUFactorization (M : Matrix (Fin a) (Fin b) R)
