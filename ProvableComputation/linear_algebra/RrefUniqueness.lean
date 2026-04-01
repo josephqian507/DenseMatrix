@@ -218,8 +218,12 @@ private theorem rrefAux_rowEquivalent
         -- `m2`: normalize pivot value to `1` when needed.
         let pivotVal : R := m1 rowFin pivotCol
         let m2 : Matrix (Fin m) (Fin n) R :=
-          if pivotVal = 1 then m1 else factor m1 rowFin pivotVal⁻¹
-        let steps2 : List (RowOp m R) := List.concat steps1 (.factor rowFin pivotVal⁻¹)
+          if !reduced || pivotVal = 1 then m1 else factor m1 rowFin pivotVal⁻¹
+        let steps2 : List (RowOp m R) :=
+          if !reduced || pivotVal = 1 then
+            steps1
+          else
+            List.concat steps1 (.factor rowFin pivotVal⁻¹)
         -- Stage 1: row-equivalence from optional swap.
         have hM1 : RowEquivalent M m1 := by
           by_cases hp : pivotRow.1 = row
@@ -243,12 +247,16 @@ private theorem rrefAux_rowEquivalent
             simpa [m1, hp, pivotVal, hpres] using hnon
         -- Stage 2: row-equivalence from optional scaling of pivot row.
         have hM2 : RowEquivalent m1 m2 := by
-          by_cases hv : pivotVal = 1
-          · simpa [m2, hv] using (RowEquivalent.refl m1)
-          · have hfac : RowEquivalent m1 (factor m1 rowFin pivotVal⁻¹) :=
-              rowEquivalent_factor (A := m1) (i := rowFin) (j := pivotVal⁻¹)
-                (hj := inv_ne_zero hpivot_ne_zero)
-            simpa [m2, hv] using hfac
+          cases hred : reduced with
+          | false =>
+              simpa [m2, hred] using (RowEquivalent.refl m1)
+          | true =>
+              by_cases hv : pivotVal = 1
+              · simpa [m2, hred, hv] using (RowEquivalent.refl m1)
+              · have hfac : RowEquivalent m1 (factor m1 rowFin pivotVal⁻¹) :=
+                  rowEquivalent_factor (A := m1) (i := rowFin) (j := pivotVal⁻¹)
+                    (hj := inv_ne_zero hpivot_ne_zero)
+                simpa [m2, hred, hv] using hfac
         -- Stage 3+4: elimination then recursive processing of the smaller subproblem.
         cases hp : eliminateCol m2 rowFin pivotCol steps2 reduced with
         | mk m3 steps3 =>

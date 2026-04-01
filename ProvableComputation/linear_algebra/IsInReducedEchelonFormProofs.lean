@@ -765,9 +765,12 @@ private lemma rrefAux_isReducedEchelon
                 let m2 := if pivotVal = 1 then m1 else factor m1 ⟨row, hrow⟩ (pivotVal)⁻¹
                 let m3 := eliminateColM m2 ⟨row, hrow⟩ pc
                 let steps' :=
-                  steps ++
-                    [RowOp.swap ⟨row, hrow⟩ pr,
-                      RowOp.factor ⟨row, hrow⟩ (pivotVal)⁻¹]
+                  if pivotVal = 1 then
+                    steps ++ [RowOp.swap ⟨row, hrow⟩ pr]
+                  else
+                    steps ++
+                      [RowOp.swap ⟨row, hrow⟩ pr,
+                        RowOp.factor ⟨row, hrow⟩ (pivotVal)⁻¹]
                 have hklt : m - (row + 1) < k := by
                   have hlt : m - (row + 1) < m - row := by omega
                   simpa [hk] using hlt

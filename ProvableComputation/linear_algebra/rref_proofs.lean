@@ -507,35 +507,85 @@ private theorem rrefAux_log_correct
                 · simp [m1, swapOp, applyRowOp, hswap]
               let pivotVal : R := m1 rowFin pivotCol
               let factorOp : RowOp a R := .factor rowFin pivotVal⁻¹
-              let steps2 : List (RowOp a R) := steps1 ++ [factorOp]
-              let m2 : Matrix (Fin a) (Fin b) R :=
-                if pivotVal = 1 then m1 else factor m1 rowFin pivotVal⁻¹
-              have hm2 : m2 = applyRowOp m1 factorOp := by
-                by_cases hpv : pivotVal = 1
-                · simp [m2, factorOp, applyRowOp, hpv, factor_one]
-                · simp [m2, factorOp, applyRowOp, hpv]
-              obtain ⟨ops_elim, hElim⟩ :=
-                eliminateCol_log_correct m2 rowFin pivotCol steps2 reduced
-              obtain ⟨ops_rec, hRec⟩ :=
-                ih (ops_elim.foldl applyRowOp m2) (r + 1) (c + 1) (steps2 ++ ops_elim) reduced hk'
-              refine ⟨[swapOp, factorOp] ++ ops_elim ++ ops_rec, ?_⟩
-              have hbranch :
-                  (match eliminateCol m2 rowFin pivotCol steps2 reduced with
-                    | (m3, steps3) => rrefAux m3 (r + 1) (c + 1) steps3 reduced) =
-                    (ops_rec.foldl applyRowOp (ops_elim.foldl applyRowOp m2),
-                      steps2 ++ ops_elim ++ ops_rec) := by
-                simpa [hElim] using hRec
-              have hfinal :
-                  (ops_rec.foldl applyRowOp (ops_elim.foldl applyRowOp m2),
-                    steps2 ++ ops_elim ++ ops_rec) =
-                    (List.foldl applyRowOp M ([swapOp, factorOp] ++ ops_elim ++ ops_rec),
-                      steps ++ ([swapOp, factorOp] ++ ops_elim ++ ops_rec)) := by
-                apply Prod.ext
-                · simp only [List.cons_append, List.nil_append, List.foldl_cons, List.foldl_append]
-                  rw [hm2, hm1]
-                · simp [steps1, steps2, List.append_assoc]
-              simpa [hcp, rowFin, steps1, m1, pivotVal, steps2, m2, List.concat_eq_append] using
-                hbranch.trans hfinal
+              cases hred : reduced with
+              | false =>
+                  obtain ⟨ops_elim, hElim⟩ :=
+                    eliminateCol_log_correct m1 rowFin pivotCol steps1 false
+                  obtain ⟨ops_rec, hRec⟩ :=
+                    ih (ops_elim.foldl applyRowOp m1) (r + 1) (c + 1) (steps1 ++ ops_elim) false hk'
+                  refine ⟨[swapOp] ++ ops_elim ++ ops_rec, ?_⟩
+                  have hbranch :
+                      (match eliminateCol m1 rowFin pivotCol steps1 false with
+                        | (m3, steps3) => rrefAux m3 (r + 1) (c + 1) steps3 false) =
+                        (ops_rec.foldl applyRowOp (ops_elim.foldl applyRowOp m1),
+                          steps1 ++ ops_elim ++ ops_rec) := by
+                    simpa [hElim] using hRec
+                  have hfinal :
+                      (ops_rec.foldl applyRowOp (ops_elim.foldl applyRowOp m1),
+                        steps1 ++ ops_elim ++ ops_rec) =
+                        (List.foldl applyRowOp M ([swapOp] ++ ops_elim ++ ops_rec),
+                          steps ++ ([swapOp] ++ ops_elim ++ ops_rec)) := by
+                    apply Prod.ext
+                    · simp only [List.cons_append, List.nil_append, List.foldl_cons,
+                        List.foldl_append]
+                      rw [hm1]
+                    · simp [steps1, List.append_assoc]
+                  simpa [hcp, rowFin, hred, steps1, m1, pivotVal, List.concat_eq_append] using
+                    hbranch.trans hfinal
+              | true =>
+                  by_cases hpv : pivotVal = 1
+                  · obtain ⟨ops_elim, hElim⟩ :=
+                      eliminateCol_log_correct m1 rowFin pivotCol steps1 true
+                    obtain ⟨ops_rec, hRec⟩ :=
+                      ih (ops_elim.foldl applyRowOp m1) (r + 1) (c + 1) (steps1 ++ ops_elim)
+                        true hk'
+                    refine ⟨[swapOp] ++ ops_elim ++ ops_rec, ?_⟩
+                    have hbranch :
+                        (match eliminateCol m1 rowFin pivotCol steps1 true with
+                          | (m3, steps3) => rrefAux m3 (r + 1) (c + 1) steps3 true) =
+                          (ops_rec.foldl applyRowOp (ops_elim.foldl applyRowOp m1),
+                            steps1 ++ ops_elim ++ ops_rec) := by
+                      simpa [hElim] using hRec
+                    have hfinal :
+                        (ops_rec.foldl applyRowOp (ops_elim.foldl applyRowOp m1),
+                          steps1 ++ ops_elim ++ ops_rec) =
+                          (List.foldl applyRowOp M ([swapOp] ++ ops_elim ++ ops_rec),
+                            steps ++ ([swapOp] ++ ops_elim ++ ops_rec)) := by
+                      apply Prod.ext
+                      · simp only [List.cons_append, List.nil_append, List.foldl_cons,
+                          List.foldl_append]
+                        rw [hm1]
+                      · simp [steps1, List.append_assoc]
+                    simpa [hcp, rowFin, hred, hpv, steps1, m1, pivotVal, List.concat_eq_append]
+                      using hbranch.trans hfinal
+                  · let steps2 : List (RowOp a R) := steps1 ++ [factorOp]
+                    let m2 : Matrix (Fin a) (Fin b) R := factor m1 rowFin pivotVal⁻¹
+                    have hm2 : m2 = applyRowOp m1 factorOp := by
+                      simp [m2, factorOp, applyRowOp]
+                    obtain ⟨ops_elim, hElim⟩ :=
+                      eliminateCol_log_correct m2 rowFin pivotCol steps2 true
+                    obtain ⟨ops_rec, hRec⟩ :=
+                      ih (ops_elim.foldl applyRowOp m2) (r + 1) (c + 1) (steps2 ++ ops_elim)
+                        true hk'
+                    refine ⟨[swapOp, factorOp] ++ ops_elim ++ ops_rec, ?_⟩
+                    have hbranch :
+                        (match eliminateCol m2 rowFin pivotCol steps2 true with
+                          | (m3, steps3) => rrefAux m3 (r + 1) (c + 1) steps3 true) =
+                          (ops_rec.foldl applyRowOp (ops_elim.foldl applyRowOp m2),
+                            steps2 ++ ops_elim ++ ops_rec) := by
+                      simpa [hElim] using hRec
+                    have hfinal :
+                        (ops_rec.foldl applyRowOp (ops_elim.foldl applyRowOp m2),
+                          steps2 ++ ops_elim ++ ops_rec) =
+                          (List.foldl applyRowOp M ([swapOp, factorOp] ++ ops_elim ++ ops_rec),
+                            steps ++ ([swapOp, factorOp] ++ ops_elim ++ ops_rec)) := by
+                      apply Prod.ext
+                      · simp only [List.cons_append, List.nil_append, List.foldl_cons,
+                          List.foldl_append]
+                        rw [hm2, hm1]
+                      · simp [steps1, steps2, List.append_assoc]
+                    simpa [hcp, rowFin, hred, hpv, steps1, m1, pivotVal, steps2, m2,
+                      List.concat_eq_append] using hbranch.trans hfinal
         · refine ⟨[], ?_⟩
           simp [hc]
   exact hrec (a - r) M r c steps reduced rfl
