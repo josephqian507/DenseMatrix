@@ -150,7 +150,7 @@ private def matrixOfDense (M : DenseMatrix R) : squareMatrix a R :=
   Matrix.of fun i j =>
     (M.getD i #[]).getD j 0
 
-private def denseSwap (M : DenseMatrix R) (r1 r2 : Fin a) : DenseMatrix R :=
+private def denseSwapRow (M : DenseMatrix R) (r1 r2 : Fin a) : DenseMatrix R :=
   let row1 := M.getD r1 #[]
   let row2 := M.getD r2 #[]
   (M.set! r1 row2).set! r2 row1
@@ -168,20 +168,26 @@ private def denseReplace
     let rowToReplace := M.getD toReplace #[]
     M.set! toReplace (rowToReplace.mapIdx fun idx elem => elem + k * (rowToUse.getD idx 0))
 
+private def denseSwapCol (M : DenseMatrix R) (c1 c2 : Fin a) : DenseMatrix R :=
+  M.map fun row =>
+    let v1 := row.getD c1.1 0
+    let v2 := row.getD c2.1 0
+    (row.set! c1.1 v2).set! c2.1 v1
+
 private def buildPLFastStep
     (state : Prod (List (Prod (Fin a) (Fin a))) (DenseMatrix R))
     (op : RowOp a R) : Prod (List (Prod (Fin a) (Fin a))) (DenseMatrix R) :=
   let swaps := state.1
-  let A := state.2
+  let L := state.2
   match op with
-  | .swap i j => (swaps.concat (i, j), denseSwap A i j)
-  | .factor row scale => (swaps, denseFactor A row (Inv.inv scale))
-  | .replace use toReplace scale => (swaps, denseReplace A use toReplace (-scale))
+  | .swap i j => (swaps.concat (i, j), denseSwapCol L i j)
+  | .factor row scale => (swaps, denseFactor L row scale⁻¹)
+  | .replace use toReplace scale => (swaps, denseReplace L use toReplace (-scale))
 
 def buildPL (steps : List (RowOp a R)) : Prod (squareMatrix a R) (squareMatrix a R) :=
   let (swaps, A) := steps.foldl buildPLFastStep ([], denseIdentity (a := a) (R := R))
-  let P := swaps.foldl (fun acc ij => denseSwap acc ij.1 ij.2) (denseIdentity (a := a) (R := R))
-  let L := swaps.foldl (fun acc ij => denseSwap acc ij.1 ij.2) A
+  let P := swaps.foldl (fun acc ij => denseSwapCol acc ij.1 ij.2) (denseIdentity (a := a) (R := R))
+  let L := swaps.foldl (fun acc ij => denseSwapRow acc ij.1 ij.2) A
   (matrixOfDense P, matrixOfDense L)
 
 def LUFactorization (M : Matrix (Fin a) (Fin b) R)

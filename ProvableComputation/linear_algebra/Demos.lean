@@ -8,7 +8,9 @@ import ProvableComputation.linear_algebra.LUFactorization
 #eval factor sampleMatrix 1 4
 #eval checkPivot sampleMatrix 0 0
 #eval (eliminateCol sampleMatrix 0 0 List.nil true).1
+#eval (rowEchelonForm sampleMatrix).1
 #eval (reducedRowEchelonForm sampleMatrix).1
+#eval (rowEchelonForm sampleMatrix4).1
 
 -- Determinant runtime tests
 
@@ -48,6 +50,8 @@ import ProvableComputation.linear_algebra.LUFactorization
   (LUFactorization sampleMatrix2).2.2
 
 #time #eval LUFactorization sampleMatrix4
+#time #eval (LUFactorization sampleMatrix4).1 * (LUFactorization sampleMatrix4).2.1 *
+  (LUFactorization sampleMatrix4).2.2
 
 #time #eval LUFactorization sampleMatrix3
 #time #eval (LUFactorization sampleMatrix3).1 * (LUFactorization sampleMatrix3).2.1 *

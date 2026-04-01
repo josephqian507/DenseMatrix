@@ -140,11 +140,15 @@ def rrefAux
         let steps := List.concat steps (.swap ⟨row, hrow⟩ pivotRow)
         let pivotVal : R := m1 ⟨row, hrow⟩ pivotCol
         let m2 :=
-          if pivotVal = 1 then
+          if !reduced || pivotVal = 1 then
             m1
           else
             factor m1 ⟨row, hrow⟩ (pivotVal)⁻¹
-        let steps := List.concat steps (.factor ⟨row, hrow⟩ (pivotVal)⁻¹)
+        let steps :=
+          if !reduced || pivotVal = 1 then
+            steps
+          else
+            List.concat steps (.factor ⟨row, hrow⟩ (pivotVal)⁻¹)
         let (m3, steps) := eliminateCol m2 ⟨row, hrow⟩ pivotCol steps reduced
         rrefAux m3 (row + 1) (col + 1) steps reduced
     else

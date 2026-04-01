@@ -349,15 +349,12 @@ theorem row_reduction_adds_steps (M : Matrix (Fin a) (Fin b) R) (r c : Nat)
         split_ifs with hswap hpivot
         · let rowFin : Fin a := ⟨r, hrow⟩
           let res := eliminateCol M rowFin pivotCol
-            (steps ++
-              ([RowOp.swap rowFin pivotRow] ++ [RowOp.factor rowFin (M rowFin pivotCol)⁻¹]))
+            (steps ++ [RowOp.swap rowFin pivotRow])
             reduced
           trans res.2.length
           · exact row_reduction_adds_steps res.1 (r + 1) (c + 1) res.2 reduced
           · unfold res
-            exact elim_col_adds_steps M rowFin pivotCol steps
-              ([RowOp.swap rowFin pivotRow] ++
-                [RowOp.factor rowFin (M rowFin pivotCol)⁻¹]) reduced
+            exact elim_col_adds_steps M rowFin pivotCol steps [RowOp.swap rowFin pivotRow] reduced
         · let rowFin : Fin a := ⟨r, hrow⟩
           let res := eliminateCol (factor M rowFin (M rowFin pivotCol)⁻¹) rowFin pivotCol
             (steps ++
@@ -372,16 +369,13 @@ theorem row_reduction_adds_steps (M : Matrix (Fin a) (Fin b) R) (r c : Nat)
               reduced
         · let rowFin : Fin a := ⟨r, hrow⟩
           let res := eliminateCol (swapRow M rowFin pivotRow) rowFin pivotCol
-            (steps ++
-              ([RowOp.swap rowFin pivotRow] ++
-                [RowOp.factor rowFin (swapRow M rowFin pivotRow rowFin pivotCol)⁻¹]))
+            (steps ++ [RowOp.swap rowFin pivotRow])
             reduced
           trans res.2.length
           · exact row_reduction_adds_steps res.1 (r + 1) (c + 1) res.2 reduced
           · unfold res
             exact elim_col_adds_steps (swapRow M rowFin pivotRow) rowFin pivotCol steps
-              ([RowOp.swap rowFin pivotRow] ++
-                [RowOp.factor rowFin (swapRow M rowFin pivotRow rowFin pivotCol)⁻¹]) reduced
+              [RowOp.swap rowFin pivotRow] reduced
         · let rowFin : Fin a := ⟨r, hrow⟩
           let swapped := swapRow M rowFin pivotRow
           let res := eliminateCol (factor swapped rowFin (swapped rowFin pivotCol)⁻¹) rowFin
