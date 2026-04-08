@@ -149,7 +149,7 @@ private lemma zero_rows_of_row_ge
 private lemma zero_rows_of_checkPivot_none
     (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
     (pivs : ∀ i : Fin m, i.1 < row → Fin n)
-    (hstate : EchelonState (M := M) row col bound pivs)
+    (hstate : EchelonStateCore (M := M) row col bound pivs)
     (hnone : checkPivot M row col = none) :
     ∀ r : Fin m, row ≤ r.1 → RowIsZero M r := by
   intro r hr j
@@ -164,7 +164,7 @@ omit [DecidableEq R] in
 private lemma zero_rows_of_col_ge
     (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
     (pivs : ∀ i : Fin m, i.1 < row → Fin n)
-    (hstate : EchelonState (M := M) row col bound pivs)
+    (hstate : EchelonStateCore (M := M) row col bound pivs)
     (hcol : ¬ col < n) :
     ∀ r : Fin m, row ≤ r.1 → RowIsZero M r := by
   intro r hr j
@@ -216,7 +216,7 @@ private def extendPivs (row : Nat)
 private lemma pivotCol_ge_bound
     (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
     (pivs : ∀ i : Fin m, i.1 < row → Fin n)
-    (hstate : EchelonState (M := M) row col bound pivs)
+    (hstate : EchelonStateCore (M := M) row col bound pivs)
     {pr : Fin m} {pc : Fin n} (h : checkPivot M row col = some (pr, pc)) :
     bound ≤ pc.1 := by
   by_contra hlt
@@ -229,7 +229,7 @@ private lemma pivotCol_ge_bound
 private lemma pivot_row_zero_left
     (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
     (pivs : ∀ i : Fin m, i.1 < row → Fin n)
-    (hstate : EchelonState (M := M) row col bound pivs)
+    (hstate : EchelonStateCore (M := M) row col bound pivs)
     {pr : Fin m} {pc : Fin n} (h : checkPivot M row col = some (pr, pc)) :
     ∀ j : Fin n, j < pc → M pr j = 0 := by
   intro j hj
@@ -296,7 +296,7 @@ omit [DecidableEq R] in
 private lemma pivot_lt_newPivot
     (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
     (pivs : ∀ i : Fin m, i.1 < row → Fin n)
-    (hstate : EchelonState (M := M) row col bound pivs)
+    (hstate : EchelonStateCore (M := M) row col bound pivs)
     {pc : Fin n} (hbound : bound ≤ pc.1)
     (i : Fin m) (hlt : i.1 < row) :
     pivs i hlt < pc := by
@@ -307,7 +307,7 @@ private lemma pivot_lt_newPivot
 private lemma step_pivot_row
     (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
     (pivs : ∀ i : Fin m, i.1 < row → Fin n)
-    (hstate : EchelonState (M := M) row col bound pivs)
+    (hstate : EchelonStateCore (M := M) row col bound pivs)
     (hrow : row < m) {pr : Fin m} {pc : Fin n}
     (hbound : bound ≤ pc.1) (hpr_ge : row ≤ pr.1) :
     let m1 := if pr.1 = row then M else swapRow M ⟨row, hrow⟩ pr
@@ -345,7 +345,8 @@ private lemma step_pivot_row
             (p := pivs i hlt) (s := pivotVal⁻¹) hne1 hp1
         simpa [m2, hpv] using hp2'
     have hp_lt : pivs i hlt < pc :=
-      pivot_lt_newPivot (M := M) row col bound pivs hstate (pc := pc) hbound i hlt
+      pivot_lt_newPivot (M := M) row col bound pivs hstate
+        (pc := pc) hbound i hlt
     have hp3 : IsPivot m3 i (pivs i hlt) :=
       isPivot_eliminate_preserve (M := m2) (pivotRow := ⟨row, hrow⟩) (pivotCol := pc)
         (p := pivs i hlt) (hp := hp2) (hzero := hzero_left_m2) hp_lt
@@ -372,7 +373,7 @@ omit [DecidableEq R] in
 private lemma step_pivot_strict
     (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
     (pivs : ∀ i : Fin m, i.1 < row → Fin n)
-    (hstate : EchelonState (M := M) row col bound pivs)
+    (hstate : EchelonStateCore (M := M) row col bound pivs)
     {pc : Fin n} (hbound : bound ≤ pc.1) :
     ∀ i j : Fin m, ∀ hi : i.1 < row + 1, ∀ hj : j.1 < row + 1,
       i.1 < j.1 → (extendPivs row pivs pc i hi) < (extendPivs row pivs pc j hj) := by
@@ -397,7 +398,7 @@ omit [DecidableEq R] in
 private lemma step_pivot_lt_bound
     (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
     (pivs : ∀ i : Fin m, i.1 < row → Fin n)
-    (hstate : EchelonState (M := M) row col bound pivs)
+    (hstate : EchelonStateCore (M := M) row col bound pivs)
     {pc : Fin n} (hbound : bound ≤ pc.1) :
     ∀ i : Fin m, ∀ hi : i.1 < row + 1, ((extendPivs row pivs pc i hi).1 < pc.1 + 1) := by
   intro i hi
@@ -415,7 +416,7 @@ private lemma step_pivot_lt_bound
 private lemma step_cols_lt_bound_zero
     (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
     (pivs : ∀ i : Fin m, i.1 < row → Fin n)
-    (hstate : EchelonState (M := M) row col bound pivs)
+    (hstate : EchelonStateCore (M := M) row col bound pivs)
     (hrow : row < m) {pr : Fin m} {pc : Fin n}
     (h : checkPivot M row col = some (pr, pc))
     (hbound : bound ≤ pc.1) :
@@ -479,6 +480,124 @@ private lemma step_cols_lt_bound_zero
           h1 r hrrow
       simpa using hzeror
 
+private lemma step_pivot_row_core
+    (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
+    (pivs : ∀ i : Fin m, i.1 < row → Fin n)
+    (hstate : EchelonStateCore (M := M) row col bound pivs)
+    (hrow : row < m) {pr : Fin m} {pc : Fin n}
+    (hbound : bound ≤ pc.1) (hpr_ge : row ≤ pr.1) :
+    let rowFin : Fin m := ⟨row, hrow⟩
+    let m1 := if pr.1 = row then M else swapRow M rowFin pr
+    let m3 := (eliminateCol m1 rowFin pc List.nil false).1
+    (∀ j : Fin n, j < pc → m1 rowFin j = 0) →
+    (∀ j : Fin n, m3 rowFin j = m1 rowFin j) →
+    m1 rowFin pc ≠ 0 →
+    ∀ i : Fin m, ∀ hi : i.1 < row + 1, IsPivot m3 i ((extendPivs row pivs pc) i hi) := by
+  intro rowFin m1 m3 hzero_left_m1 hrow_unchanged hneq i hi
+  by_cases hlt : i.1 < row
+  · have hp : IsPivot M i (pivs i hlt) := hstate.pivot_row i hlt
+    have hne1 : i ≠ rowFin := by
+      intro hEq
+      have : i.1 = row := by simpa using congrArg Fin.val hEq
+      exact (lt_irrefl _ (this ▸ hlt))
+    have hne2 : i ≠ pr := by
+      have hltpr : i.1 < pr.1 := by omega
+      intro hEq
+      have : i.1 = pr.1 := by simpa using congrArg Fin.val hEq
+      exact (lt_irrefl _ (this ▸ hltpr))
+    have hp1 : IsPivot m1 i (pivs i hlt) := by
+      by_cases hpr : pr.1 = row
+      · simpa [m1, hpr] using hp
+      · have hp' :=
+          isPivot_swap_of_ne (M := M) (i := i) (r₁ := rowFin) (r₂ := pr)
+            (p := pivs i hlt) hne1 hne2 hp
+        simpa [m1, hpr] using hp'
+    have hp_lt : pivs i hlt < pc :=
+      pivot_lt_newPivot (M := M) row col bound pivs hstate (pc := pc) hbound i hlt
+    have hp3 : IsPivot m3 i (pivs i hlt) := by
+      refine ⟨?_, ?_⟩
+      · have hpres : m3 i (pivs i hlt) = m1 i (pivs i hlt) := by
+          simpa [m3, eliminateCol] using
+            (eliminateCol_go_preserves_col (cur := m1) (pivotRow := rowFin)
+              (pivotCol := pc) (r := row) (steps := List.nil) (j := pivs i hlt)
+              (hzero := hzero_left_m1 (pivs i hlt) hp_lt) i)
+        simpa [hpres] using hp1.1
+      · intro j hj
+        have hjpc : j < pc := lt_of_lt_of_le hj (le_of_lt hp_lt)
+        have hpres : m3 i j = m1 i j := by
+          simpa [m3, eliminateCol] using
+            (eliminateCol_go_preserves_col (cur := m1) (pivotRow := rowFin)
+              (pivotCol := pc) (r := row) (steps := List.nil) (j := j)
+              (hzero := hzero_left_m1 j hjpc) i)
+        simpa [hpres] using hp1.2 j hj
+    simpa [extendPivs, hlt] using hp3
+  · have hi_le : i.1 ≤ row := by omega
+    have hi_eq : i.1 = row := by omega
+    have hrowi : i = rowFin := fin_eq_of_val_eq hrow hi_eq
+    subst hrowi
+    have hp : IsPivot m3 rowFin pc := by
+      refine ⟨?_, ?_⟩
+      · have hrowpc : m3 rowFin pc = m1 rowFin pc := hrow_unchanged pc
+        simpa [hrowpc] using hneq
+      · intro j hj
+        have hrowj : m3 rowFin j = m1 rowFin j := hrow_unchanged j
+        simpa [hrowj] using hzero_left_m1 j hj
+    simpa [extendPivs, hlt, hi_eq] using hp
+
+private lemma step_cols_lt_bound_zero_core
+    (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
+    (pivs : ∀ i : Fin m, i.1 < row → Fin n)
+    (hstate : EchelonStateCore (M := M) row col bound pivs)
+    (hrow : row < m) {pr : Fin m} {pc : Fin n}
+    (h : checkPivot M row col = some (pr, pc))
+    (_hbound : bound ≤ pc.1) :
+    let rowFin : Fin m := ⟨row, hrow⟩
+    let m1 := if pr.1 = row then M else swapRow M rowFin pr
+    let m3 := (eliminateCol m1 rowFin pc List.nil false).1
+    (∀ j : Fin n, j < pc → m1 rowFin j = 0) →
+    m1 rowFin pc ≠ 0 →
+    ∀ r : Fin m, row + 1 ≤ r.1 → ∀ j : Fin n, j.1 < pc.1 + 1 → m3 r j = 0 := by
+  intro rowFin m1 m3 hzero_left_m1 hneq r hr j hj
+  have hr_ge : row ≤ r.1 := by omega
+  have hrrow : r ≠ rowFin := by
+    intro hEq
+    cases hEq
+    exact (Nat.not_succ_le_self _ hr)
+  have hcol' : j.1 < pc.1 ∨ j.1 = pc.1 := by omega
+  cases hcol' with
+  | inl hjlt =>
+      have hjlt' : j < pc := hjlt
+      have hzeroM : ∀ r : Fin m, row ≤ r.1 → M r j = 0 := by
+        intro r hr'
+        by_cases hjb : j.1 < bound
+        · exact hstate.cols_lt_bound_zero r hr' j hjb
+        · have hjc : col ≤ j.1 := by
+            have hb : bound ≤ j.1 := le_of_not_gt hjb
+            exact le_trans hstate.col_le hb
+          exact checkPivot_some_minimal (M := M) row col h j hjc (by simpa using hjlt) r hr'
+      have hm1r : m1 r j = 0 := by
+        by_cases hpr : pr.1 = row
+        · simp [m1, hpr, hzeroM r hr_ge]
+        · by_cases hrpr : r = pr
+          · have hnepr : pr ≠ rowFin := by
+              intro hEq
+              exact hpr (by simpa using congrArg Fin.val hEq)
+            simp [m1, hpr, swapRow, of_apply, hrpr, hnepr,
+              hzeroM rowFin (Nat.le_refl _)]
+          · simp [m1, hpr, swapRow, of_apply, hrpr, hrrow, hzeroM r hr_ge]
+      calc
+        m3 r j = m1 r j := by
+          simpa [m3, eliminateCol] using
+            (eliminateCol_go_preserves_col (cur := m1) (pivotRow := rowFin)
+              (pivotCol := pc) (r := row) (steps := List.nil) (j := j)
+              (hzero := hzero_left_m1 j hjlt') r)
+        _ = 0 := hm1r
+  | inr hjEq =>
+      have hjeq : j = pc := Fin.ext (by simpa using hjEq)
+      simpa [m3, hjeq] using
+        eliminateCol_below_pivotCol_zero (M := m1) (pivotRow := rowFin)
+          (pivotCol := pc) hneq r hr
+
 private lemma step_pivot_one
     (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
     (pivs : ∀ i : Fin m, i.1 < row → Fin n)
@@ -498,7 +617,8 @@ private lemma step_pivot_one
   by_cases hlt : i.1 < row
   · have hp : M i (pivs i hlt) = 1 := hstate.pivot_one i hlt
     have hp_lt : pivs i hlt < pc :=
-      pivot_lt_newPivot (M := M) row col bound pivs hstate (pc := pc) hbound i hlt
+      pivot_lt_newPivot (M := M) row col bound pivs hstate.toEchelonStateCore
+        (pc := pc) hbound i hlt
     simpa [extendPivs, hlt] using
       (calc
         m3 i (pivs i hlt) = m2 i (pivs i hlt) := by
@@ -556,7 +676,8 @@ private lemma step_pivot_col_zero
   intro m1 pivotVal m2 m3 hzero_left_m1 hzero_left_m2 h1 i hi r hrne
   by_cases hlt : i.1 < row
   · have hp_lt : pivs i hlt < pc :=
-      pivot_lt_newPivot (M := M) row col bound pivs hstate (pc := pc) hbound i hlt
+      pivot_lt_newPivot (M := M) row col bound pivs hstate.toEchelonStateCore
+        (pc := pc) hbound i hlt
     have hzeroM : M r (pivs i hlt) = 0 := hstate.pivot_col_zero i hlt r hrne
     have hzero_row_M : M ⟨row, hrow⟩ (pivs i hlt) = 0 := by
       have hne : (⟨row, hrow⟩ : Fin m) ≠ i := by
@@ -632,14 +753,15 @@ private lemma step_state
   -- basic bounds
   have hrowle : row ≤ m := Nat.le_of_lt hrow
   have hrow1 : row + 1 ≤ m := by omega
-  have hbound : bound ≤ pc.1 := pivotCol_ge_bound (M := M) row col bound pivs hstate h
+  have hbound : bound ≤ pc.1 := pivotCol_ge_bound (M := M) row col bound pivs
+    hstate.toEchelonStateCore h
   have hcolle : col ≤ pc.1 := le_trans hstate.col_le hbound
   have hbound' : pc.1 + 1 ≤ n := by omega
   -- show pivotRow ≥ row
   have hpr_ge : row ≤ pr.1 := checkPivot_some_row_ge (M := M) row col h
   -- pivot row zeros left of pc in M
   have hzero_left : ∀ j : Fin n, j < pc → M pr j = 0 :=
-    pivot_row_zero_left (M := M) row col bound pivs hstate h
+    pivot_row_zero_left (M := M) row col bound pivs hstate.toEchelonStateCore h
   -- show pivot row zeros left of pc in m1
   have hzero_left_m1 : ∀ j : Fin n, j < pc → m1 ⟨row, hrow⟩ j = 0 := by
     intro j hj
@@ -703,15 +825,17 @@ private lemma step_state
   · exact hbound'
   · exact Nat.succ_le_succ hcolle
   · simpa [m1, pivotVal, m2, m3] using
-      (step_pivot_row (M := M) row col bound pivs hstate hrow
+      (step_pivot_row (M := M) row col bound pivs hstate.toEchelonStateCore hrow
         (pr := pr) (pc := pc) hbound hpr_ge
         hzero_left_m2 hrow_unchanged h1)
   · exact
-      step_pivot_strict (M := M) row col bound pivs hstate (pc := pc) hbound
+      step_pivot_strict (M := M) row col bound pivs hstate.toEchelonStateCore
+        (pc := pc) hbound
   · exact
-      step_pivot_lt_bound (M := M) row col bound pivs hstate (pc := pc) hbound
+      step_pivot_lt_bound (M := M) row col bound pivs hstate.toEchelonStateCore
+        (pc := pc) hbound
   · simpa [m1, pivotVal, m2, m3] using
-      (step_cols_lt_bound_zero (M := M) row col bound pivs hstate hrow
+      (step_cols_lt_bound_zero (M := M) row col bound pivs hstate.toEchelonStateCore hrow
         (pr := pr) (pc := pc) h hbound
         hzero_left_m2 h1)
   · simpa [m1, pivotVal, m2, m3] using
@@ -722,6 +846,71 @@ private lemma step_state
       (step_pivot_col_zero (M := M) row col bound pivs hstate hrow
         (pr := pr) (pc := pc) hbound hpr_ge
         hzero_left_m1 hzero_left_m2 h1)
+
+private lemma step_state_core_false
+    (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
+    (pivs : ∀ i : Fin m, i.1 < row → Fin n)
+    (hstate : EchelonStateCore (M := M) row col bound pivs)
+    (hrow : row < m) (_hcol : col < n)
+    {pr : Fin m} {pc : Fin n} (h : checkPivot M row col = some (pr, pc)) :
+    let rowFin : Fin m := ⟨row, hrow⟩
+    let m1 := if pr.1 = row then M else swapRow M rowFin pr
+    let m3 := (eliminateCol m1 rowFin pc List.nil false).1
+    EchelonStateCore (M := m3) (row := row + 1) (col := col + 1) (bound := pc.1 + 1)
+      (extendPivs row pivs pc) := by
+  intro rowFin m1 m3
+  have hrow1 : row + 1 ≤ m := by omega
+  have hbound : bound ≤ pc.1 := pivotCol_ge_bound (M := M) row col bound pivs hstate h
+  have hcolle : col ≤ pc.1 := le_trans hstate.col_le hbound
+  have hbound' : pc.1 + 1 ≤ n := by omega
+  have hpr_ge : row ≤ pr.1 := checkPivot_some_row_ge (M := M) row col h
+  have hzero_left_m1 : ∀ j : Fin n, j < pc → m1 rowFin j = 0 := by
+    intro j hj
+    by_cases hpr : pr.1 = row
+    · have : pr = rowFin := by
+        ext
+        exact hpr
+      subst this
+      have hzero_left := pivot_row_zero_left (M := M) row col bound pivs hstate h
+      simpa [m1, hpr] using hzero_left j hj
+    · have hne : rowFin ≠ pr := by
+        intro hEq
+        exact hpr (by simpa using (congrArg Fin.val hEq).symm)
+      have hzero_left := pivot_row_zero_left (M := M) row col bound pivs hstate h
+      have : m1 rowFin j = M pr j := by
+        simp [m1, hpr, swapRow, of_apply]
+      simpa [this] using hzero_left j hj
+  have hneq : m1 rowFin pc ≠ 0 := by
+    by_cases hpr : pr.1 = row
+    · have : pr = rowFin := by
+        ext
+        exact hpr
+      subst this
+      simpa [m1, hpr] using checkPivot_some_nonzero (M := M) row col h
+    · have : m1 rowFin pc = M pr pc := by
+        simp [m1, hpr, swapRow, of_apply]
+      simpa [this] using checkPivot_some_nonzero (M := M) row col h
+  have hrow_unchanged : ∀ j : Fin n, m3 rowFin j = m1 rowFin j := by
+    intro j
+    simpa [m3] using eliminateCol_pivotRow_false (M := m1) (pivotRow := rowFin) (pivotCol := pc) j
+  refine {
+    row_le := hrow1
+    bound_le := hbound'
+    col_le := Nat.succ_le_succ hcolle
+    pivot_row := ?_
+    pivot_strict := ?_
+    pivot_lt_bound := ?_
+    cols_lt_bound_zero := ?_
+  }
+  · simpa [m1, m3] using
+      (step_pivot_row_core (M := M) row col bound pivs hstate hrow
+        (pr := pr) (pc := pc) hbound hpr_ge
+        hzero_left_m1 hrow_unchanged hneq)
+  · exact step_pivot_strict (M := M) row col bound pivs hstate (pc := pc) hbound
+  · exact step_pivot_lt_bound (M := M) row col bound pivs hstate (pc := pc) hbound
+  · simpa [m1, m3] using
+      (step_cols_lt_bound_zero_core (M := M) row col bound pivs hstate hrow
+        (pr := pr) (pc := pc) h hbound hzero_left_m1 hneq)
 
 /-! Main theorem. -/
 
@@ -751,7 +940,8 @@ private lemma rrefAux_isReducedEchelon
             -- no pivot: remaining submatrix is zero
             have hnone : checkPivot M row col = none := hcp
             have hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r :=
-              zero_rows_of_checkPivot_none (M := M) row col bound pivs hstate hnone
+              zero_rows_of_checkPivot_none (M := M) row col bound pivs
+                hstate.toEchelonStateCore hnone
             exact reduced_of_state (M := M) row col bound pivs
               hstate.toEchelonStateCore hstate.toReducedStateExtras hzero
         | some prpc =>
@@ -792,7 +982,8 @@ private lemma rrefAux_isReducedEchelon
         rw [rrefAuxM, rrefAux.eq_1]
         simp only [hrow, hcol']
         have hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r :=
-          zero_rows_of_col_ge (M := M) row col bound pivs hstate hcol'
+          zero_rows_of_col_ge (M := M) row col bound pivs
+            hstate.toEchelonStateCore hcol'
         exact reduced_of_state (M := M) row col bound pivs
           hstate.toEchelonStateCore hstate.toReducedStateExtras hzero
     · -- row ≥ m
@@ -803,6 +994,74 @@ private lemma rrefAux_isReducedEchelon
         zero_rows_of_row_ge (M := M) row (by omega)
       exact reduced_of_state (M := M) row col bound pivs
         hstate.toEchelonStateCore hstate.toReducedStateExtras hzero
+  exact hrec (m - row) M row col bound steps pivs rfl hstate
+
+private lemma rrefAux_isEchelon_false
+    (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
+    (steps : List (RowOp m R))
+    (pivs : ∀ i : Fin m, i.1 < row → Fin n)
+    (hstate : EchelonStateCore (M := M) row col bound pivs) :
+    IsEchelonForm (M := (rrefAux M row col steps false).1) := by
+  have hrec :
+      ∀ k (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
+        (steps : List (RowOp m R)) (pivs : ∀ i : Fin m, i.1 < row → Fin n),
+        m - row = k →
+        EchelonStateCore (M := M) row col bound pivs →
+        IsEchelonForm (M := (rrefAux M row col steps false).1) := by
+    intro k
+    refine Nat.strongRecOn k ?_
+    intro k ih M row col bound steps pivs hk hstate
+    by_cases hrow : row < m
+    · by_cases hcol : col < n
+      · rw [rrefAux, dif_pos hrow]
+        simp only [hcol]
+        cases hcp : checkPivot M row col with
+        | none =>
+            have hnone : checkPivot M row col = none := hcp
+            have hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r :=
+              zero_rows_of_checkPivot_none (M := M) row col bound pivs hstate hnone
+            exact echelon_of_state (M := M) row col bound pivs hstate hzero
+        | some prpc =>
+            cases prpc with
+            | mk pr pc =>
+                have hstate' := step_state_core_false
+                  (M := M) row col bound pivs hstate hrow hcol hcp
+                let rowFin : Fin m := ⟨row, hrow⟩
+                let steps1 : List (RowOp m R) := steps ++ [RowOp.swap rowFin pr]
+                let m1 : Matrix (Fin m) (Fin n) R :=
+                  if pr.1 = row then M else swapRow M rowFin pr
+                let m3 : Matrix (Fin m) (Fin n) R :=
+                  (eliminateCol m1 rowFin pc List.nil false).1
+                have hklt : m - (row + 1) < k := by
+                  have hlt : m - (row + 1) < m - row := by omega
+                  simpa [hk] using hlt
+                have helim :
+                    (eliminateCol m1 rowFin pc steps1 false).1 = m3 := by
+                  simpa [m3] using
+                    eliminateCol_matrix_irrel_false (M := m1) (pivotRow := rowFin)
+                      (pivotCol := pc) (steps := steps1)
+                have hstate'' :
+                    EchelonStateCore (M := (eliminateCol m1 rowFin pc steps1 false).1)
+                      (row := row + 1) (col := col + 1) (bound := pc.1 + 1)
+                      (extendPivs row pivs pc) := by
+                  simpa [helim] using hstate'
+                simpa [rowFin, steps1, m1, m3, hcp, helim] using
+                  ih (m - (row + 1)) hklt
+                    ((eliminateCol m1 rowFin pc steps1 false).1)
+                    (row + 1) (col + 1) (pc.1 + 1)
+                    ((eliminateCol m1 rowFin pc steps1 false).2)
+                    (extendPivs row pivs pc) rfl hstate''
+      · have hcol' : ¬ col < n := hcol
+        rw [rrefAux, dif_pos hrow]
+        simp only [hcol']
+        have hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r :=
+          zero_rows_of_col_ge (M := M) row col bound pivs hstate hcol'
+        exact echelon_of_state (M := M) row col bound pivs hstate hzero
+    · have hrow' : ¬ row < m := hrow
+      rw [rrefAux, dif_neg hrow']
+      have hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r :=
+        zero_rows_of_row_ge (M := M) row (by omega)
+      exact echelon_of_state (M := M) row col bound pivs hstate hzero
   exact hrec (m - row) M row col bound steps pivs rfl hstate
 
 /-! Final theorem. -/
@@ -823,5 +1082,14 @@ theorem reducedRowEchelonForm_isEchelon
     (M : Matrix (Fin m) (Fin n) R) :
     IsEchelonForm (M := (reducedRowEchelonForm M).1) :=
   (reducedRowEchelonForm_isReducedEchelon (M := M)).echelon
+
+theorem rowEchelonForm_isEchelon
+    (M : Matrix (Fin m) (Fin n) R) :
+    IsEchelonForm (M := (rowEchelonForm M).1) := by
+  have hcore : EchelonStateCore (M := M) (row := 0) (col := 0) (bound := 0) emptyPivs :=
+    (initial_state (M := M)).toEchelonStateCore
+  simpa [rowEchelonForm] using
+    (rrefAux_isEchelon_false (M := M) (row := 0) (col := 0) (bound := 0)
+      (steps := List.nil) (pivs := emptyPivs) (hstate := hcore))
 
 end Matrix

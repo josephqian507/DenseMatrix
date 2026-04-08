@@ -1,183 +1,50 @@
-import ProvableComputation.linear_algebra.RowEquivalent
+import Mathlib.LinearAlgebra.Matrix.Block
+
+import ProvableComputation.linear_algebra.ColumnElementary
+import ProvableComputation.linear_algebra.Rref
 
 variable {R : Type} [Field R] [DecidableEq R]
 variable {a : Nat} {b : Nat}
-variable {ha : a > 0} {hb : b > 0}
 
 abbrev squareMatrix (a : Nat) (R : Type) := Matrix (Fin a) (Fin a) R
 
-def sampleMatrix2 : Matrix (Fin 3) (Fin 3) Rat :=
-  ![![1, 2, 3],
-    ![4, 8, 12],
-    ![2, 5, 6]]
+def IsUnitLowerTriangular (L : squareMatrix a R) : Prop :=
+  L.BlockTriangular OrderDual.toDual ∧ ∀ i : Fin a, L i i = 1
 
-def sampleMatrix3 : Matrix (Fin 10) (Fin 10) Rat :=
-  ![![9, 8, 6, 9, 7, 4, 6, 8, 4, 7],
-    ![27, 30, 22, 34, 29, 17, 23, 31, 20, 24],
-    ![36, 86, 61, 106, 134, 66, 77, 100, 97, 64],
-    ![9, 212, 153, 327, 658, 236, 272, 307, 384, 215],
-    ![27, 24, 22, 61, 168, 52, 74, 65, 71, 79],
-    ![0, 180, 124, 244, 387, 198, 214, 258, 304, 150],
-    ![9, 26, 20, 71, 152, 148, 193, 181, 247, 169],
-    ![27, 78, 58, 133, 262, 184, 307, 296, 753, 237],
-    ![27, 30, 54, 267, 1141, 316, 511, 427, 943, 514],
-    ![18, 16, 16, 52, 169, 96, 216, 207, 680, 240]]
+namespace LUFactorizationInternal
 
-def sampleMatrix4 : Matrix (Fin 4) (Fin 4) Rat :=
-  ![![3, 5, 1, 9],
-    ![94, 2, 8, 0],
-    ![9, 3, 2, 9],
-    ![45, 3, 9, 8]]
+def permutationOfSwaps (swaps : List (Fin a × Fin a)) : squareMatrix a R :=
+  swaps.foldl (fun acc ij => ColumnElementary.swapCol acc ij.1 ij.2) 1
 
-private def swapCol (given : squareMatrix a R) (col1 col2 : Fin a) : squareMatrix a R :=
-  (swapRow given.transpose col1 col2).transpose
+def lowerOfSwaps
+    (swaps : List (Fin a × Fin a)) (MInv : squareMatrix a R) : squareMatrix a R :=
+  swaps.foldl (fun acc ij => swapRow acc ij.1 ij.2) MInv
 
-private def factorCol (given : squareMatrix a R) (col : Fin a) (scale : R) : squareMatrix a R :=
-  (factor given.transpose col scale).transpose
-
-private def replaceCol
-    (given : squareMatrix a R) (use toReplace : Fin a) (k : R) : squareMatrix a R :=
-  (replace given.transpose toReplace use k).transpose
-
-omit [DecidableEq R] in
-private lemma elem_swap_transpose (c1 c2 : Fin a) :
-    (Matrix.elementaryMatrixOfRowOp (.swap c1 c2 : RowOp a R)).transpose =
-      Matrix.elementaryMatrixOfRowOp (.swap c1 c2 : RowOp a R) := by
-  ext i j
-  by_cases hi1 : i = c1
-  all_goals
-    by_cases hi2 : i = c2
-    all_goals
-      by_cases hj1 : j = c1
-      all_goals
-        by_cases hj2 : j = c2
-        all_goals
-          simp [Matrix.elementaryMatrixOfRowOp, swapRow, Matrix.one_apply, hi1, hi2, hj1, hj2]
-          try aesop
-
-omit [DecidableEq R] in
-private lemma elem_factor_transpose (c : Fin a) (s : R) :
-    (Matrix.elementaryMatrixOfRowOp (.factor c s : RowOp a R)).transpose =
-      Matrix.elementaryMatrixOfRowOp (.factor c s : RowOp a R) := by
-  ext i j
-  by_cases hi : i = c
-  all_goals
-    by_cases hj : j = c
-    all_goals
-      simp [Matrix.elementaryMatrixOfRowOp, factor, Matrix.one_apply, hi, hj]
-      try aesop
-
-omit [DecidableEq R] in
-private lemma elem_replace_transpose (use toReplace : Fin a) (k : R) :
-    (Matrix.elementaryMatrixOfRowOp (.replace use toReplace k : RowOp a R)).transpose =
-      Matrix.elementaryMatrixOfRowOp (.replace toReplace use k : RowOp a R) := by
-  by_cases h : use = toReplace
-  case pos =>
-    subst h
-    simpa [Matrix.elementaryMatrixOfRowOp, replace] using
-      (elem_factor_transpose (R := R) (a := a) use (k + 1))
-  case neg =>
-    ext i j
-    by_cases hiUse : i = use
-    all_goals
-      by_cases hiToReplace : i = toReplace
-      all_goals
-        by_cases hjUse : j = use
-        all_goals
-          by_cases hjToReplace : j = toReplace
-          all_goals
-            simp [Matrix.elementaryMatrixOfRowOp, replace, factor, Matrix.one_apply,
-              h, hiUse, hiToReplace, hjUse, hjToReplace]
-            try aesop
-
-omit [DecidableEq R] in
-private lemma swapCol_eq_mul_elem (M : squareMatrix a R) (c1 c2 : Fin a) :
-    swapCol M c1 c2 = M * Matrix.elementaryMatrixOfRowOp (.swap c1 c2 : RowOp a R) := by
-  let op : RowOp a R := .swap c1 c2
-  have h := Matrix.elementaryMatrixOfRowOp_mul_eq_applyRowOp (op := op) (M := M.transpose)
-  have ht := congrArg Matrix.transpose h
-  simpa [op, swapCol, Matrix.applyRowOp, Matrix.transpose_mul, elem_swap_transpose] using
-    ht.symm
-
-omit [DecidableEq R] in
-private lemma factorCol_eq_mul_elem (M : squareMatrix a R) (c : Fin a) (s : R) :
-    factorCol M c s = M * Matrix.elementaryMatrixOfRowOp (.factor c s : RowOp a R) := by
-  let op : RowOp a R := .factor c s
-  have h := Matrix.elementaryMatrixOfRowOp_mul_eq_applyRowOp (op := op) (M := M.transpose)
-  have ht := congrArg Matrix.transpose h
-  simpa [op, factorCol, Matrix.applyRowOp, Matrix.transpose_mul, elem_factor_transpose] using
-    ht.symm
-
-omit [DecidableEq R] in
-private lemma replaceCol_eq_mul_elem
-    (M : squareMatrix a R) (use toReplace : Fin a) (k : R) :
-    replaceCol M use toReplace k =
-      M * Matrix.elementaryMatrixOfRowOp (.replace use toReplace k : RowOp a R) := by
-  let opT : RowOp a R := .replace toReplace use k
-  have h := Matrix.elementaryMatrixOfRowOp_mul_eq_applyRowOp (op := opT) (M := M.transpose)
-  have ht := congrArg Matrix.transpose h
-  simpa [opT, replaceCol, Matrix.applyRowOp, Matrix.transpose_mul, elem_replace_transpose] using
-    ht.symm
-
-private abbrev DenseMatrix (R : Type) := Array (Array R)
-
-private def denseIdentity : DenseMatrix R :=
-  (List.finRange a).foldl
-    (fun rows i =>
-      rows.push <|
-        (List.finRange a).foldl
-          (fun row j => row.push (if i = j then 1 else 0))
-          #[])
-    #[]
-
-private def matrixOfDense (M : DenseMatrix R) : squareMatrix a R :=
-  Matrix.of fun i j =>
-    (M.getD i #[]).getD j 0
-
-private def denseSwapRow (M : DenseMatrix R) (r1 r2 : Fin a) : DenseMatrix R :=
-  let row1 := M.getD r1 #[]
-  let row2 := M.getD r2 #[]
-  (M.set! r1 row2).set! r2 row1
-
-private def denseSwapCol (M : DenseMatrix R) (c1 c2 : Fin a) : DenseMatrix R :=
-  M.map fun row =>
-    let v1 := row.getD c1.1 0
-    let v2 := row.getD c2.1 0
-    (row.set! c1.1 v2).set! c2.1 v1
-
-private def denseFactorCol (M : DenseMatrix R) (c : Fin a) (s : R) : DenseMatrix R :=
-  M.map fun row =>
-    let v := row.getD c.1 0
-    row.set! c.1 (s * v)
-
-private def denseReplaceCol
-    (M : DenseMatrix R) (use toReplace : Fin a) (k : R) : DenseMatrix R :=
-  if use = toReplace then
-    denseFactorCol M toReplace (k + 1)
-  else
-    M.map fun row =>
-      let vUse := row.getD use.1 0
-      let vToReplace := row.getD toReplace.1 0
-      row.set! use.1 (vUse + k * vToReplace)
-
-private def buildPLStep
-    (state : (List ((Fin a) × (Fin a))) × (DenseMatrix R))
-    (op : RowOp a R) : (List ((Fin a) × (Fin a))) × (DenseMatrix R) :=
+def buildPLStep
+    (state : List (Fin a × Fin a) × squareMatrix a R)
+    (op : RowOp a R) : List (Fin a × Fin a) × squareMatrix a R :=
   let swaps := state.1
-  let M_inv := state.2
+  let MInv := state.2
   match op with
-  | .swap i j => (swaps.concat (i, j), denseSwapCol M_inv i j)
-  | .factor row scale => (swaps, denseFactorCol M_inv row scale⁻¹)
-  | .replace use toReplace scale => (swaps, denseReplaceCol M_inv use toReplace (-scale))
+  | .swap i j => (swaps.concat (i, j), ColumnElementary.swapCol MInv i j)
+  | .factor row scale => (swaps, ColumnElementary.factorCol MInv row scale⁻¹)
+  | .replace use toReplace scale =>
+      if use = toReplace then
+        (swaps, ColumnElementary.factorCol MInv toReplace (scale + 1)⁻¹)
+      else
+        (swaps, ColumnElementary.replaceCol MInv use toReplace (-scale))
 
-def buildPL (steps : List (RowOp a R)) : (squareMatrix a R) × (squareMatrix a R) :=
-  let (swaps, M_inv) := steps.foldl buildPLStep ([], denseIdentity (a := a) (R := R))
-  let P := swaps.foldl (fun acc ij => denseSwapCol acc ij.1 ij.2) (denseIdentity (a := a) (R := R))
-  let L := swaps.foldl (fun acc ij => denseSwapRow acc ij.1 ij.2) M_inv
-  (matrixOfDense P, matrixOfDense L)
+end LUFactorizationInternal
 
-def LUFactorization (M : Matrix (Fin a) (Fin b) R)
-    : Prod (squareMatrix a R) (Prod (squareMatrix a R) (Matrix (Fin a) (Fin b) R)) :=
+def buildPL (steps : List (RowOp a R)) : squareMatrix a R × squareMatrix a R :=
+  let (swaps, MInv) :=
+    steps.foldl (LUFactorizationInternal.buildPLStep (R := R)) ([], 1)
+  let P := LUFactorizationInternal.permutationOfSwaps (R := R) swaps
+  let L := LUFactorizationInternal.lowerOfSwaps (R := R) swaps MInv
+  (P, L)
+
+def LUFactorization (M : Matrix (Fin a) (Fin b) R) :
+    squareMatrix a R × (squareMatrix a R × Matrix (Fin a) (Fin b) R) :=
   let (U, steps) := rowEchelonForm M
   let (P, L) := buildPL steps
   (P, (L, U))

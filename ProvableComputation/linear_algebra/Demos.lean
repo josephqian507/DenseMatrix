@@ -1,3 +1,5 @@
+import Mathlib.Algebra.Field.Rat
+
 import ProvableComputation.linear_algebra.Determinant
 import ProvableComputation.linear_algebra.LUFactorization
 
@@ -10,6 +12,29 @@ def luNonsquare : Matrix (Fin 3) (Fin 4) Rat :=
   ![![1, 0, 0, 7],
     ![2, 1, 0, 8],
     ![3, 5, 1, 9]]
+
+def sampleMatrix2 : Matrix (Fin 3) (Fin 3) Rat :=
+  ![![1, 2, 3],
+    ![4, 8, 12],
+    ![2, 5, 6]]
+
+def sampleMatrix3 : Matrix (Fin 10) (Fin 10) Rat :=
+  ![![9, 8, 6, 9, 7, 4, 6, 8, 4, 7],
+    ![27, 30, 22, 34, 29, 17, 23, 31, 20, 24],
+    ![36, 86, 61, 106, 134, 66, 77, 100, 97, 64],
+    ![9, 212, 153, 327, 658, 236, 272, 307, 384, 215],
+    ![27, 24, 22, 61, 168, 52, 74, 65, 71, 79],
+    ![0, 180, 124, 244, 387, 198, 214, 258, 304, 150],
+    ![9, 26, 20, 71, 152, 148, 193, 181, 247, 169],
+    ![27, 78, 58, 133, 262, 184, 307, 296, 753, 237],
+    ![27, 30, 54, 267, 1141, 316, 511, 427, 943, 514],
+    ![18, 16, 16, 52, 169, 96, 216, 207, 680, 240]]
+
+def sampleMatrix4 : Matrix (Fin 4) (Fin 4) Rat :=
+  ![![3, 5, 1, 9],
+    ![94, 2, 8, 0],
+    ![9, 3, 2, 9],
+    ![45, 3, 9, 8]]
 
 private def reconstructLU {R : Type} [Field R] [DecidableEq R] {a b : Nat}
     (M : Matrix (Fin a) (Fin b) R) : Matrix (Fin a) (Fin b) R :=

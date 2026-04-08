@@ -36,8 +36,12 @@ lake build
 
 ## Current boundaries
 
-- [`LU_proofs.lean`](./ProvableComputation/linear_algebra/LU_proofs.lean) is present but
-  incomplete.
+- [`LUFactorization.lean`](./ProvableComputation/linear_algebra/LUFactorization.lean)
+  contains the LU construction and shared internal helpers.
+- [`LUFactorizationProofs.lean`](./ProvableComputation/linear_algebra/LUFactorizationProofs.lean)
+  contains the main LU correctness proofs.
+- [`LU_proofs.lean`](./ProvableComputation/linear_algebra/LU_proofs.lean)
+  re-exports the user-facing LU theorems.
 - [`determinant_proofs.lean`](./ProvableComputation/linear_algebra/determinant_proofs.lean)
   is currently empty.
 
@@ -47,5 +51,4 @@ lake build
 
 ## TODO
 
-1. Complete LU correctness proofs in `LU_proofs.lean`.
-2. Add determinant proof in `determinant_proofs.lean`.
+1. Add determinant proof in `determinant_proofs.lean`.

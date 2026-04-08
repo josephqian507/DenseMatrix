@@ -422,11 +422,28 @@ private lemma replace_apply_eq
 
 -- If the pivot entry is normalized to `1`, the elimination replacement zeros it.
 omit [DecidableEq R] in
+private lemma replace_pivot_col_zero_of_ne
+    (M : Matrix (Fin m) (Fin n) R) (pivotRow toReplace : Fin m) (pivotCol : Fin n)
+    (huse : pivotRow ≠ toReplace) (hne : M pivotRow pivotCol ≠ 0) :
+    replace M pivotRow toReplace (-M toReplace pivotCol / M pivotRow pivotCol) toReplace pivotCol = 0 := by
+  rw [replace_apply_eq (M := M) (use := pivotRow) (toReplace := toReplace)
+    (k := -M toReplace pivotCol / M pivotRow pivotCol) (huse := huse) (j := pivotCol)]
+  rw [neg_div, div_eq_mul_inv]
+  have hcancel : (M pivotRow pivotCol)⁻¹ * M pivotRow pivotCol = 1 := inv_mul_cancel₀ hne
+  calc
+    M toReplace pivotCol + -(M toReplace pivotCol * (M pivotRow pivotCol)⁻¹) * M pivotRow pivotCol
+        = M toReplace pivotCol + -(M toReplace pivotCol * ((M pivotRow pivotCol)⁻¹ * M pivotRow pivotCol)) := by
+            ring_nf
+    _ = M toReplace pivotCol + -(M toReplace pivotCol * 1) := by rw [hcancel]
+    _ = 0 := by ring
+
+omit [DecidableEq R] in
 private lemma replace_pivot_col_zero
     (M : Matrix (Fin m) (Fin n) R) (pivotRow toReplace : Fin m) (pivotCol : Fin n)
     (huse : pivotRow ≠ toReplace) (h1 : M pivotRow pivotCol = 1) :
     replace M pivotRow toReplace (-M toReplace pivotCol / M pivotRow pivotCol) toReplace pivotCol = 0 := by
-  simp [replace, huse, of_apply, h1]
+  exact replace_pivot_col_zero_of_ne (M := M) (pivotRow := pivotRow)
+    (toReplace := toReplace) (pivotCol := pivotCol) huse (by simpa [h1])
 
 /--
 The matrix output of `eliminateCol.go` is independent of the current `steps`
@@ -516,6 +533,14 @@ lemma eliminateCol_matrix_irrel
     (eliminateCol M pivotRow pivotCol steps true).1 = eliminateColM M pivotRow pivotCol := by
   simpa [eliminateColM, eliminateCol] using
     eliminateCol_go_matrix_irrel pivotRow pivotCol 0 M steps List.nil
+
+lemma eliminateCol_matrix_irrel_false
+    (M : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n)
+    (steps : List (RowOp m R)) :
+    (eliminateCol M pivotRow pivotCol steps false).1 =
+      (eliminateCol M pivotRow pivotCol List.nil false).1 := by
+  simpa [eliminateCol] using
+    eliminateCol_go_matrix_irrel pivotRow pivotCol pivotRow.1 M steps List.nil
 
 /--
 If column `j` of `pivotRow` is zero in `cur`, then `eliminateCol.go` preserves
@@ -748,6 +773,15 @@ lemma eliminateCol_pivotRow
     (eliminateCol_go_pivotRow
       (cur := M) (pivotRow := pivotRow) (pivotCol := pivotCol) (steps := List.nil) 0 j)
 
+lemma eliminateCol_pivotRow_false
+    (M : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n) :
+    ∀ j : Fin n, (eliminateCol M pivotRow pivotCol List.nil false).1 pivotRow j = M pivotRow j := by
+  intro j
+  simpa [eliminateCol] using
+    (eliminateCol_go_pivotRow
+      (cur := M) (pivotRow := pivotRow) (pivotCol := pivotCol)
+      (steps := List.nil) pivotRow.1 j)
+
 /--
 Assuming the pivot entry is normalized to `1`, `eliminateColM` zeroes the
 pivot column at every non-pivot row.
@@ -881,5 +915,123 @@ lemma eliminateCol_pivotCol_zero
   -- Instantiate the recursive invariant from the initial state.
   have hrec' := hrec (m - 0) 0 M List.nil rfl hpre0 h1
   simpa [eliminateColM, eliminateCol] using hrec' r hr
+
+/--
+Assuming the pivot entry is nonzero, `eliminateCol` with `reduced = false`
+zeroes the pivot column at every row strictly below the pivot.
+-/
+lemma eliminateCol_below_pivotCol_zero
+    (M : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n)
+    (hne : M pivotRow pivotCol ≠ 0) :
+    ∀ r : Fin m, pivotRow.1 < r.1 →
+      (eliminateCol M pivotRow pivotCol List.nil false).1 r pivotCol = 0 := by
+  classical
+  intro r hr
+  have hrec :
+      ∀ k (r0 : Nat) (cur : Matrix (Fin m) (Fin n) R) (steps : List (RowOp m R)),
+        m - r0 = k →
+        (∀ i : Fin m, pivotRow.1 < i.1 → i.1 < r0 → cur i pivotCol = 0) →
+        cur pivotRow pivotCol ≠ 0 →
+        ∀ i : Fin m, pivotRow.1 < i.1 →
+          (eliminateColGo pivotRow pivotCol r0 cur steps) i pivotCol = 0 := by
+    intro k
+    induction k with
+    | zero =>
+        intro r0 cur steps hk hpre hpivot i hi
+        have hr0 : m ≤ r0 := Nat.le_of_sub_eq_zero hk
+        have hii : i.1 < r0 := lt_of_lt_of_le i.2 hr0
+        rw [Matrix.eliminateColGo, _root_.eliminateColGo, _root_.eliminateColGoAux,
+          dif_neg (not_lt_of_ge hr0)]
+        exact hpre i hi hii
+    | succ k ih =>
+        intro r0 cur steps hk hpre hpivot i hi
+        have hr0 : r0 < m := by omega
+        rw [Matrix.eliminateColGo, _root_.eliminateColGo, _root_.eliminateColGoAux, dif_pos hr0]
+        let i0 : Fin m := ⟨r0, hr0⟩
+        by_cases hi0 : i0 = pivotRow
+        · have hk' : m - (r0 + 1) = k := by omega
+          have hpre' :
+              ∀ i : Fin m, pivotRow.1 < i.1 → i.1 < r0 + 1 → cur i pivotCol = 0 := by
+            intro i hi' hir'
+            have hir : i.1 < r0 := by
+              by_cases hEq : i.1 = r0
+              · exfalso
+                have hp : pivotRow.1 = r0 := by simpa [i0] using congrArg Fin.val hi0.symm
+                have : pivotRow.1 < pivotRow.1 := by simpa [hEq, hp] using hi'
+                exact lt_irrefl _ this
+              · omega
+            exact hpre i hi' hir
+          simpa [i0, hi0] using ih (r0 + 1) cur steps hk' hpre' hpivot i hi
+        · by_cases hcoeff : cur i0 pivotCol ≠ 0
+          · have hk' : m - (r0 + 1) = k := by omega
+            let cur' := replace cur pivotRow i0 (-cur i0 pivotCol / cur pivotRow pivotCol)
+            let steps' := List.concat steps (.replace pivotRow i0 (-cur i0 pivotCol / cur pivotRow pivotCol))
+            have huse : pivotRow ≠ i0 := by
+              intro hpr
+              exact hi0 hpr.symm
+            have hpivot' : cur' pivotRow pivotCol = cur pivotRow pivotCol := by
+              simpa [cur'] using
+                replace_apply_of_ne
+                  (M := cur) (use := pivotRow) (toReplace := i0)
+                  (k := -cur i0 pivotCol / cur pivotRow pivotCol)
+                  (r := pivotRow) (j := pivotCol) (huse := huse) (hrow := huse)
+            have hpre' :
+                ∀ i : Fin m, pivotRow.1 < i.1 → i.1 < r0 + 1 → cur' i pivotCol = 0 := by
+              intro i hi' hir'
+              have hle : i.1 ≤ r0 := Nat.lt_succ_iff.mp hir'
+              by_cases hir : i.1 < r0
+              · have hne : i ≠ i0 := by
+                  intro hEq
+                  have : i.1 = r0 := by simpa [i0] using congrArg Fin.val hEq
+                  exact (Nat.lt_irrefl _ (this ▸ hir))
+                simp [cur', replace, huse, hne, of_apply, hpre i hi' hir]
+              · have hEq : i.1 = r0 := le_antisymm hle (le_of_not_gt hir)
+                have hEq' : i = i0 := by
+                  ext
+                  simp [hEq, i0]
+                subst hEq'
+                exact replace_pivot_col_zero_of_ne
+                  (M := cur) (pivotRow := pivotRow) (toReplace := i0)
+                  (pivotCol := pivotCol) huse hpivot
+            have hgo :
+                (_root_.eliminateColGoAux pivotRow pivotCol (cur pivotRow pivotCol) (r0 + 1) cur' steps').1 =
+                  eliminateColGo pivotRow pivotCol (r0 + 1) cur' steps' := by
+              simpa [steps'] using
+                eliminateColGoAux_matrix_eq
+                  (pivotRow := pivotRow) (pivotCol := pivotCol)
+                  (pivotVal := cur pivotRow pivotCol) (r := r0 + 1) (cur := cur') (steps := steps')
+                  (by simpa [hpivot'] using hpivot')
+            have hih := ih (r0 + 1) cur' steps' hk' hpre' (by simpa [hpivot'] using hpivot) i hi
+            have hih' :
+                (_root_.eliminateColGoAux pivotRow pivotCol (cur pivotRow pivotCol) (r0 + 1) cur' steps').1 i pivotCol = 0 := by
+              calc
+                (_root_.eliminateColGoAux pivotRow pivotCol (cur pivotRow pivotCol) (r0 + 1) cur' steps').1 i pivotCol
+                    = eliminateColGo pivotRow pivotCol (r0 + 1) cur' steps' i pivotCol := by
+                        simpa using congrArg (fun M => M i pivotCol) hgo
+                _ = 0 := hih
+            simpa [i0, hi0, hcoeff, cur', steps'] using hih'
+          · have hk' : m - (r0 + 1) = k := by omega
+            have hcoeff' : cur i0 pivotCol = 0 := by
+              by_contra hne'
+              exact hcoeff hne'
+            have hpre' :
+                ∀ i : Fin m, pivotRow.1 < i.1 → i.1 < r0 + 1 → cur i pivotCol = 0 := by
+              intro i hi' hir'
+              have hle : i.1 ≤ r0 := Nat.lt_succ_iff.mp hir'
+              by_cases hir : i.1 < r0
+              · exact hpre i hi' hir
+              · have hEq : i.1 = r0 := le_antisymm hle (le_of_not_gt hir)
+                have hEq' : i = i0 := by
+                  ext
+                  simp [hEq, i0]
+                subst hEq'
+                exact hcoeff'
+            have hih := ih (r0 + 1) cur steps hk' hpre' hpivot i hi
+            simpa [i0, hi0, hcoeff'] using hih
+  have hpre0 : ∀ i : Fin m, pivotRow.1 < i.1 → i.1 < pivotRow.1 → M i pivotCol = 0 := by
+    intro i hi hlt
+    exact (False.elim (Nat.not_lt_of_ge (le_of_lt hi) hlt))
+  have hrec' := hrec (m - pivotRow.1) pivotRow.1 M List.nil rfl hpre0 hne r hr
+  simpa [Matrix.eliminateColGo, eliminateCol] using hrec'
 
 end Matrix
