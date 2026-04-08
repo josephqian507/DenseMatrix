@@ -1,5 +1,5 @@
-import ProvableComputation.linear_algebra.IsInEchelonForm
-import ProvableComputation.linear_algebra.Rref
+import ProvableComputation.LinearAlgebra.Echelon
+import ProvableComputation.LinearAlgebra.GaussianElimination.Rref
 
 /-!
 # Shared proof lemmas for echelon / RREF routines
@@ -443,7 +443,7 @@ private lemma replace_pivot_col_zero
     (huse : pivotRow ≠ toReplace) (h1 : M pivotRow pivotCol = 1) :
     replace M pivotRow toReplace (-M toReplace pivotCol / M pivotRow pivotCol) toReplace pivotCol = 0 := by
   exact replace_pivot_col_zero_of_ne (M := M) (pivotRow := pivotRow)
-    (toReplace := toReplace) (pivotCol := pivotCol) huse (by simpa [h1])
+    (toReplace := toReplace) (pivotCol := pivotCol) huse (by simp [h1])
 
 /--
 The matrix output of `eliminateCol.go` is independent of the current `steps`
@@ -957,8 +957,7 @@ lemma eliminateCol_below_pivotCol_zero
               by_cases hEq : i.1 = r0
               · exfalso
                 have hp : pivotRow.1 = r0 := by simpa [i0] using congrArg Fin.val hi0.symm
-                have : pivotRow.1 < pivotRow.1 := by simpa [hEq, hp] using hi'
-                exact lt_irrefl _ this
+                simp [hEq, hp] at hi'
               · omega
             exact hpre i hi' hir
           simpa [i0, hi0] using ih (r0 + 1) cur steps hk' hpre' hpivot i hi
@@ -1000,7 +999,7 @@ lemma eliminateCol_below_pivotCol_zero
                 eliminateColGoAux_matrix_eq
                   (pivotRow := pivotRow) (pivotCol := pivotCol)
                   (pivotVal := cur pivotRow pivotCol) (r := r0 + 1) (cur := cur') (steps := steps')
-                  (by simpa [hpivot'] using hpivot')
+                  hpivot'
             have hih := ih (r0 + 1) cur' steps' hk' hpre' (by simpa [hpivot'] using hpivot) i hi
             have hih' :
                 (_root_.eliminateColGoAux pivotRow pivotCol (cur pivotRow pivotCol) (r0 + 1) cur' steps').1 i pivotCol = 0 := by

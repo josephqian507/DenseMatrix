@@ -1,15 +1,16 @@
-import Mathlib.LinearAlgebra.Matrix.Block
+import ProvableComputation.LinearAlgebra.LU.Defs
+import ProvableComputation.LinearAlgebra.GaussianElimination.Elementary
+import ProvableComputation.LinearAlgebra.GaussianElimination.Rref
 
-import ProvableComputation.linear_algebra.ColumnElementary
-import ProvableComputation.linear_algebra.Rref
+/-!
+# LU Basic Algorithm
+
+This module turns the row-operation log produced by Gaussian elimination into permutation
+and lower-triangular factors, and exposes the structured public LU-factorization API.
+-/
 
 variable {R : Type} [Field R] [DecidableEq R]
 variable {a : Nat} {b : Nat}
-
-abbrev squareMatrix (a : Nat) (R : Type) := Matrix (Fin a) (Fin a) R
-
-def IsUnitLowerTriangular (L : squareMatrix a R) : Prop :=
-  L.BlockTriangular OrderDual.toDual ∧ ∀ i : Fin a, L i i = 1
 
 namespace LUFactorizationInternal
 
@@ -36,6 +37,7 @@ def buildPLStep
 
 end LUFactorizationInternal
 
+/-- Replay a row-operation log into the permutation and lower-triangular bookkeeping factors. -/
 def buildPL (steps : List (RowOp a R)) : squareMatrix a R × squareMatrix a R :=
   let (swaps, MInv) :=
     steps.foldl (LUFactorizationInternal.buildPLStep (R := R)) ([], 1)
@@ -43,8 +45,19 @@ def buildPL (steps : List (RowOp a R)) : squareMatrix a R × squareMatrix a R :=
   let L := LUFactorizationInternal.lowerOfSwaps (R := R) swaps MInv
   (P, L)
 
+/-- Internal tuple-valued LU factorization used by the proof files. -/
 def LUFactorization (M : Matrix (Fin a) (Fin b) R) :
     squareMatrix a R × (squareMatrix a R × Matrix (Fin a) (Fin b) R) :=
   let (U, steps) := rowEchelonForm M
   let (P, L) := buildPL steps
   (P, (L, U))
+
+namespace Matrix
+
+/-- Structured public LU factorization. -/
+def luFactorization (M : Matrix (Fin a) (Fin b) R) : LUFactors a b R where
+  P := (LUFactorization M).1
+  L := (LUFactorization M).2.1
+  U := (LUFactorization M).2.2
+
+end Matrix

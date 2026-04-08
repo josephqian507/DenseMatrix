@@ -2,11 +2,18 @@ import Mathlib.Data.Matrix.Basic
 import Mathlib.LinearAlgebra.Determinant
 import Init.Data.Random
 
-import ProvableComputation.linear_algebra.Determinant
+import ProvableComputation.LinearAlgebra.Determinant.Basic
+
+/-!
+# Determinant Runtime Comparator
+
+This module contains profiler-oriented runtime comparisons for the executable determinant
+implementations. It is kept out of the core library import graph.
+-/
 
 set_option profiler true
 
--- A simple way to generate a "random" matrix using a pseudo-random seed
+/-- Generate a reproducible rational matrix from a pseudo-random seed. -/
 def randomMatrix (n : Nat) (seed : Nat) : Matrix (Fin n) (Fin n) Rat :=
   Matrix.of fun i j =>
     let gen := mkStdGen (seed + i.val * n + j.val)
@@ -16,6 +23,7 @@ def randomMatrix (n : Nat) (seed : Nat) : Matrix (Fin n) (Fin n) Rat :=
     let (denom, _) := randNat gen 1 100
     mkRat num denom
 
+/-- Compare the runtime of `gaussDet` with mathlib's Leibniz-style determinant. -/
 def benchmark (n : Nat) (samples : Nat) : IO Unit := do
   let mut totalRatio : Float := 0
   let mut validSamples : Nat := 0
@@ -23,15 +31,13 @@ def benchmark (n : Nat) (samples : Nat) : IO Unit := do
   for i in [0:samples] do
     let mat := randomMatrix n (i * 12345)
 
-    -- Measure gaussDet
     let startLUDet ← IO.monoNanosNow
-    let det := gaussDet mat
-    -- IO.println s!"{det}"
+    let det := Matrix.gaussDet mat
+    let _ := det
     let endLUDet ← IO.monoNanosNow
     let timeLUDet := (endLUDet - startLUDet).toFloat
     IO.println s!"LU time: {timeLUDet}"
 
-    -- Measure Matrix.det
     let startLeibnizDet ← IO.monoNanosNow
     let det := mat.det
     IO.println s!"{det}"
@@ -49,5 +55,4 @@ def benchmark (n : Nat) (samples : Nat) : IO Unit := do
   else
     IO.println "Samples ran too quickly to measure in ms."
 
--- Run with a small n (like 6 or 7) to avoid the n! explosion
 #time #eval benchmark 5 10

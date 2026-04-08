@@ -1,7 +1,6 @@
-import ProvableComputation.linear_algebra.ColumnElementary
-import ProvableComputation.linear_algebra.IsInReducedEchelonFormProofs
-import ProvableComputation.linear_algebra.LUFactorization
-import ProvableComputation.linear_algebra.rref_proofs
+import ProvableComputation.LinearAlgebra.GaussianElimination.Elementary
+import ProvableComputation.LinearAlgebra.GaussianElimination.RrefCorrectness
+import ProvableComputation.LinearAlgebra.LU.Basic
 
 /-!
 This file proves the correctness properties of the bookkeeping layer used by
@@ -23,6 +22,7 @@ variable {a : Nat} {b : Nat}
 
 open ColumnElementary
 open LUFactorizationInternal
+open Matrix
 
 /-! ## Invertible row operations and explicit inverses -/
 
@@ -571,8 +571,8 @@ private theorem rrefAux_steps_invertible_false
 reconstruction theorem. -/
 private theorem rowEchelonForm_steps_invertible
     (M : Matrix (Fin a) (Fin b) R) :
-    ∀ op ∈ (rowEchelonForm M).2, InvertibleRowOp (R := R) op := by
-  simpa [rowEchelonForm] using
+    ∀ op ∈ (_root_.rowEchelonForm M).2, InvertibleRowOp (R := R) op := by
+  simpa [_root_.rowEchelonForm] using
     rrefAux_steps_invertible_false (R := R) M 0 0 [] (by simp)
 
 /-! ## Lower-triangular structure and tail identity invariants -/
@@ -1050,8 +1050,9 @@ private theorem rrefAux_lower_unit_false
 as unit lower triangular. -/
 private theorem rowEchelonForm_lower_isUnitLowerTriangular
     (M : Matrix (Fin a) (Fin b) R) :
-    IsUnitLowerTriangular (R := R) (a := a) ((buildPL (R := R) (rowEchelonForm M).2).2) := by
-  simpa [rowEchelonForm] using
+    IsUnitLowerTriangular
+      (R := R) (a := a) ((buildPL (R := R) (_root_.rowEchelonForm M).2).2) := by
+  simpa [_root_.rowEchelonForm] using
     rrefAux_lower_unit_false (R := R) (M := M) (r := 0) (c := 0) (steps := [])
       one_isUnitLowerTriangular tailIdentityFrom_one
 
@@ -1128,7 +1129,7 @@ theorem LUFactorization_reconstruct (M : Matrix (Fin a) (Fin b) R) :
         simpa [hrow] using rowEchelonForm_steps_invertible (R := R) (M := M)
       -- Then turn the operational log into the matrix `U` produced by the algorithm.
       have hlog : steps.foldl Matrix.applyRowOp M = U := by
-        exact _root_.steps (M := M) (M' := U) (ops := steps) hrow
+        exact Matrix.steps (M := M) (M' := U) (ops := steps) hrow
       -- Finally substitute both facts into the `buildPL` cancellation theorem.
       simpa [hbuild, hlog, Matrix.mul_assoc] using
         buildPL_mul_foldl_applyRowOp_eq (R := R) (steps := steps) (M := M) hsteps
@@ -1186,3 +1187,54 @@ theorem LUFactorization_lower_isUnitLowerTriangular
     · rename_i P L hbuild
       simpa [hrow, hbuild] using
         rowEchelonForm_lower_isUnitLowerTriangular (R := R) (M := M)
+
+/-- The `LUFactorization` output reconstructs the original matrix as `P * L * U`. -/
+theorem plu_matrix_eq_matrix (M : Matrix (Fin a) (Fin b) R) :
+    (LUFactorization (R := R) M).1 * (LUFactorization (R := R) M).2.1 *
+      (LUFactorization (R := R) M).2.2 = M :=
+  LUFactorization_reconstruct (R := R) (M := M)
+
+/-- Square matrices satisfy the same reconstruction identity for the LU output. -/
+theorem lu_matrix_eq_matrix (M : Matrix (Fin a) (Fin a) R) :
+    (LUFactorization (R := R) M).1 * (LUFactorization (R := R) M).2.1 *
+      (LUFactorization (R := R) M).2.2 = M :=
+  plu_matrix_eq_matrix (R := R) (M := M)
+
+/-- The permutation factor returned by `LUFactorization` is orthogonal. -/
+theorem plu_permutation_orthogonal (M : Matrix (Fin a) (Fin b) R) :
+    (LUFactorization (R := R) M).1.transpose * (LUFactorization (R := R) M).1 = 1 ∧
+      (LUFactorization (R := R) M).1 * (LUFactorization (R := R) M).1.transpose = 1 :=
+  LUFactorization_permutation_orthogonal (R := R) (M := M)
+
+/-- The `U` factor returned by `LUFactorization` is in echelon form. -/
+theorem plu_upper_isEchelon (M : Matrix (Fin a) (Fin b) R) :
+    Matrix.IsEchelonForm ((LUFactorization (R := R) M).2.2) :=
+  LUFactorization_upper_isEchelon (R := R) (M := M)
+
+/-- The `L` factor returned by `LUFactorization` is unit lower triangular. -/
+theorem plu_lower_isUnitLowerTriangular (M : Matrix (Fin a) (Fin b) R) :
+    IsUnitLowerTriangular ((LUFactorization (R := R) M).2.1) :=
+  LUFactorization_lower_isUnitLowerTriangular (R := R) (M := M)
+
+theorem Matrix.luFactorization_reconstruct (M : Matrix (Fin a) (Fin b) R) :
+    let lu := Matrix.luFactorization M
+    lu.P * lu.L * lu.U = M := by
+  simpa [Matrix.luFactorization] using LUFactorization_reconstruct (R := R) (M := M)
+
+theorem Matrix.luFactorization_permutation_orthogonal
+    (M : Matrix (Fin a) (Fin b) R) :
+    let lu := Matrix.luFactorization M
+    lu.P.transpose * lu.P = 1 ∧ lu.P * lu.P.transpose = 1 := by
+  simpa [Matrix.luFactorization] using
+    LUFactorization_permutation_orthogonal (R := R) (M := M)
+
+theorem Matrix.luFactorization_upper_isEchelonForm
+    (M : Matrix (Fin a) (Fin b) R) :
+    IsEchelonForm (M := (Matrix.luFactorization M).U) := by
+  simpa [Matrix.luFactorization] using LUFactorization_upper_isEchelon (R := R) (M := M)
+
+theorem Matrix.luFactorization_lower_isUnitLowerTriangular
+    (M : Matrix (Fin a) (Fin b) R) :
+    IsUnitLowerTriangular ((Matrix.luFactorization M).L) := by
+  simpa [Matrix.luFactorization] using
+    LUFactorization_lower_isUnitLowerTriangular (R := R) (M := M)

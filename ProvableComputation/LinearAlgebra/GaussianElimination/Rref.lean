@@ -1,71 +1,18 @@
-import Mathlib.Data.Matrix.Basic
+import ProvableComputation.LinearAlgebra.GaussianElimination.Defs
+
+/-!
+# Gaussian Elimination Algorithms
+
+This module implements the executable elimination loops for row-echelon and reduced
+row-echelon form. The tuple-valued internal routines are retained for proof convenience,
+while the public `Matrix` wrappers return `RowReductionResult`.
+-/
 
 open Matrix
-
-def sampleMatrix : Matrix (Fin 3) (Fin 3) ℚ :=
-  ![![1, 2, 3],
-    ![2, 5, 6],
-    ![4, 8, 12]]
 
 variable {R : Type} [Field R] [DecidableEq R]
 variable {a b : ℕ}
 variable {ha : a > 0} {hb : b > 0}
-
-inductive RowOp (a : ℕ) (R : Type) : Type where
-  | swap : Fin a → Fin a → RowOp a R
-  | factor : Fin a → R → RowOp a R
-  | replace : Fin a → Fin a → R → RowOp a R
-
-def swapRow (given : Matrix (Fin a) (Fin b) R)
- (row1 row2 : Fin a) : Matrix (Fin a) (Fin b) R :=
-  of fun a b =>
-    if a = row1 then
-      given row2 b
-    else if a = row2 then
-      given row1 b
-    else
-      given a b
-
-def factor (given : Matrix (Fin a) (Fin b) R) (i : Fin a)
-  (j : R) : Matrix (Fin a) (Fin b) R :=
-  of fun a1 b1 =>
-    if a1 = i then
-      j * given a1 b1
-    else
-      given a1 b1
-
-def replace (given : Matrix (Fin a) (Fin b) R)
-(use toReplace : Fin a) (k : R) : Matrix (Fin a) (Fin b) R:=
-  if use = toReplace then
-    factor given toReplace (k+1)
-  else
-    of fun a2 b2 =>
-      if a2 = toReplace then
-        given toReplace b2 + k * given use b2
-      else
-        given a2 b2
-
-def checkPivot
-  (M : Matrix (Fin a) (Fin b) R)
-  (startRow startCol : Nat)
-  : Option (Fin a × Fin b) :=
-  let rec scanCol (col : Nat) : Option (Fin a × Fin b) :=
-    if hcol : col < b then
-      -- now scan all rows in this column
-      let rec scanRow (row : Nat) : Option (Fin a × Fin b) :=
-        if hrow : row < a then
-          if M ⟨row, hrow⟩ ⟨col, hcol⟩ ≠ 0 then
-            some (⟨row, hrow⟩, ⟨col, hcol⟩)
-          else
-            scanRow (row + 1)
-        else
-          none
-      match scanRow startRow with
-      | some p => some p
-      | none   => scanCol (col + 1)
-    else
-      none
-  scanCol startCol
 
 -- `eliminateCol` iterates through the matrix row by row, and uses the `replace` operation
 -- to set the value in column `pivotCol` of the row to 0.
@@ -156,11 +103,29 @@ def rrefAux
   else
     (m, steps)
 
+/-- Compute a row-echelon form together with the logged row operations that produce it. -/
 def rowEchelonForm (given : Matrix (Fin a) (Fin b) R)
     : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
   rrefAux given 0 0 List.nil false
 
+/-- Compute a reduced row-echelon form together with the logged row operations that produce it. -/
 def reducedRowEchelonForm
  (given : Matrix (Fin a) (Fin b) R)
 : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
   rrefAux given 0 0 List.nil true
+
+namespace Matrix
+
+/-- Structured public wrapper for `rowEchelonForm`. -/
+def rowEchelonForm
+    (given : Matrix (Fin a) (Fin b) R) : RowReductionResult a b R where
+  matrix := (_root_.rowEchelonForm given).1
+  steps := (_root_.rowEchelonForm given).2
+
+/-- Structured public wrapper for `reducedRowEchelonForm`. -/
+def reducedRowEchelonForm
+    (given : Matrix (Fin a) (Fin b) R) : RowReductionResult a b R where
+  matrix := (_root_.reducedRowEchelonForm given).1
+  steps := (_root_.reducedRowEchelonForm given).2
+
+end Matrix

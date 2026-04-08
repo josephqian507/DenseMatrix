@@ -1,5 +1,5 @@
-import ProvableComputation.linear_algebra.RowEquivalent
-import ProvableComputation.linear_algebra.IsInReducedEchelonFormProofs
+import ProvableComputation.LinearAlgebra.GaussianElimination.Elementary
+import ProvableComputation.LinearAlgebra.GaussianElimination.RrefCorrectness
 
 /-!
 # RREF uniqueness: canonical representative and semantic uniqueness

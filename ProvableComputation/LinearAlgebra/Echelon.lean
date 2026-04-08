@@ -1,18 +1,25 @@
 import Mathlib.Data.Matrix.Basic
 
+/-!
+# Echelon Predicates
+
+This module defines row-echelon and reduced row-echelon predicates for matrices, together
+with the basic structural lemma that pivot columns are zero below pivots in echelon form.
+-/
+
 namespace Matrix
 
 variable {R : Type*} [Field R]
 
-/- A row is zero if all of its entries are zero. -/
+/-- A row is zero if all of its entries are zero. -/
 def RowIsZero {m n : Type*} (M : Matrix m n R) (i : m) : Prop :=
   ∀ j, M i j = 0
 
-/- A pivot at column `p` of row `i`: the entry is nonzero and all entries to the left are zero. -/
+/-- A pivot at column `p` of row `i`: the entry is nonzero and all entries to the left are zero. -/
 def IsPivot {m n : Type*} [LinearOrder n] (M : Matrix m n R) (i : m) (p : n) : Prop :=
   M i p ≠ 0 ∧ ∀ j < p, M i j = 0
 
-/- Row echelon form (REF) with respect to the given row/column orders. -/
+/-- Row echelon form with respect to the given row and column orders. -/
 structure IsEchelonForm {m n : Type*} [LinearOrder m] [LinearOrder n]
   (M : Matrix m n R) : Prop where
   row_zero_or_pivot :
@@ -34,7 +41,7 @@ lemma IsEchelonForm.pivot_column_zero_below
 
 section Reduced
 
-/- Reduced row echelon form (RREF): REF plus pivot normalization and zero above pivots. -/
+/-- Reduced row echelon form: echelon form plus pivot normalization and zeros above pivots. -/
 structure IsReducedEchelonForm {m n : Type*} [LinearOrder m] [LinearOrder n]
   (M : Matrix m n R) : Prop where
   echelon : IsEchelonForm M
