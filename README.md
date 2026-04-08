@@ -1,6 +1,7 @@
 # Provable Computation (Lean 4)
 
-Provable Computation is a Lean 4 library for executable and certifiable algorithms, with a focus on a Gaussian elimination algorithm and a proof of its correctness. Additional linear algebra algorithms are built on top of this framework.
+Provable Computation is a Lean 4 library for executable and certifiable algorithms, with a
+focus on Gaussian elimination, LU factorization, and determinant computation.
 
 ## Team
 
@@ -8,19 +9,26 @@ Provable Computation is a Lean 4 library for executable and certifiable algorith
 - Members: Alan Chang, Annis Wu, Joseph Qian, Junye Ji, Veer Shukla,
   Zeyin (Michael) Feng
 
-## What is implemented today
+## Current module tree
 
-- Gaussian elimination algorithm: [`Rref.lean`](./ProvableComputation/linear_algebra/Rref.lean)
-- Proofs about echelon forms and Gaussian elimination algorithm:
-  - [`EchelonCommonProofs.lean`](./ProvableComputation/linear_algebra/EchelonCommonProofs.lean)
-  - [`IsInReducedEchelonFormProofs.lean`](./ProvableComputation/linear_algebra/IsInReducedEchelonFormProofs.lean)
-  - [`rref_proofs.lean`](./ProvableComputation/linear_algebra/rref_proofs.lean)
-  - [`RrefUniqueness.lean`](./ProvableComputation/linear_algebra/RrefUniqueness.lean)
-- LU factorization and determinant computation modules (work in progress):
-  - [`LUFactorization.lean`](./ProvableComputation/linear_algebra/LUFactorization.lean)
-  - [`Determinant.lean`](./ProvableComputation/linear_algebra/Determinant.lean)
-- Test file
-  - [`Demos.lean`](./ProvableComputation/linear_algebra/Demos.lean)
+- Core echelon predicates:
+  - [`Echelon.lean`](./ProvableComputation/LinearAlgebra/Echelon.lean)
+- Gaussian elimination:
+  - [`Defs.lean`](./ProvableComputation/LinearAlgebra/GaussianElimination/Defs.lean)
+  - [`Rref.lean`](./ProvableComputation/LinearAlgebra/GaussianElimination/Rref.lean)
+  - [`Elementary.lean`](./ProvableComputation/LinearAlgebra/GaussianElimination/Elementary.lean)
+  - [`Pivot.lean`](./ProvableComputation/LinearAlgebra/GaussianElimination/Pivot.lean)
+  - [`RrefCorrectness.lean`](./ProvableComputation/LinearAlgebra/GaussianElimination/RrefCorrectness.lean)
+  - [`RrefUniqueness.lean`](./ProvableComputation/LinearAlgebra/GaussianElimination/RrefUniqueness.lean)
+- LU factorization:
+  - [`Defs.lean`](./ProvableComputation/LinearAlgebra/LU/Defs.lean)
+  - [`Basic.lean`](./ProvableComputation/LinearAlgebra/LU/Basic.lean)
+  - [`Correctness.lean`](./ProvableComputation/LinearAlgebra/LU/Correctness.lean)
+- Determinant:
+  - [`Basic.lean`](./ProvableComputation/LinearAlgebra/Determinant/Basic.lean)
+- Examples and benchmarks:
+  - [`GaussianEliminationDemos.lean`](./ProvableComputation/Examples/GaussianEliminationDemos.lean)
+  - [`DeterminantRuntimeComparator.lean`](./ProvableComputation/Bench/DeterminantRuntimeComparator.lean)
 
 ## Toolchain
 
@@ -34,21 +42,21 @@ Provable Computation is a Lean 4 library for executable and certifiable algorith
 lake build
 ```
 
-## Current boundaries
+## Public entrypoints
 
-- [`LUFactorization.lean`](./ProvableComputation/linear_algebra/LUFactorization.lean)
-  contains the LU construction and shared internal helpers.
-- [`LUFactorizationProofs.lean`](./ProvableComputation/linear_algebra/LUFactorizationProofs.lean)
-  contains the main LU correctness proofs.
-- [`LU_proofs.lean`](./ProvableComputation/linear_algebra/LU_proofs.lean)
-  re-exports the user-facing LU theorems.
-- [`determinant_proofs.lean`](./ProvableComputation/linear_algebra/determinant_proofs.lean)
-  is currently empty.
+- `Matrix.rowEchelonForm` and `Matrix.reducedRowEchelonForm`
+  return `Matrix.RowReductionResult` with named fields `matrix` and `steps`.
+- `Matrix.luFactorization`
+  returns `Matrix.LUFactors` with named fields `P`, `L`, and `U`.
+- `Matrix.gaussDet` and `Matrix.luDet`
+  expose the determinant algorithms on the namespaced public API.
 
 ## Poster
 
 ![Poster from UW Math AI Poster Session (03/16/2026)](./postersession_3-16-2026.png)
 
-## TODO
+## Status
 
-1. Add determinant proof in `determinant_proofs.lean`.
+- The old `linear_algebra/` tree has been replaced by the `LinearAlgebra/` hierarchy.
+- Demo and benchmark code live outside the core library import surface.
+- Determinant correctness proofs are still not implemented as a separate proof module.
