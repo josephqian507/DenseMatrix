@@ -146,12 +146,6 @@ theorem firstPointExample :
 
 end Matrix
 
-#eval swapRow sampleMatrix 1 2
-#eval factor sampleMatrix 1 2
-#eval replace sampleMatrix 1 2 3
-#eval replace sampleMatrix 1 1 3
-#eval factor sampleMatrix 1 4
-#eval checkPivot sampleMatrix 0 0
 #eval (Matrix.rowEchelonForm sampleMatrix).matrix
 #eval (Matrix.reducedRowEchelonForm sampleMatrix).matrix
 #eval (Matrix.rowEchelonForm sampleMatrix4).matrix
