@@ -45,19 +45,23 @@ def buildPL (steps : List (RowOp a R)) : squareMatrix a R × squareMatrix a R :=
   let L := LUFactorizationInternal.lowerOfSwaps (R := R) swaps MInv
   (P, L)
 
+namespace LUFactorizationInternal
+
 /-- Internal tuple-valued LU factorization used by the proof files. -/
-def LUFactorization (M : Matrix (Fin a) (Fin b) R) :
+def rawFactorization (M : Matrix (Fin a) (Fin b) R) :
     squareMatrix a R × (squareMatrix a R × Matrix (Fin a) (Fin b) R) :=
-  let (U, steps) := rowEchelonForm M
+  let (U, steps) := GaussianEliminationInternal.rawRowEchelonForm M
   let (P, L) := buildPL steps
   (P, (L, U))
+
+end LUFactorizationInternal
 
 namespace Matrix
 
 /-- Structured public LU factorization. -/
 def luFactorization (M : Matrix (Fin a) (Fin b) R) : LUFactors a b R where
-  P := (LUFactorization M).1
-  L := (LUFactorization M).2.1
-  U := (LUFactorization M).2.2
+  P := (LUFactorizationInternal.rawFactorization M).1
+  L := (LUFactorizationInternal.rawFactorization M).2.1
+  U := (LUFactorizationInternal.rawFactorization M).2.2
 
 end Matrix

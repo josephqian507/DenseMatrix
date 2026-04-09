@@ -14,11 +14,13 @@ variable {R : Type} [Field R] [DecidableEq R]
 variable {a b : ℕ}
 variable {ha : a > 0} {hb : b > 0}
 
+namespace GaussianEliminationInternal
+
 -- `eliminateCol` iterates through the matrix row by row, and uses the `replace` operation
 -- to set the value in column `pivotCol` of the row to 0.
 -- `eliminateCol` calls replace between 0 and `a` times, so this algorithm's certificate
 -- should include a `replace` object for each `replace` call in `eliminateCol`
-def eliminateColGoAux
+def eliminateColLoopAux
     (pivotRow : Fin a) (pivotCol : Fin b) (pivotVal : R)
     (r : Nat) (cur : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
     : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
@@ -27,17 +29,17 @@ def eliminateColGoAux
     let i : Fin a := ⟨r, hr⟩
     -- Skip over pivotRow.
     if h : i = pivotRow then
-      eliminateColGoAux pivotRow pivotCol pivotVal (r + 1) cur steps
+      eliminateColLoopAux pivotRow pivotCol pivotVal (r + 1) cur steps
     else
       -- Otherwise, use pivotRow to replace the current row, setting this row's
       -- pivotCol entry to 0.
       let coeff := cur i pivotCol
       if coeff ≠ 0 then  -- eliminate unnecessary calls to `replace`
-        eliminateColGoAux pivotRow pivotCol pivotVal (r + 1)
+        eliminateColLoopAux pivotRow pivotCol pivotVal (r + 1)
           (replace cur pivotRow i (-coeff / pivotVal))
           (List.concat steps (.replace pivotRow i (-coeff / pivotVal)))
       else
-        eliminateColGoAux pivotRow pivotCol pivotVal (r + 1) cur steps
+        eliminateColLoopAux pivotRow pivotCol pivotVal (r + 1) cur steps
   else
     (cur, steps)
 termination_by a - r
@@ -46,31 +48,21 @@ decreasing_by
   · omega
   · omega
 
-def eliminateColGo
+def eliminateColLoop
     (pivotRow : Fin a) (pivotCol : Fin b)
     (r : Nat) (cur : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
     : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
-  eliminateColGoAux pivotRow pivotCol (cur pivotRow pivotCol) r cur steps
+  eliminateColLoopAux pivotRow pivotCol (cur pivotRow pivotCol) r cur steps
 
-def eliminateCol
+def eliminateColCore
     (given : Matrix (Fin a) (Fin b) R) (pivotRow : Fin a) (pivotCol : Fin b)
     (steps : List (RowOp a R)) (reduced : Bool) : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
   if reduced then
-    eliminateColGo pivotRow pivotCol 0 given steps
+    eliminateColLoop pivotRow pivotCol 0 given steps
   else
-    eliminateColGo pivotRow pivotCol pivotRow.val given steps
+    eliminateColLoop pivotRow pivotCol pivotRow.val given steps
 
-namespace eliminateCol
-
-abbrev go
-    (pivotRow : Fin a) (pivotCol : Fin b)
-    (r : Nat) (cur : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
-    : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
-  eliminateColGo pivotRow pivotCol r cur steps
-
-end eliminateCol
-
-def rrefAux
+def rowReductionAux
   (m : Matrix (Fin a) (Fin b) R) (row col : Nat) (steps : List (RowOp a R)) (reduced : Bool)
   : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
   if hrow : row < a then
@@ -96,36 +88,38 @@ def rrefAux
             steps
           else
             List.concat steps (.factor ⟨row, hrow⟩ (pivotVal)⁻¹)
-        let (m3, steps) := eliminateCol m2 ⟨row, hrow⟩ pivotCol steps reduced
-        rrefAux m3 (row + 1) (col + 1) steps reduced
+        let (m3, steps) := eliminateColCore m2 ⟨row, hrow⟩ pivotCol steps reduced
+        rowReductionAux m3 (row + 1) (col + 1) steps reduced
     else
       (m, steps)
   else
     (m, steps)
 
 /-- Compute a row-echelon form together with the logged row operations that produce it. -/
-def rowEchelonForm (given : Matrix (Fin a) (Fin b) R)
+def rawRowEchelonForm (given : Matrix (Fin a) (Fin b) R)
     : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
-  rrefAux given 0 0 List.nil false
+  rowReductionAux given 0 0 List.nil false
 
 /-- Compute a reduced row-echelon form together with the logged row operations that produce it. -/
-def reducedRowEchelonForm
+def rawReducedRowEchelonForm
  (given : Matrix (Fin a) (Fin b) R)
 : (Matrix (Fin a) (Fin b) R × List (RowOp a R)) :=
-  rrefAux given 0 0 List.nil true
+  rowReductionAux given 0 0 List.nil true
+
+end GaussianEliminationInternal
 
 namespace Matrix
 
-/-- Structured public wrapper for `rowEchelonForm`. -/
+/-- Structured public wrapper for `GaussianEliminationInternal.rawRowEchelonForm`. -/
 def rowEchelonForm
     (given : Matrix (Fin a) (Fin b) R) : RowReductionResult a b R where
-  matrix := (_root_.rowEchelonForm given).1
-  steps := (_root_.rowEchelonForm given).2
+  matrix := (GaussianEliminationInternal.rawRowEchelonForm given).1
+  steps := (GaussianEliminationInternal.rawRowEchelonForm given).2
 
-/-- Structured public wrapper for `reducedRowEchelonForm`. -/
+/-- Structured public wrapper for `GaussianEliminationInternal.rawReducedRowEchelonForm`. -/
 def reducedRowEchelonForm
     (given : Matrix (Fin a) (Fin b) R) : RowReductionResult a b R where
-  matrix := (_root_.reducedRowEchelonForm given).1
-  steps := (_root_.reducedRowEchelonForm given).2
+  matrix := (GaussianEliminationInternal.rawReducedRowEchelonForm given).1
+  steps := (GaussianEliminationInternal.rawReducedRowEchelonForm given).2
 
 end Matrix

@@ -11,6 +11,8 @@ their elementary row operations.
 
 namespace Matrix
 
+open GaussianEliminationInternal
+
 variable {R : Type} [Field R] [DecidableEq R]
 variable {m n : ℕ}
 
@@ -23,7 +25,7 @@ private lemma fin_eq_of_val_eq {n : ℕ} {i : Fin n} {k : ℕ} (hk : k < n) (h :
 abbrev rrefAuxM
     (M : Matrix (Fin m) (Fin n) R) (row col : Nat) (steps : List (RowOp m R)) :
     Matrix (Fin m) (Fin n) R :=
-  (rrefAux M row col steps true).1
+  (rowReductionAux M row col steps true).1
 
 /-! Echelon invariants. -/
 
@@ -291,7 +293,7 @@ private lemma isPivot_eliminate_preserve
       (eliminateColM M pivotRow pivotCol) i j = M i j := by
     intro j hj
     -- use preservation of column j
-    simpa [eliminateColM, eliminateCol] using
+    simpa [eliminateColM, eliminateColCore] using
       (eliminateCol_go_preserves_col (cur := M) (pivotRow := pivotRow)
         (pivotCol := pivotCol) (r := 0) (steps := List.nil) (j := j) (hzero := hzero j hj) i)
   refine ⟨?h0, ?hleft⟩
@@ -497,7 +499,7 @@ private lemma step_pivot_row_core
     (hbound : bound ≤ pc.1) (hpr_ge : row ≤ pr.1) :
     let rowFin : Fin m := ⟨row, hrow⟩
     let m1 := if pr.1 = row then M else swapRow M rowFin pr
-    let m3 := (eliminateCol m1 rowFin pc List.nil false).1
+    let m3 := (eliminateColCore m1 rowFin pc List.nil false).1
     (∀ j : Fin n, j < pc → m1 rowFin j = 0) →
     (∀ j : Fin n, m3 rowFin j = m1 rowFin j) →
     m1 rowFin pc ≠ 0 →
@@ -526,7 +528,7 @@ private lemma step_pivot_row_core
     have hp3 : IsPivot m3 i (pivs i hlt) := by
       refine ⟨?_, ?_⟩
       · have hpres : m3 i (pivs i hlt) = m1 i (pivs i hlt) := by
-          simpa [m3, eliminateCol] using
+          simpa [m3, eliminateColCore] using
             (eliminateCol_go_preserves_col (cur := m1) (pivotRow := rowFin)
               (pivotCol := pc) (r := row) (steps := List.nil) (j := pivs i hlt)
               (hzero := hzero_left_m1 (pivs i hlt) hp_lt) i)
@@ -534,7 +536,7 @@ private lemma step_pivot_row_core
       · intro j hj
         have hjpc : j < pc := lt_of_lt_of_le hj (le_of_lt hp_lt)
         have hpres : m3 i j = m1 i j := by
-          simpa [m3, eliminateCol] using
+          simpa [m3, eliminateColCore] using
             (eliminateCol_go_preserves_col (cur := m1) (pivotRow := rowFin)
               (pivotCol := pc) (r := row) (steps := List.nil) (j := j)
               (hzero := hzero_left_m1 j hjpc) i)
@@ -562,7 +564,7 @@ private lemma step_cols_lt_bound_zero_core
     (_hbound : bound ≤ pc.1) :
     let rowFin : Fin m := ⟨row, hrow⟩
     let m1 := if pr.1 = row then M else swapRow M rowFin pr
-    let m3 := (eliminateCol m1 rowFin pc List.nil false).1
+    let m3 := (eliminateColCore m1 rowFin pc List.nil false).1
     (∀ j : Fin n, j < pc → m1 rowFin j = 0) →
     m1 rowFin pc ≠ 0 →
     ∀ r : Fin m, row + 1 ≤ r.1 → ∀ j : Fin n, j.1 < pc.1 + 1 → m3 r j = 0 := by
@@ -596,7 +598,7 @@ private lemma step_cols_lt_bound_zero_core
           · simp [m1, hpr, swapRow, of_apply, hrpr, hrrow, hzeroM r hr_ge]
       calc
         m3 r j = m1 r j := by
-          simpa [m3, eliminateCol] using
+          simpa [m3, eliminateColCore] using
             (eliminateCol_go_preserves_col (cur := m1) (pivotRow := rowFin)
               (pivotCol := pc) (r := row) (steps := List.nil) (j := j)
               (hzero := hzero_left_m1 j hjlt') r)
@@ -864,7 +866,7 @@ private lemma step_state_core_false
     {pr : Fin m} {pc : Fin n} (h : checkPivot M row col = some (pr, pc)) :
     let rowFin : Fin m := ⟨row, hrow⟩
     let m1 := if pr.1 = row then M else swapRow M rowFin pr
-    let m3 := (eliminateCol m1 rowFin pc List.nil false).1
+    let m3 := (eliminateColCore m1 rowFin pc List.nil false).1
     EchelonStateCore (M := m3) (row := row + 1) (col := col + 1) (bound := pc.1 + 1)
       (extendPivs row pivs pc) := by
   intro rowFin m1 m3
@@ -942,7 +944,7 @@ private lemma rrefAux_isReducedEchelon
     by_cases hrow : row < m
     · by_cases hcol : col < n
       · -- unfold rrefAuxM one step and analyze checkPivot
-        rw [rrefAuxM, rrefAux.eq_1]
+        rw [rrefAuxM, rowReductionAux.eq_1]
         simp only [hrow, hcol]
         cases hcp : checkPivot M row col with
         | none =>
@@ -974,7 +976,7 @@ private lemma rrefAux_isReducedEchelon
                   have hlt : m - (row + 1) < m - row := by omega
                   simpa [hk] using hlt
                 have helim :
-                    (eliminateCol m2 ⟨row, hrow⟩ pc steps' true).1 = m3 := by
+                    (eliminateColCore m2 ⟨row, hrow⟩ pc steps' true).1 = m3 := by
                   simpa [m3, steps'] using
                     (eliminateCol_matrix_irrel
                       (M := m2)
@@ -984,11 +986,11 @@ private lemma rrefAux_isReducedEchelon
                 simpa [m1, pivotVal, m2, m3, steps', helim] using
                   ih (m - (row + 1)) hklt
                     m3 (row + 1) (col + 1) (pc.1 + 1)
-                    ((eliminateCol m2 ⟨row, hrow⟩ pc steps' true).2)
+                    ((eliminateColCore m2 ⟨row, hrow⟩ pc steps' true).2)
                     (extendPivs row pivs pc) rfl hstate'
       · -- col ≥ n, so rrefAuxM returns M
         have hcol' : ¬ col < n := hcol
-        rw [rrefAuxM, rrefAux.eq_1]
+        rw [rrefAuxM, rowReductionAux.eq_1]
         simp only [hrow, hcol']
         have hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r :=
           zero_rows_of_col_ge (M := M) row col bound pivs
@@ -997,7 +999,7 @@ private lemma rrefAux_isReducedEchelon
           hstate.toEchelonStateCore hstate.toReducedStateExtras hzero
     · -- row ≥ m
       have hrow' : ¬ row < m := hrow
-      rw [rrefAuxM, rrefAux.eq_1]
+      rw [rrefAuxM, rowReductionAux.eq_1]
       simp only [hrow']
       have hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r :=
         zero_rows_of_row_ge (M := M) row (by omega)
@@ -1010,19 +1012,19 @@ private lemma rrefAux_isEchelon_false
     (steps : List (RowOp m R))
     (pivs : ∀ i : Fin m, i.1 < row → Fin n)
     (hstate : EchelonStateCore (M := M) row col bound pivs) :
-    IsEchelonForm (M := (rrefAux M row col steps false).1) := by
+    IsEchelonForm (M := (rowReductionAux M row col steps false).1) := by
   have hrec :
       ∀ k (M : Matrix (Fin m) (Fin n) R) (row col bound : Nat)
         (steps : List (RowOp m R)) (pivs : ∀ i : Fin m, i.1 < row → Fin n),
         m - row = k →
         EchelonStateCore (M := M) row col bound pivs →
-        IsEchelonForm (M := (rrefAux M row col steps false).1) := by
+        IsEchelonForm (M := (rowReductionAux M row col steps false).1) := by
     intro k
     refine Nat.strongRecOn k ?_
     intro k ih M row col bound steps pivs hk hstate
     by_cases hrow : row < m
     · by_cases hcol : col < n
-      · rw [rrefAux, dif_pos hrow]
+      · rw [rowReductionAux, dif_pos hrow]
         simp only [hcol]
         cases hcp : checkPivot M row col with
         | none =>
@@ -1040,34 +1042,34 @@ private lemma rrefAux_isEchelon_false
                 let m1 : Matrix (Fin m) (Fin n) R :=
                   if pr.1 = row then M else swapRow M rowFin pr
                 let m3 : Matrix (Fin m) (Fin n) R :=
-                  (eliminateCol m1 rowFin pc List.nil false).1
+                  (eliminateColCore m1 rowFin pc List.nil false).1
                 have hklt : m - (row + 1) < k := by
                   have hlt : m - (row + 1) < m - row := by omega
                   simpa [hk] using hlt
                 have helim :
-                    (eliminateCol m1 rowFin pc steps1 false).1 = m3 := by
+                    (eliminateColCore m1 rowFin pc steps1 false).1 = m3 := by
                   simpa [m3] using
                     eliminateCol_matrix_irrel_false (M := m1) (pivotRow := rowFin)
                       (pivotCol := pc) (steps := steps1)
                 have hstate'' :
-                    EchelonStateCore (M := (eliminateCol m1 rowFin pc steps1 false).1)
+                    EchelonStateCore (M := (eliminateColCore m1 rowFin pc steps1 false).1)
                       (row := row + 1) (col := col + 1) (bound := pc.1 + 1)
                       (extendPivs row pivs pc) := by
                   simpa [helim] using hstate'
                 simpa [rowFin, steps1, m1, m3, hcp, helim] using
                   ih (m - (row + 1)) hklt
-                    ((eliminateCol m1 rowFin pc steps1 false).1)
+                    ((eliminateColCore m1 rowFin pc steps1 false).1)
                     (row + 1) (col + 1) (pc.1 + 1)
-                    ((eliminateCol m1 rowFin pc steps1 false).2)
+                    ((eliminateColCore m1 rowFin pc steps1 false).2)
                     (extendPivs row pivs pc) rfl hstate''
       · have hcol' : ¬ col < n := hcol
-        rw [rrefAux, dif_pos hrow]
+        rw [rowReductionAux, dif_pos hrow]
         simp only [hcol']
         have hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r :=
           zero_rows_of_col_ge (M := M) row col bound pivs hstate hcol'
         exact echelon_of_state (M := M) row col bound pivs hstate hzero
     · have hrow' : ¬ row < m := hrow
-      rw [rrefAux, dif_neg hrow']
+      rw [rowReductionAux, dif_neg hrow']
       have hzero : ∀ r : Fin m, row ≤ r.1 → RowIsZero M r :=
         zero_rows_of_row_ge (M := M) row (by omega)
       exact echelon_of_state (M := M) row col bound pivs hstate hzero
@@ -1075,46 +1077,48 @@ private lemma rrefAux_isEchelon_false
 
 /-! Final theorem. -/
 
-theorem reducedRowEchelonForm_isReducedEchelon
+private theorem rawReducedRowEchelonForm_isReducedEchelonForm
     (M : Matrix (Fin m) (Fin n) R) :
-    IsReducedEchelonForm (M := (_root_.reducedRowEchelonForm M).1) := by
+    IsReducedEchelonForm (M := (rawReducedRowEchelonForm M).1) := by
   classical
   have hstate : EchelonState (M := M) (row := 0) (col := 0) (bound := 0) emptyPivs :=
     initial_state (M := M)
-  simpa [_root_.reducedRowEchelonForm] using
+  simpa [rawReducedRowEchelonForm] using
     (rrefAux_isReducedEchelon (M := M) (row := 0) (col := 0) (bound := 0)
       (steps := List.nil) (pivs := emptyPivs)
       (hstate := hstate))
 
 /-- Compatibility theorem: derive REF directly from the stronger RREF result. -/
-theorem reducedRowEchelonForm_isEchelon
+private theorem rawReducedRowEchelonForm_isEchelonForm
     (M : Matrix (Fin m) (Fin n) R) :
-    IsEchelonForm (M := (_root_.reducedRowEchelonForm M).1) :=
-  (reducedRowEchelonForm_isReducedEchelon (M := M)).echelon
+    IsEchelonForm (M := (rawReducedRowEchelonForm M).1) :=
+  (rawReducedRowEchelonForm_isReducedEchelonForm (M := M)).echelon
 
-theorem rowEchelonForm_isEchelon
+private theorem rawRowEchelonForm_isEchelonForm
     (M : Matrix (Fin m) (Fin n) R) :
-    IsEchelonForm (M := (_root_.rowEchelonForm M).1) := by
+    IsEchelonForm (M := (rawRowEchelonForm M).1) := by
   have hcore : EchelonStateCore (M := M) (row := 0) (col := 0) (bound := 0) emptyPivs :=
     (initial_state (M := M)).toEchelonStateCore
-  simpa [_root_.rowEchelonForm] using
+  simpa [rawRowEchelonForm] using
     (rrefAux_isEchelon_false (M := M) (row := 0) (col := 0) (bound := 0)
       (steps := List.nil) (pivs := emptyPivs) (hstate := hcore))
 
 theorem reducedRowEchelonForm_isReducedEchelonForm
     (M : Matrix (Fin m) (Fin n) R) :
     IsReducedEchelonForm (M := (Matrix.reducedRowEchelonForm M).matrix) := by
-  simpa [Matrix.reducedRowEchelonForm] using reducedRowEchelonForm_isReducedEchelon (M := M)
+  simpa [Matrix.reducedRowEchelonForm] using
+    rawReducedRowEchelonForm_isReducedEchelonForm (M := M)
 
 theorem reducedRowEchelonForm_isEchelonForm
     (M : Matrix (Fin m) (Fin n) R) :
     IsEchelonForm (M := (Matrix.reducedRowEchelonForm M).matrix) := by
-  simpa [Matrix.reducedRowEchelonForm] using reducedRowEchelonForm_isEchelon (M := M)
+  simpa [Matrix.reducedRowEchelonForm] using
+    rawReducedRowEchelonForm_isEchelonForm (M := M)
 
 theorem rowEchelonForm_isEchelonForm
     (M : Matrix (Fin m) (Fin n) R) :
     IsEchelonForm (M := (Matrix.rowEchelonForm M).matrix) := by
-  simpa [Matrix.rowEchelonForm] using rowEchelonForm_isEchelon (M := M)
+  simpa [Matrix.rowEchelonForm] using rawRowEchelonForm_isEchelonForm (M := M)
 
 
 /-! ## Row-operation certificates and execution log theorems -/
@@ -1191,25 +1195,25 @@ def replace_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
     rw [replace_matrix_eq_elem_mul_matrix, Matrix.mul_assoc]
     exact mul_by_inv _ A_inv hA M x
 
-private lemma eliminateColGoAux_eq
+private lemma eliminateColLoopAux_eq
     (pivotRow : Fin a) (pivotCol : Fin b) (pivotVal : R) (r : Nat)
     (M : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
     (hpivot : M pivotRow pivotCol = pivotVal) :
-    eliminateColGoAux pivotRow pivotCol pivotVal r M steps =
-      eliminateCol.go pivotRow pivotCol r M steps := by
-  simp [eliminateCol.go, _root_.eliminateColGo, hpivot]
+    eliminateColLoopAux pivotRow pivotCol pivotVal r M steps =
+      eliminateColLoop pivotRow pivotCol r M steps := by
+  simp [eliminateColLoop, hpivot]
 
 def eliminate_proof_helper (r : Fin a) (c : Fin b) (row : Nat) (M : Matrix (Fin a) (Fin b) R)
     (x : Matrix (Fin b) (Fin 1) R) (steps : List (RowOp a R)) (reduced : Bool)
-    : (eliminateCol.go r c row M steps).1 * x = 0 ↔ M * x = 0 := by
-  rw [eliminateCol.go, _root_.eliminateColGo, _root_.eliminateColGoAux]
+    : (eliminateColLoop r c row M steps).1 * x = 0 ↔ M * x = 0 := by
+  rw [eliminateColLoop, eliminateColLoopAux]
   split_ifs with hrow
   · simp only [ne_eq, List.concat_eq_append, ite_not, dite_eq_ite]
     split_ifs with hEq hcoeff
-    · simpa [eliminateColGoAux_eq (pivotRow := r) (pivotCol := c) (pivotVal := M r c)
+    · simpa [eliminateColLoopAux_eq (pivotRow := r) (pivotCol := c) (pivotVal := M r c)
         (r := row + 1) (M := M) (steps := steps) rfl] using
         eliminate_proof_helper r c (row + 1) M x steps reduced
-    · simpa [eliminateColGoAux_eq (pivotRow := r) (pivotCol := c) (pivotVal := M r c)
+    · simpa [eliminateColLoopAux_eq (pivotRow := r) (pivotCol := c) (pivotVal := M r c)
         (r := row + 1) (M := M) (steps := steps) rfl] using
         eliminate_proof_helper r c (row + 1) M x steps reduced
     · let i : Fin a := ⟨row, hrow⟩
@@ -1221,14 +1225,14 @@ def eliminate_proof_helper (r : Fin a) (c : Fin b) (row : Nat) (M : Matrix (Fin 
       have hpivot' : M' r c = M r c := by
         simp [M', replace, huse, of_apply]
       have hrec :
-          (eliminateCol.go r c (row + 1) M' steps').1 * x = 0 ↔ M' * x = 0 := by
+          (eliminateColLoop r c (row + 1) M' steps').1 * x = 0 ↔ M' * x = 0 := by
         simpa [M', steps'] using eliminate_proof_helper r c (row + 1) M' x steps' reduced
       have hrec' :
-          (eliminateColGoAux r c (M r c) (row + 1) M' steps').1 * x = 0 ↔ M' * x = 0 := by
-        simpa [eliminateColGoAux_eq (pivotRow := r) (pivotCol := c) (pivotVal := M r c)
+          (eliminateColLoopAux r c (M r c) (row + 1) M' steps').1 * x = 0 ↔ M' * x = 0 := by
+        simpa [eliminateColLoopAux_eq (pivotRow := r) (pivotCol := c) (pivotVal := M r c)
           (r := row + 1) (M := M') (steps := steps') hpivot'] using hrec
       have hrec'' :
-          (eliminateColGoAux r c (M r c) (row + 1)
+          (eliminateColLoopAux r c (M r c) (row + 1)
               (replace M r ⟨row, hrow⟩ (-M ⟨row, hrow⟩ c / M r c))
               (steps ++ [RowOp.replace r ⟨row, hrow⟩ (-M ⟨row, hrow⟩ c / M r c)])).1 * x = 0 ↔
             M' * x = 0 := by
@@ -1239,8 +1243,8 @@ def eliminate_proof_helper (r : Fin a) (c : Fin b) (row : Nat) (M : Matrix (Fin 
 
 def eliminate_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R)
     (r : Fin a) (c : Fin b) (steps : List (RowOp a R)) (reduced : Bool)
-    : (eliminateCol M r c steps reduced).1 * x = 0 ↔ M * x = 0 := by
-  rw [eliminateCol]
+    : (eliminateColCore M r c steps reduced).1 * x = 0 ↔ M * x = 0 := by
+  rw [eliminateColCore]
   split
   · exact eliminate_proof_helper r c 0 M x steps reduced
   · exact eliminate_proof_helper r c (↑r) M x steps reduced
@@ -1248,8 +1252,8 @@ def eliminate_proof {x : Matrix (Fin b) (Fin 1) R} (M : Matrix (Fin a) (Fin b) R
 /- Gaussian elimination does not change the matrix's solution set -/
 def rref_proof_helper (M : Matrix (Fin a) (Fin b) R) (r c : Nat) (x : Matrix (Fin b) (Fin 1) R)
     (steps : List (RowOp a R)) (reduced : Bool)
-    : (rrefAux M r c steps reduced).1 * x = 0 ↔ M * x = 0 := by
-  rw [rrefAux]
+    : (rowReductionAux M r c steps reduced).1 * x = 0 ↔ M * x = 0 := by
+  rw [rowReductionAux]
   split_ifs with h1 h2
   · simp only [List.concat_eq_append, List.append_assoc, List.cons_append, List.nil_append]
     split
@@ -1280,28 +1284,28 @@ def rref_proof_helper (M : Matrix (Fin a) (Fin b) R) (r c : Nat) (x : Matrix (Fi
   rfl
 
 def ref_proof (M : Matrix (Fin a) (Fin b) R) (x : Matrix (Fin b) (Fin 1) R)
-    : (_root_.rowEchelonForm M).1 * x = 0 ↔ M * x = 0 := by
-  rw [_root_.rowEchelonForm]
+    : (rawRowEchelonForm M).1 * x = 0 ↔ M * x = 0 := by
+  rw [rawRowEchelonForm]
   exact rref_proof_helper M 0 0 x List.nil false
 
 def rref_proof (M : Matrix (Fin a) (Fin b) R) (x : Matrix (Fin b) (Fin 1) R)
-    : (_root_.reducedRowEchelonForm M).1 * x = 0 ↔ M * x = 0 := by
-  rw [_root_.reducedRowEchelonForm]
+    : (rawReducedRowEchelonForm M).1 * x = 0 ↔ M * x = 0 := by
+  rw [rawReducedRowEchelonForm]
   exact rref_proof_helper M 0 0 x List.nil true
 
 -- Length of steps list does not decrease after an iteration of Gaussian elimination algorithm
 
 def elim_col_go_adds_steps_helper (pivotRow : Fin a) (pivotCol : Fin b) (r : Nat)
     (M : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
-    : (eliminateCol.go pivotRow pivotCol r M steps).2.length ≥ steps.length := by
-  rw [eliminateCol.go, _root_.eliminateColGo, _root_.eliminateColGoAux]
+    : (eliminateColLoop pivotRow pivotCol r M steps).2.length ≥ steps.length := by
+  rw [eliminateColLoop, eliminateColLoopAux]
   split_ifs with hrow
   · simp only [ne_eq, List.concat_eq_append, ite_not, dite_eq_ite]
     split_ifs with hEq hcoeff
-    · simpa [eliminateColGoAux_eq (pivotRow := pivotRow) (pivotCol := pivotCol)
+    · simpa [eliminateColLoopAux_eq (pivotRow := pivotRow) (pivotCol := pivotCol)
         (pivotVal := M pivotRow pivotCol) (r := r + 1) (M := M) (steps := steps) rfl] using
         elim_col_go_adds_steps_helper pivotRow pivotCol (r + 1) M steps
-    · simpa [eliminateColGoAux_eq (pivotRow := pivotRow) (pivotCol := pivotCol)
+    · simpa [eliminateColLoopAux_eq (pivotRow := pivotRow) (pivotCol := pivotCol)
         (pivotVal := M pivotRow pivotCol) (r := r + 1) (M := M) (steps := steps) rfl] using
         elim_col_go_adds_steps_helper pivotRow pivotCol (r + 1) M steps
     · let i : Fin a := ⟨r, hrow⟩
@@ -1313,13 +1317,13 @@ def elim_col_go_adds_steps_helper (pivotRow : Fin a) (pivotCol : Fin b) (r : Nat
       have hpivot' : M' pivotRow pivotCol = M pivotRow pivotCol := by
         simp [M', replace, huse, of_apply]
       have hrec :
-          (eliminateCol.go pivotRow pivotCol (r + 1) M' steps').2.length ≥ steps'.length := by
+          (eliminateColLoop pivotRow pivotCol (r + 1) M' steps').2.length ≥ steps'.length := by
         simpa [M', steps'] using
           elim_col_go_adds_steps_helper pivotRow pivotCol (r + 1) M' steps'
       have hrec' :
-          (eliminateColGoAux pivotRow pivotCol (M pivotRow pivotCol) (r + 1) M' steps').2.length ≥
+          (eliminateColLoopAux pivotRow pivotCol (M pivotRow pivotCol) (r + 1) M' steps').2.length ≥
             steps'.length := by
-        simpa [eliminateColGoAux_eq (pivotRow := pivotRow) (pivotCol := pivotCol)
+        simpa [eliminateColLoopAux_eq (pivotRow := pivotRow) (pivotCol := pivotCol)
           (pivotVal := M pivotRow pivotCol) (r := r + 1) (M := M') (steps := steps') hpivot'] using hrec
       trans steps'.length
       · exact hrec'
@@ -1328,23 +1332,23 @@ def elim_col_go_adds_steps_helper (pivotRow : Fin a) (pivotCol : Fin b) (r : Nat
 
 lemma elim_col_go_adds_steps (pivotRow : Fin a) (pivotCol : Fin b) (r : Nat)
     (M : Matrix (Fin a) (Fin b) R) (l1 l2 : List (RowOp a R))
-    : (eliminateCol.go pivotRow pivotCol r M (l1 ++ l2)).2.length ≥ l1.length := by
+    : (eliminateColLoop pivotRow pivotCol r M (l1 ++ l2)).2.length ≥ l1.length := by
   trans (l1 ++ l2).length
   · exact elim_col_go_adds_steps_helper pivotRow pivotCol r M (l1 ++ l2)
   · aesop
 
 lemma elim_col_adds_steps (M : Matrix (Fin a) (Fin b) R) (pivotRow : Fin a) (pivotCol : Fin b)
     (l1 l2 : List (RowOp a R)) (reduced : Bool)
-    : (eliminateCol M pivotRow pivotCol (l1 ++ l2) reduced).2.length ≥ l1.length := by
-  rw [eliminateCol]
+    : (eliminateColCore M pivotRow pivotCol (l1 ++ l2) reduced).2.length ≥ l1.length := by
+  rw [eliminateColCore]
   split_ifs
   · exact elim_col_go_adds_steps pivotRow pivotCol 0 M l1 l2
   · exact elim_col_go_adds_steps pivotRow pivotCol (↑pivotRow) M l1 l2
 
 theorem row_reduction_adds_steps (M : Matrix (Fin a) (Fin b) R) (r c : Nat)
     (steps : List (RowOp a R)) (reduced : Bool)
-    : (rrefAux M r c steps reduced).2.length >= steps.length := by
-  rw [rrefAux]
+    : (rowReductionAux M r c steps reduced).2.length >= steps.length := by
+  rw [rowReductionAux]
   split_ifs with hrow hcol
   · cases hcp : checkPivot M r c with
     | none =>
@@ -1354,7 +1358,7 @@ theorem row_reduction_adds_steps (M : Matrix (Fin a) (Fin b) R) (r c : Nat)
         simp only [List.concat_eq_append, List.append_assoc]
         split_ifs with hswap hpivot
         · let rowFin : Fin a := ⟨r, hrow⟩
-          let res := eliminateCol M rowFin pivotCol
+          let res := eliminateColCore M rowFin pivotCol
             (steps ++ [RowOp.swap rowFin pivotRow])
             reduced
           trans res.2.length
@@ -1362,7 +1366,7 @@ theorem row_reduction_adds_steps (M : Matrix (Fin a) (Fin b) R) (r c : Nat)
           · unfold res
             exact elim_col_adds_steps M rowFin pivotCol steps [RowOp.swap rowFin pivotRow] reduced
         · let rowFin : Fin a := ⟨r, hrow⟩
-          let res := eliminateCol (factor M rowFin (M rowFin pivotCol)⁻¹) rowFin pivotCol
+          let res := eliminateColCore (factor M rowFin (M rowFin pivotCol)⁻¹) rowFin pivotCol
             (steps ++
               ([RowOp.swap rowFin pivotRow] ++ [RowOp.factor rowFin (M rowFin pivotCol)⁻¹]))
             reduced
@@ -1374,7 +1378,7 @@ theorem row_reduction_adds_steps (M : Matrix (Fin a) (Fin b) R) (r c : Nat)
               ([RowOp.swap rowFin pivotRow] ++ [RowOp.factor rowFin (M rowFin pivotCol)⁻¹])
               reduced
         · let rowFin : Fin a := ⟨r, hrow⟩
-          let res := eliminateCol (swapRow M rowFin pivotRow) rowFin pivotCol
+          let res := eliminateColCore (swapRow M rowFin pivotRow) rowFin pivotCol
             (steps ++ [RowOp.swap rowFin pivotRow])
             reduced
           trans res.2.length
@@ -1384,7 +1388,7 @@ theorem row_reduction_adds_steps (M : Matrix (Fin a) (Fin b) R) (r c : Nat)
               [RowOp.swap rowFin pivotRow] reduced
         · let rowFin : Fin a := ⟨r, hrow⟩
           let swapped := swapRow M rowFin pivotRow
-          let res := eliminateCol (factor swapped rowFin (swapped rowFin pivotCol)⁻¹) rowFin
+          let res := eliminateColCore (factor swapped rowFin (swapped rowFin pivotCol)⁻¹) rowFin
             pivotCol
             (steps ++
               ([RowOp.swap rowFin pivotRow] ++ [RowOp.factor rowFin (swapped rowFin pivotCol)⁻¹]))
@@ -1407,13 +1411,13 @@ private theorem eliminateCol_go_log_correct
     (pivotRow : Fin a) (pivotCol : Fin b) (r : Nat)
     (M : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R)) :
     ∃ ops_tail : List (RowOp a R),
-      eliminateCol.go pivotRow pivotCol r M steps =
+      eliminateColLoop pivotRow pivotCol r M steps =
         (ops_tail.foldl applyRowOp M, steps ++ ops_tail) := by
   have hrec :
       ∀ k (r : Nat) (M : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R)),
         a - r = k →
           ∃ ops_tail : List (RowOp a R),
-            eliminateCol.go pivotRow pivotCol r M steps =
+            eliminateColLoop pivotRow pivotCol r M steps =
               (ops_tail.foldl applyRowOp M, steps ++ ops_tail) := by
     intro k
     induction k with
@@ -1421,14 +1425,14 @@ private theorem eliminateCol_go_log_correct
         intro r M steps hk
         have hr : a ≤ r := Nat.le_of_sub_eq_zero hk
         refine ⟨[], ?_⟩
-        rw [eliminateCol.go, _root_.eliminateColGo, _root_.eliminateColGoAux, dif_neg (not_lt_of_ge hr)]
+        rw [eliminateColLoop, eliminateColLoopAux, dif_neg (not_lt_of_ge hr)]
         simp
     | succ k ih =>
         intro r M steps hk
         have hr : r < a := by omega
         have hk' : a - (r + 1) = k := by omega
         let i : Fin a := ⟨r, hr⟩
-        rw [eliminateCol.go, _root_.eliminateColGo, _root_.eliminateColGoAux, dif_pos hr]
+        rw [eliminateColLoop, eliminateColLoopAux, dif_pos hr]
         by_cases hEq : i = pivotRow
         · obtain ⟨ops_tail, htail⟩ := ih (r + 1) M steps hk'
           exact ⟨ops_tail, by simpa [i, hEq, dite_eq_ite] using htail⟩
@@ -1444,13 +1448,13 @@ private theorem eliminateCol_go_log_correct
             obtain ⟨ops_tail, htail⟩ := ih (r + 1) M' steps' hk'
             refine ⟨op :: ops_tail, ?_⟩
             simpa [i, hEq, hcoeff, op, M', steps', List.foldl_append, List.append_assoc,
-              applyRowOp, dite_eq_ite, eliminateColGoAux_eq (pivotRow := pivotRow)
+              applyRowOp, dite_eq_ite, eliminateColLoopAux_eq (pivotRow := pivotRow)
               (pivotCol := pivotCol) (pivotVal := M pivotRow pivotCol) (r := r + 1)
               (M := M') (steps := steps') hpivot'] using htail
           · obtain ⟨ops_tail, htail⟩ := ih (r + 1) M steps hk'
             exact ⟨ops_tail, by
               simpa [i, hEq, hcoeff, dite_eq_ite,
-                eliminateColGoAux_eq (pivotRow := pivotRow) (pivotCol := pivotCol)
+                eliminateColLoopAux_eq (pivotRow := pivotRow) (pivotCol := pivotCol)
                   (pivotVal := M pivotRow pivotCol) (r := r + 1) (M := M) (steps := steps) rfl] using htail⟩
   exact hrec (a - r) r M steps rfl
 
@@ -1458,9 +1462,9 @@ private theorem eliminateCol_log_correct
     (M : Matrix (Fin a) (Fin b) R) (pivotRow : Fin a) (pivotCol : Fin b)
     (steps : List (RowOp a R)) (reduced : Bool) :
     ∃ ops_tail : List (RowOp a R),
-      eliminateCol M pivotRow pivotCol steps reduced =
+      eliminateColCore M pivotRow pivotCol steps reduced =
         (ops_tail.foldl applyRowOp M, steps ++ ops_tail) := by
-  rw [eliminateCol]
+  rw [eliminateColCore]
   by_cases hred : reduced
   · simpa [hred] using eliminateCol_go_log_correct pivotRow pivotCol 0 M steps
   · simpa [hred] using eliminateCol_go_log_correct pivotRow pivotCol pivotRow.1 M steps
@@ -1469,14 +1473,14 @@ private theorem rrefAux_log_correct
     (M : Matrix (Fin a) (Fin b) R) (r c : Nat)
     (steps : List (RowOp a R)) (reduced : Bool) :
     ∃ ops_tail : List (RowOp a R),
-      rrefAux M r c steps reduced =
+      rowReductionAux M r c steps reduced =
         (ops_tail.foldl applyRowOp M, steps ++ ops_tail) := by
   have hrec :
       ∀ k (M : Matrix (Fin a) (Fin b) R) (r c : Nat)
         (steps : List (RowOp a R)) (reduced : Bool),
         a - r = k →
           ∃ ops_tail : List (RowOp a R),
-            rrefAux M r c steps reduced =
+            rowReductionAux M r c steps reduced =
               (ops_tail.foldl applyRowOp M, steps ++ ops_tail) := by
     intro k
     induction k with
@@ -1484,12 +1488,12 @@ private theorem rrefAux_log_correct
         intro M r c steps reduced hk
         have hr : a ≤ r := Nat.le_of_sub_eq_zero hk
         refine ⟨[], ?_⟩
-        simp [rrefAux, Nat.not_lt_of_ge hr]
+        simp [rowReductionAux, Nat.not_lt_of_ge hr]
     | succ k ih =>
         intro M r c steps reduced hk
         have hr : r < a := by omega
         have hk' : a - (r + 1) = k := by omega
-        rw [rrefAux, dif_pos hr]
+        rw [rowReductionAux, dif_pos hr]
         by_cases hc : c < b
         · rw [if_pos hc]
           cases hcp : checkPivot M r c with
@@ -1521,8 +1525,8 @@ private theorem rrefAux_log_correct
                     ih (ops_elim.foldl applyRowOp m1) (r + 1) (c + 1) (steps1 ++ ops_elim) false hk'
                   refine ⟨[swapOp] ++ ops_elim ++ ops_rec, ?_⟩
                   have hbranch :
-                      (match eliminateCol m1 rowFin pivotCol steps1 false with
-                        | (m3, steps3) => rrefAux m3 (r + 1) (c + 1) steps3 false) =
+                      (match eliminateColCore m1 rowFin pivotCol steps1 false with
+                        | (m3, steps3) => rowReductionAux m3 (r + 1) (c + 1) steps3 false) =
                         (ops_rec.foldl applyRowOp (ops_elim.foldl applyRowOp m1),
                           steps1 ++ ops_elim ++ ops_rec) := by
                     simpa [hElim] using hRec
@@ -1547,8 +1551,8 @@ private theorem rrefAux_log_correct
                         true hk'
                     refine ⟨[swapOp] ++ ops_elim ++ ops_rec, ?_⟩
                     have hbranch :
-                        (match eliminateCol m1 rowFin pivotCol steps1 true with
-                          | (m3, steps3) => rrefAux m3 (r + 1) (c + 1) steps3 true) =
+                        (match eliminateColCore m1 rowFin pivotCol steps1 true with
+                          | (m3, steps3) => rowReductionAux m3 (r + 1) (c + 1) steps3 true) =
                           (ops_rec.foldl applyRowOp (ops_elim.foldl applyRowOp m1),
                             steps1 ++ ops_elim ++ ops_rec) := by
                       simpa [hElim] using hRec
@@ -1575,8 +1579,8 @@ private theorem rrefAux_log_correct
                         true hk'
                     refine ⟨[swapOp, factorOp] ++ ops_elim ++ ops_rec, ?_⟩
                     have hbranch :
-                        (match eliminateCol m2 rowFin pivotCol steps2 true with
-                          | (m3, steps3) => rrefAux m3 (r + 1) (c + 1) steps3 true) =
+                        (match eliminateColCore m2 rowFin pivotCol steps2 true with
+                          | (m3, steps3) => rowReductionAux m3 (r + 1) (c + 1) steps3 true) =
                           (ops_rec.foldl applyRowOp (ops_elim.foldl applyRowOp m2),
                             steps2 ++ ops_elim ++ ops_rec) := by
                       simpa [hElim] using hRec
@@ -1598,7 +1602,7 @@ private theorem rrefAux_log_correct
 
 lemma empty_list_iff_no_change (M M' : Matrix (Fin a) (Fin b) R) (r c : Nat)
     (ops : List (RowOp a R)) (reduced : Bool)
-    : rrefAux M r c ops reduced = (M', []) → M = M' := by
+    : rowReductionAux M r c ops reduced = (M', []) → M = M' := by
   intro h
   obtain ⟨ops_tail, hlog⟩ := rrefAux_log_correct M r c ops reduced
   rw [hlog] at h
@@ -1609,10 +1613,10 @@ lemma empty_list_iff_no_change (M M' : Matrix (Fin a) (Fin b) R) (r c : Nat)
 theorem steps_helper (M M' : Matrix (Fin a) (Fin b) R) (r c : Nat)
     (ops_head ops_tail ops_final : List (RowOp a R)) (reduced : Bool)
     (h_ops : ops_final = ops_head ++ ops_tail)
-    : rrefAux M r c ops_head reduced = (M', ops_head ++ ops_tail) →
+    : rowReductionAux M r c ops_head reduced = (M', ops_head ++ ops_tail) →
         ops_tail.foldl applyRowOp M = M' := by
   intro h
-  have h' : rrefAux M r c ops_head reduced = (M', ops_final) := by
+  have h' : rowReductionAux M r c ops_head reduced = (M', ops_final) := by
     simpa [h_ops] using h
   obtain ⟨ops_tail', hlog⟩ := rrefAux_log_correct M r c ops_head reduced
   rw [hlog] at h'
@@ -1622,36 +1626,41 @@ theorem steps_helper (M M' : Matrix (Fin a) (Fin b) R) (r c : Nat)
   have htail : ops_tail' = ops_tail := (List.append_right_inj ops_head).mp hOps'
   simpa [htail] using hM
 
-theorem steps (M M' : Matrix (Fin a) (Fin b) R) (ops : List (RowOp a R))
-    : _root_.rowEchelonForm M = (M', ops) → ops.foldl applyRowOp M = M' := by
+private theorem rawRowEchelonForm_steps (M M' : Matrix (Fin a) (Fin b) R) (ops : List (RowOp a R))
+    : rawRowEchelonForm M = (M', ops) → ops.foldl applyRowOp M = M' := by
   intro h
   have h_ops : ops = [] ++ ops := by simp
-  have h' : rrefAux M 0 0 [] false = (M', [] ++ ops) := by
-    simpa [_root_.rowEchelonForm]
+  have h' : rowReductionAux M 0 0 [] false = (M', [] ++ ops) := by
+    simpa [rawRowEchelonForm]
   simpa using steps_helper M M' 0 0 [] ops ops false h_ops h'
 
-theorem steps_reduced (M M' : Matrix (Fin a) (Fin b) R) (ops : List (RowOp a R))
-    : _root_.reducedRowEchelonForm M = (M', ops) → ops.foldl applyRowOp M = M' := by
+private theorem rawReducedRowEchelonForm_steps (M M' : Matrix (Fin a) (Fin b) R)
+    (ops : List (RowOp a R))
+    : rawReducedRowEchelonForm M = (M', ops) → ops.foldl applyRowOp M = M' := by
   intro h
   have h_ops : ops = [] ++ ops := by simp
-  have h' : rrefAux M 0 0 [] true = (M', [] ++ ops) := by
-    simpa [_root_.reducedRowEchelonForm]
+  have h' : rowReductionAux M 0 0 [] true = (M', [] ++ ops) := by
+    simpa [rawReducedRowEchelonForm]
   simpa using steps_helper M M' 0 0 [] ops ops true h_ops h'
 
 theorem rowEchelonForm_steps
     (M : Matrix (Fin a) (Fin b) R) :
     (Matrix.rowEchelonForm M).steps.foldl applyRowOp M = (Matrix.rowEchelonForm M).matrix := by
   simpa [Matrix.rowEchelonForm] using
-    (steps (M := M) (M' := (_root_.rowEchelonForm M).1) (ops := (_root_.rowEchelonForm M).2) rfl)
+    (rawRowEchelonForm_steps
+      (M := M)
+      (M' := (rawRowEchelonForm M).1)
+      (ops := (rawRowEchelonForm M).2)
+      rfl)
 
 theorem reducedRowEchelonForm_steps
     (M : Matrix (Fin a) (Fin b) R) :
     (Matrix.reducedRowEchelonForm M).steps.foldl applyRowOp M =
       (Matrix.reducedRowEchelonForm M).matrix := by
   simpa [Matrix.reducedRowEchelonForm] using
-    (steps_reduced
+    (rawReducedRowEchelonForm_steps
       (M := M)
-      (M' := (_root_.reducedRowEchelonForm M).1)
-      (ops := (_root_.reducedRowEchelonForm M).2)
+      (M' := (rawReducedRowEchelonForm M).1)
+      (ops := (rawReducedRowEchelonForm M).2)
       rfl)
 end Matrix
