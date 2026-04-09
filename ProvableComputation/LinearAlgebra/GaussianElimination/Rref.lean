@@ -112,14 +112,14 @@ namespace Matrix
 
 /-- Structured public wrapper for `GaussianEliminationInternal.rawRowEchelonForm`. -/
 def rowEchelonForm
-    (given : Matrix (Fin a) (Fin b) R) : RowReductionResult a b R where
-  matrix := (GaussianEliminationInternal.rawRowEchelonForm given).1
-  steps := (GaussianEliminationInternal.rawRowEchelonForm given).2
+    (given : Matrix (Fin a) (Fin b) R) : RowReductionResult a b R :=
+  let raw := GaussianEliminationInternal.rawRowEchelonForm given
+  { matrix := raw.1, steps := raw.2 }
 
 /-- Structured public wrapper for `GaussianEliminationInternal.rawReducedRowEchelonForm`. -/
 def reducedRowEchelonForm
-    (given : Matrix (Fin a) (Fin b) R) : RowReductionResult a b R where
-  matrix := (GaussianEliminationInternal.rawReducedRowEchelonForm given).1
-  steps := (GaussianEliminationInternal.rawReducedRowEchelonForm given).2
+    (given : Matrix (Fin a) (Fin b) R) : RowReductionResult a b R :=
+  let raw := GaussianEliminationInternal.rawReducedRowEchelonForm given
+  { matrix := raw.1, steps := raw.2 }
 
 end Matrix

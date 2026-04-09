@@ -59,9 +59,8 @@ end LUFactorizationInternal
 namespace Matrix
 
 /-- Structured public LU factorization. -/
-def luFactorization (M : Matrix (Fin a) (Fin b) R) : LUFactors a b R where
-  P := (LUFactorizationInternal.rawFactorization M).1
-  L := (LUFactorizationInternal.rawFactorization M).2.1
-  U := (LUFactorizationInternal.rawFactorization M).2.2
+def luFactorization (M : Matrix (Fin a) (Fin b) R) : LUFactors a b R :=
+  let raw := LUFactorizationInternal.rawFactorization M
+  { P := raw.1, L := raw.2.1, U := raw.2.2 }
 
 end Matrix
