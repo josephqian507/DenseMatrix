@@ -23,7 +23,7 @@ def IsUnitLowerTriangular (L : SquareMatrix a R) : Prop :=
 namespace Matrix
 
 /-- Structured public output of LU factorization. -/
-structure LUFactors (a b : Nat) (R : Type) [Field R] [DecidableEq R] where
+structure LUFactors (a b : Nat) (R : Type) where
   P : SquareMatrix a R
   L : SquareMatrix a R
   U : Matrix (Fin a) (Fin b) R

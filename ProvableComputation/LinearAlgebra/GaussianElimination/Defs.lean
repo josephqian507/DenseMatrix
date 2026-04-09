@@ -79,7 +79,7 @@ def checkPivot
 namespace Matrix
 
 /-- The public structured result of a row-reduction routine. -/
-structure RowReductionResult (a b : Nat) (R : Type) [Field R] [DecidableEq R] where
+structure RowReductionResult (a b : Nat) (R : Type) where
   matrix : Matrix (Fin a) (Fin b) R
   steps : List (_root_.RowOp a R)
 
