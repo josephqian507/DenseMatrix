@@ -5,7 +5,8 @@ import ProvableComputation.LinearAlgebra.LU.Basic
 /-!
 This file proves the correctness properties of the bookkeeping layer used by
 `LUFactorizationInternal.rawFactorization`. The row-echelon algorithm records
-a list of elementary row operations, and `buildPL` reconstructs from that log a
+a list of elementary row operations, and
+`LUFactorizationInternal.buildPLFromSteps` reconstructs from that log a
 permutation matrix `P` and a unit lower-triangular matrix `L`.
 
 The proofs below show three things:
@@ -119,7 +120,7 @@ private lemma inverseRowOp_mul_elem
     inverseRowOp_mul_applyRowOp
       (M := (1 : squareMatrix a R)) (op := op) hop
 
-/-! ## The `buildPL` state product invariant -/
+/-! ## The `LUFactorizationInternal.buildPLFromSteps` state product invariant -/
 
 /- `buildPLStateProduct` is the matrix that the current bookkeeping state claims
 will cancel the already-recorded row operations. The whole first half of the
@@ -408,16 +409,16 @@ private lemma buildPLStateProduct_foldl
         _ = buildPLStateProduct state * M := by
               exact buildPLStep_stateProduct (R := R) (state := state) (M := M) (op := op) hop
 
-/- This is the global cancellation theorem for `buildPL`: if every logged row
+/- This is the global cancellation theorem for `LUFactorizationInternal.buildPLFromSteps`: if every logged row
 operation is invertible, then the reconstructed matrices satisfy
 `P * L * steps.foldl applyRowOp M = M`. -/
 omit [DecidableEq R] in
 private theorem buildPL_mul_foldl_applyRowOp_eq
     (steps : List (RowOp a R)) (M : Matrix (Fin a) (Fin b) R)
     (hsteps : ∀ op ∈ steps, InvertibleRowOp (R := R) op) :
-    let (P, L) := buildPL (R := R) steps
+    let (P, L) := LUFactorizationInternal.buildPLFromSteps (R := R) steps
     P * L * steps.foldl Matrix.applyRowOp M = M := by
-  simp [buildPL]
+  simp [LUFactorizationInternal.buildPLFromSteps]
   simpa [buildPLStateProduct, permutationOfSwaps, lowerOfSwaps, Matrix.mul_assoc] using
     buildPLStateProduct_foldl (R := R) (steps := steps) (state := ([], 1)) (M := M) hsteps
 
@@ -631,7 +632,7 @@ private lemma tailIdentityFrom_mono
   exact htail i j (le_trans hrs hj)
 
 /- The identity matrix trivially satisfies the tail-identity predicate from the
-first column onward. This seeds the later induction on `buildPL`. -/
+first column onward. This seeds the later induction on `LUFactorizationInternal.buildPLFromSteps`. -/
 omit [DecidableEq R] in
 private lemma tailIdentityFrom_one :
     tailIdentityFrom (R := R) 0 (1 : squareMatrix a R) := by
@@ -649,14 +650,14 @@ private lemma one_isUnitLowerTriangular :
     simp
 
 /- Appending a swap to the step list updates the lower factor by swapping the
-matching row and column. This unwraps how `buildPL` transports swaps from the
+matching row and column. This unwraps how `LUFactorizationInternal.buildPLFromSteps` transports swaps from the
 permutation factor into the lower factor. -/
 omit [DecidableEq R] in
 private lemma buildPL_lower_concat_swap
     (steps : List (RowOp a R)) (i j : Fin a) :
-    (buildPL (R := R) (List.concat steps (.swap i j))).2 =
-      swapRow (swapCol (buildPL (R := R) steps).2 i j) i j := by
-  unfold buildPL
+    (LUFactorizationInternal.buildPLFromSteps (R := R) (List.concat steps (.swap i j))).2 =
+      swapRow (swapCol (LUFactorizationInternal.buildPLFromSteps (R := R) steps).2 i j) i j := by
+  unfold LUFactorizationInternal.buildPLFromSteps
   rw [List.concat_eq_append, List.foldl_append]
   simp only [List.foldl]
   set state := steps.foldl (buildPLStep (R := R)) ([], (1 : squareMatrix a R))
@@ -675,9 +676,9 @@ omit [DecidableEq R] in
 private lemma buildPL_lower_concat_replace
     (steps : List (RowOp a R)) (use toReplace : Fin a) (k : R)
     (huse : use ≠ toReplace) :
-    (buildPL (R := R) (List.concat steps (.replace use toReplace k))).2 =
-      replaceCol (buildPL (R := R) steps).2 use toReplace (-k) := by
-  unfold buildPL
+    (LUFactorizationInternal.buildPLFromSteps (R := R) (List.concat steps (.replace use toReplace k))).2 =
+      replaceCol (LUFactorizationInternal.buildPLFromSteps (R := R) steps).2 use toReplace (-k) := by
+  unfold LUFactorizationInternal.buildPLFromSteps
   rw [List.concat_eq_append, List.foldl_append]
   simp only [List.foldl]
   set state := steps.foldl (buildPLStep (R := R)) ([], (1 : squareMatrix a R))
@@ -882,24 +883,24 @@ private theorem eliminateCol_go_lower_invariant
     (pivotRow : Fin a) (pivotCol : Fin b) (r : Nat)
     (M : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R))
     (hr : pivotRow.1 ≤ r)
-    (hL : IsUnitLowerTriangular (R := R) (a := a) ((buildPL (R := R) steps).2))
-    (htail : tailIdentityFrom (R := R) (pivotRow.1 + 1) ((buildPL (R := R) steps).2)) :
+    (hL : IsUnitLowerTriangular (R := R) (a := a) ((LUFactorizationInternal.buildPLFromSteps (R := R) steps).2))
+    (htail : tailIdentityFrom (R := R) (pivotRow.1 + 1) ((LUFactorizationInternal.buildPLFromSteps (R := R) steps).2)) :
     IsUnitLowerTriangular
-        (R := R) (a := a) ((buildPL (R := R) (GaussianEliminationInternal.eliminateColLoop pivotRow pivotCol r M steps).2).2) ∧
+        (R := R) (a := a) ((LUFactorizationInternal.buildPLFromSteps (R := R) (GaussianEliminationInternal.eliminateColLoop pivotRow pivotCol r M steps).2).2) ∧
       tailIdentityFrom (R := R) (pivotRow.1 + 1)
-        ((buildPL (R := R) (GaussianEliminationInternal.eliminateColLoop pivotRow pivotCol r M steps).2).2) := by
+        ((LUFactorizationInternal.buildPLFromSteps (R := R) (GaussianEliminationInternal.eliminateColLoop pivotRow pivotCol r M steps).2).2) := by
   have hrec :
       ∀ k (r : Nat) (M : Matrix (Fin a) (Fin b) R) (steps : List (RowOp a R)),
         a - r = k →
         pivotRow.1 ≤ r →
-        IsUnitLowerTriangular (R := R) (a := a) ((buildPL (R := R) steps).2) →
-        tailIdentityFrom (R := R) (pivotRow.1 + 1) ((buildPL (R := R) steps).2) →
+        IsUnitLowerTriangular (R := R) (a := a) ((LUFactorizationInternal.buildPLFromSteps (R := R) steps).2) →
+        tailIdentityFrom (R := R) (pivotRow.1 + 1) ((LUFactorizationInternal.buildPLFromSteps (R := R) steps).2) →
         IsUnitLowerTriangular
             (R := R)
             (a := a)
-            ((buildPL (R := R) (GaussianEliminationInternal.eliminateColLoop pivotRow pivotCol r M steps).2).2) ∧
+            ((LUFactorizationInternal.buildPLFromSteps (R := R) (GaussianEliminationInternal.eliminateColLoop pivotRow pivotCol r M steps).2).2) ∧
           tailIdentityFrom (R := R) (pivotRow.1 + 1)
-            ((buildPL (R := R) (GaussianEliminationInternal.eliminateColLoop pivotRow pivotCol r M steps).2).2) := by
+            ((LUFactorizationInternal.buildPLFromSteps (R := R) (GaussianEliminationInternal.eliminateColLoop pivotRow pivotCol r M steps).2).2) := by
     intro k
     induction k with
     | zero =>
@@ -934,14 +935,14 @@ private theorem eliminateCol_go_lower_invariant
                 exact Fin.ext hval.symm
               omega
             have hsteps' :
-                IsUnitLowerTriangular (R := R) (a := a) ((buildPL (R := R) steps').2) ∧
-                  tailIdentityFrom (R := R) (pivotRow.1 + 1) ((buildPL (R := R) steps').2) := by
+                IsUnitLowerTriangular (R := R) (a := a) ((LUFactorizationInternal.buildPLFromSteps (R := R) steps').2) ∧
+                  tailIdentityFrom (R := R) (pivotRow.1 + 1) ((LUFactorizationInternal.buildPLFromSteps (R := R) steps').2) := by
               rw [buildPL_lower_concat_replace (R := R) (steps := steps) (use := pivotRow)
                 (toReplace := i) (k := -M i pivotCol / M pivotRow pivotCol) (by
                   intro h
                   exact hEq h.symm)]
               exact replaceCol_preserves_unitLower_and_tail
-                (R := R) (a := a) (L := (buildPL (R := R) steps).2) hL htail hpivot_lt_i
+                (R := R) (a := a) (L := (LUFactorizationInternal.buildPLFromSteps (R := R) steps).2) hL htail hpivot_lt_i
             have hpivot' : M' pivotRow pivotCol = M pivotRow pivotCol := by
               have hneq : pivotRow ≠ i := by
                 intro h
@@ -969,12 +970,12 @@ private theorem eliminateCol_go_lower_invariant
 private theorem eliminateCol_lower_invariant_false
     (M : Matrix (Fin a) (Fin b) R) (pivotRow : Fin a) (pivotCol : Fin b)
     (steps : List (RowOp a R))
-    (hL : IsUnitLowerTriangular (R := R) (a := a) ((buildPL (R := R) steps).2))
-    (htail : tailIdentityFrom (R := R) (pivotRow.1 + 1) ((buildPL (R := R) steps).2)) :
+    (hL : IsUnitLowerTriangular (R := R) (a := a) ((LUFactorizationInternal.buildPLFromSteps (R := R) steps).2))
+    (htail : tailIdentityFrom (R := R) (pivotRow.1 + 1) ((LUFactorizationInternal.buildPLFromSteps (R := R) steps).2)) :
     IsUnitLowerTriangular
-        (R := R) (a := a) ((buildPL (R := R) (GaussianEliminationInternal.eliminateColCore M pivotRow pivotCol steps false).2).2) ∧
+        (R := R) (a := a) ((LUFactorizationInternal.buildPLFromSteps (R := R) (GaussianEliminationInternal.eliminateColCore M pivotRow pivotCol steps false).2).2) ∧
       tailIdentityFrom (R := R) (pivotRow.1 + 1)
-        ((buildPL (R := R) (GaussianEliminationInternal.eliminateColCore M pivotRow pivotCol steps false).2).2) := by
+        ((LUFactorizationInternal.buildPLFromSteps (R := R) (GaussianEliminationInternal.eliminateColCore M pivotRow pivotCol steps false).2).2) := by
   simpa [GaussianEliminationInternal.eliminateColCore] using
     eliminateCol_go_lower_invariant
       (R := R) (pivotRow := pivotRow) (pivotCol := pivotCol) (r := pivotRow.1)
@@ -985,17 +986,17 @@ routine. Each pivot step first performs a swap-preserving update and then an
 elimination-preserving update. -/
 private theorem rrefAux_lower_unit_false
     (M : Matrix (Fin a) (Fin b) R) (r c : Nat) (steps : List (RowOp a R))
-    (hL : IsUnitLowerTriangular (R := R) (a := a) ((buildPL (R := R) steps).2))
-    (htail : tailIdentityFrom (R := R) r ((buildPL (R := R) steps).2)) :
+    (hL : IsUnitLowerTriangular (R := R) (a := a) ((LUFactorizationInternal.buildPLFromSteps (R := R) steps).2))
+    (htail : tailIdentityFrom (R := R) r ((LUFactorizationInternal.buildPLFromSteps (R := R) steps).2)) :
     IsUnitLowerTriangular
-        (R := R) (a := a) ((buildPL (R := R) (GaussianEliminationInternal.rowReductionAux M r c steps false).2).2) := by
+        (R := R) (a := a) ((LUFactorizationInternal.buildPLFromSteps (R := R) (GaussianEliminationInternal.rowReductionAux M r c steps false).2).2) := by
   have hrec :
       ∀ k (M : Matrix (Fin a) (Fin b) R) (r c : Nat) (steps : List (RowOp a R)),
         a - r = k →
-        IsUnitLowerTriangular (R := R) (a := a) ((buildPL (R := R) steps).2) →
-        tailIdentityFrom (R := R) r ((buildPL (R := R) steps).2) →
+        IsUnitLowerTriangular (R := R) (a := a) ((LUFactorizationInternal.buildPLFromSteps (R := R) steps).2) →
+        tailIdentityFrom (R := R) r ((LUFactorizationInternal.buildPLFromSteps (R := R) steps).2) →
         IsUnitLowerTriangular
-            (R := R) (a := a) ((buildPL (R := R) (GaussianEliminationInternal.rowReductionAux M r c steps false).2).2) := by
+            (R := R) (a := a) ((LUFactorizationInternal.buildPLFromSteps (R := R) (GaussianEliminationInternal.rowReductionAux M r c steps false).2).2) := by
     intro k
     induction k with
     | zero =>
@@ -1025,21 +1026,21 @@ private theorem rrefAux_lower_unit_false
                 if pivotRow.1 = r then M else swapRow M rowFin pivotRow
               have hpivot_ge : r ≤ pivotRow.1 := Matrix.checkPivot_some_row_ge (M := M) r c hcp
               have hsteps1 :
-                  IsUnitLowerTriangular (R := R) (a := a) ((buildPL (R := R) steps1).2) ∧
-                    tailIdentityFrom (R := R) r ((buildPL (R := R) steps1).2) := by
+                  IsUnitLowerTriangular (R := R) (a := a) ((LUFactorizationInternal.buildPLFromSteps (R := R) steps1).2) ∧
+                    tailIdentityFrom (R := R) r ((LUFactorizationInternal.buildPLFromSteps (R := R) steps1).2) := by
                 rw [buildPL_lower_concat_swap
                   (R := R) (steps := steps) (i := rowFin) (j := pivotRow)]
                 exact swap_preserves_unitLower_and_tail
-                  (R := R) (a := a) (L := (buildPL (R := R) steps).2) hL htail
+                  (R := R) (a := a) (L := (LUFactorizationInternal.buildPLFromSteps (R := R) steps).2) hL htail
                   (by simp [rowFin]) hpivot_ge
               have hsteps1_tail :
-                  tailIdentityFrom (R := R) (r + 1) ((buildPL (R := R) steps1).2) := by
-                exact tailIdentityFrom_mono (R := R) (L := (buildPL (R := R) steps1).2)
+                  tailIdentityFrom (R := R) (r + 1) ((LUFactorizationInternal.buildPLFromSteps (R := R) steps1).2) := by
+                exact tailIdentityFrom_mono (R := R) (L := (LUFactorizationInternal.buildPLFromSteps (R := R) steps1).2)
                   (Nat.le_succ r) hsteps1.2
               let res := GaussianEliminationInternal.eliminateColCore m1 rowFin pivotCol steps1 false
               have hres :
-                  IsUnitLowerTriangular (R := R) (a := a) ((buildPL (R := R) res.2).2) ∧
-                    tailIdentityFrom (R := R) (r + 1) ((buildPL (R := R) res.2).2) := by
+                  IsUnitLowerTriangular (R := R) (a := a) ((LUFactorizationInternal.buildPLFromSteps (R := R) res.2).2) ∧
+                    tailIdentityFrom (R := R) (r + 1) ((LUFactorizationInternal.buildPLFromSteps (R := R) res.2).2) := by
                 simpa [res, rowFin, steps1, m1] using
                   eliminateCol_lower_invariant_false (R := R) (M := m1) (pivotRow := rowFin)
                     (pivotCol := pivotCol) (steps := steps1) hsteps1.1 hsteps1_tail
@@ -1053,7 +1054,7 @@ as unit lower triangular. -/
 private theorem rowEchelonForm_lower_isUnitLowerTriangular
     (M : Matrix (Fin a) (Fin b) R) :
     IsUnitLowerTriangular
-      (R := R) (a := a) ((buildPL (R := R) (GaussianEliminationInternal.rawRowEchelonForm M).2).2) := by
+      (R := R) (a := a) ((LUFactorizationInternal.buildPLFromSteps (R := R) (GaussianEliminationInternal.rawRowEchelonForm M).2).2) := by
   simpa [GaussianEliminationInternal.rawRowEchelonForm] using
     rrefAux_lower_unit_false (R := R) (M := M) (r := 0) (c := 0) (steps := [])
       one_isUnitLowerTriangular tailIdentityFrom_one
@@ -1096,7 +1097,7 @@ private lemma swapCol_preserves_orthogonal
 
 /- Folding `swapCol` over any list of swaps preserves orthogonality, starting
 from an already orthogonal matrix. We later instantiate this at the identity
-matrix to obtain the permutation factor returned by `buildPL`. -/
+matrix to obtain the permutation factor returned by `LUFactorizationInternal.buildPLFromSteps`. -/
 omit [DecidableEq R] in
 private lemma permutationOfSwaps_orthogonal
     (swaps : List (Fin a × Fin a)) (P : squareMatrix a R)
@@ -1117,7 +1118,7 @@ private lemma permutationOfSwaps_orthogonal
 really satisfy `P * L * U = M`. The proof combines:
 * invertibility of the logged row operations,
 * the execution log identity `steps.foldl applyRowOp M = U`,
-* the global cancellation theorem for `buildPL`. -/
+* the global cancellation theorem for `LUFactorizationInternal.buildPLFromSteps`. -/
 theorem LUFactorizationInternal.rawFactorization_reconstruct (M : Matrix (Fin a) (Fin b) R) :
     (LUFactorizationInternal.rawFactorization (R := R) M).1 * (LUFactorizationInternal.rawFactorization (R := R) M).2.1 *
       (LUFactorizationInternal.rawFactorization (R := R) M).2.2 = M := by
@@ -1132,7 +1133,7 @@ theorem LUFactorizationInternal.rawFactorization_reconstruct (M : Matrix (Fin a)
       -- Then turn the operational log into the matrix `U` produced by the algorithm.
       have hlog : steps.foldl Matrix.applyRowOp M = U := by
         simpa [Matrix.rowEchelonForm, hrow] using Matrix.rowEchelonForm_steps (M := M)
-      -- Finally substitute both facts into the `buildPL` cancellation theorem.
+      -- Finally substitute both facts into the `LUFactorizationInternal.buildPLFromSteps` cancellation theorem.
       simpa [hbuild, hlog, Matrix.mul_assoc] using
         buildPL_mul_foldl_applyRowOp_eq (R := R) (steps := steps) (M := M) hsteps
 
@@ -1154,7 +1155,7 @@ theorem rawFactorization_permutation_orthogonal
       have hP :
           P = permutationOfSwaps (R := R)
             ((steps.foldl (buildPLStep (R := R)) ([], (1 : squareMatrix a R))).1) := by
-        unfold buildPL at hbuild
+        unfold LUFactorizationInternal.buildPLFromSteps at hbuild
         injection hbuild with hP hL
         exact hP.symm
       subst hP

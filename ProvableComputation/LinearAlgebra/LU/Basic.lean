@@ -35,23 +35,19 @@ def buildPLStep
       else
         (swaps, ColumnElementary.replaceCol MInv use toReplace (-scale))
 
-end LUFactorizationInternal
-
 /-- Replay a row-operation log into the permutation and lower-triangular bookkeeping factors. -/
-def buildPL (steps : List (RowOp a R)) : squareMatrix a R × squareMatrix a R :=
+def buildPLFromSteps (steps : List (RowOp a R)) : squareMatrix a R × squareMatrix a R :=
   let (swaps, MInv) :=
     steps.foldl (LUFactorizationInternal.buildPLStep (R := R)) ([], 1)
   let P := LUFactorizationInternal.permutationOfSwaps (R := R) swaps
   let L := LUFactorizationInternal.lowerOfSwaps (R := R) swaps MInv
   (P, L)
 
-namespace LUFactorizationInternal
-
 /-- Internal tuple-valued LU factorization used by the proof files. -/
 def rawFactorization (M : Matrix (Fin a) (Fin b) R) :
     squareMatrix a R × (squareMatrix a R × Matrix (Fin a) (Fin b) R) :=
   let (U, steps) := GaussianEliminationInternal.rawRowEchelonForm M
-  let (P, L) := buildPL steps
+  let (P, L) := buildPLFromSteps steps
   (P, (L, U))
 
 end LUFactorizationInternal
