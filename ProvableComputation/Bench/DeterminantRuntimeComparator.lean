@@ -31,12 +31,12 @@ def benchmark (n : Nat) (samples : Nat) : IO Unit := do
   for i in [0:samples] do
     let mat := randomMatrix n (i * 12345)
 
-    let startLUDet ← IO.monoNanosNow
+    let startGaussDet ← IO.monoNanosNow
     let det := Matrix.gaussDet mat
     let _ := det
-    let endLUDet ← IO.monoNanosNow
-    let timeLUDet := (endLUDet - startLUDet).toFloat
-    IO.println s!"LU time: {timeLUDet}"
+    let endGaussDet ← IO.monoNanosNow
+    let timeGaussDet := (endGaussDet - startGaussDet).toFloat
+    IO.println s!"gaussDet time: {timeGaussDet}"
 
     let startLeibnizDet ← IO.monoNanosNow
     let det := mat.det
@@ -45,13 +45,13 @@ def benchmark (n : Nat) (samples : Nat) : IO Unit := do
     let timeLeibnizDet := (endLeibnizDet - startLeibnizDet).toFloat
     IO.println s!"det time: {timeLeibnizDet}"
 
-    if timeLUDet > 0 then
-      totalRatio := totalRatio + (timeLeibnizDet / timeLUDet)
+    if timeGaussDet > 0 then
+      totalRatio := totalRatio + (timeLeibnizDet / timeGaussDet)
       validSamples := validSamples + 1
 
   if validSamples > 0 then
     let avg := totalRatio / validSamples.toFloat
-    IO.println s!"Average Ratio (Matrix.det / LUDet) for {n}x{n}: {avg}"
+    IO.println s!"Average Ratio (Matrix.det / Matrix.gaussDet) for {n}x{n}: {avg}"
   else
     IO.println "Samples ran too quickly to measure in ms."
 
