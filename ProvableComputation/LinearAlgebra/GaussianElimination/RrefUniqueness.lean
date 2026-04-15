@@ -1,5 +1,5 @@
-import ProvableComputation.linear_algebra.RowEquivalent
-import ProvableComputation.linear_algebra.IsInReducedEchelonFormProofs
+import ProvableComputation.LinearAlgebra.GaussianElimination.Elementary
+import ProvableComputation.LinearAlgebra.GaussianElimination.RrefCorrectness
 
 /-!
 # RREF uniqueness: canonical representative and semantic uniqueness
@@ -10,15 +10,17 @@ parallel viewpoints.
 * `IsReducedEchelonFormOf A B` is the semantic predicate saying that `B` is a
   valid RREF representative of `A`: it is row-equivalent to `A` and reduced.
 * `IsCanonicalRrefOf A B` is the canonical predicate saying that `B` is exactly
-  the algorithm output `(reducedRowEchelonForm A).1`.
+  the algorithm output `(GaussianEliminationInternal.rawReducedRowEchelonForm A).1`.
 * `RrefUniquenessSemanticGoal` states the stage-2 semantic specification: any
   two semantic representatives of the same source matrix are equal.
 
 The bridge is built in two steps.
 
 1. Show the algorithmic pipeline preserves row-equivalence
-   (`eliminateCol.go`, `eliminateCol`, `rrefAux`, and finally
-   `reducedRowEchelonForm`).
+   (`GaussianEliminationInternal.eliminateColLoop`,
+   `GaussianEliminationInternal.eliminateColCore`,
+   `GaussianEliminationInternal.rowReductionAux`, and finally
+   `GaussianEliminationInternal.rawReducedRowEchelonForm`).
 2. Prove semantic uniqueness of reduced representatives under row-equivalence
    and then derive canonical equalities as corollaries.
 -/
@@ -66,17 +68,17 @@ variable [DecidableEq R]
 Canonical representative predicate.
 
 This is intentionally algorithmic: `B` must be definitionally the selected
-output of `reducedRowEchelonForm`. It is not the semantic "any reduced
+output of `GaussianEliminationInternal.rawReducedRowEchelonForm`. It is not the semantic "any reduced
 representative" notion.
 -/
 def IsCanonicalRrefOf {m n : Nat}
     (A B : Matrix (Fin m) (Fin n) R) : Prop :=
-  B = (reducedRowEchelonForm A).1
+  B = (GaussianEliminationInternal.rawReducedRowEchelonForm A).1
 
 /-- The algorithm output is canonical for its own input matrix. -/
 lemma isCanonicalRrefOf_reducedRowEchelonForm {m n : Nat}
     (A : Matrix (Fin m) (Fin n) R) :
-    IsCanonicalRrefOf A (reducedRowEchelonForm A).1 :=
+    IsCanonicalRrefOf A (GaussianEliminationInternal.rawReducedRowEchelonForm A).1 :=
   rfl
 
 /--
@@ -91,21 +93,22 @@ theorem IsCanonicalRrefOf.unique {m n : Nat}
     (hB' : IsCanonicalRrefOf A B') :
     B = B' := by
   calc
-    B = (reducedRowEchelonForm A).1 := hB
+    B = (GaussianEliminationInternal.rawReducedRowEchelonForm A).1 := hB
     _ = B' := hB'.symm
 
 /--
 Canonical representative implies reduced form.
 
 This connects the algorithm-chosen representative to semantic properties by
-reusing `reducedRowEchelonForm_isReducedEchelon`.
+reusing the canonical structured wrapper theorem.
 -/
 lemma IsCanonicalRrefOf.reduced {m n : Nat}
     {A B : Matrix (Fin m) (Fin n) R}
     (hB : IsCanonicalRrefOf A B) :
     IsReducedEchelonForm (M := B) := by
   rcases hB with rfl
-  simpa using reducedRowEchelonForm_isReducedEchelon (M := A)
+  simpa [Matrix.reducedRowEchelonForm] using
+    Matrix.reducedRowEchelonForm_isReducedEchelonForm (M := A)
 
 end Canonical
 
@@ -114,7 +117,7 @@ section AlgorithmBridge
 variable [DecidableEq R]
 
 /--
-Core invariance lemma for `eliminateCol.go`.
+Core invariance lemma for `GaussianEliminationInternal.eliminateColLoop`.
 
 No matter which branch is taken while scanning rows (skip pivot row, replace,
 or continue), the matrix stays row-equivalent to the input `cur`.
@@ -123,14 +126,14 @@ private theorem eliminateColGo_rowEquivalent
     {m n : Nat}
     (pivotRow : Fin m) (pivotCol : Fin n) (row : Nat)
     (cur : Matrix (Fin m) (Fin n) R) (steps : List (RowOp m R)) :
-    RowEquivalent cur (eliminateCol.go pivotRow pivotCol row cur steps).1 := by
+    RowEquivalent cur (GaussianEliminationInternal.eliminateColLoop pivotRow pivotCol row cur steps).1 := by
   have goAux_matrix_eq
       (pivotVal : R) (row : Nat) (cur : Matrix (Fin m) (Fin n) R) (steps : List (RowOp m R))
       (hpivot : cur pivotRow pivotCol = pivotVal) :
-      (_root_.eliminateColGoAux pivotRow pivotCol pivotVal row cur steps).1 =
-        (_root_.eliminateColGo pivotRow pivotCol row cur steps).1 := by
-    simp [_root_.eliminateColGo, hpivot]
-  rw [eliminateCol.go, _root_.eliminateColGo, _root_.eliminateColGoAux]
+      (GaussianEliminationInternal.eliminateColLoopAux pivotRow pivotCol pivotVal row cur steps).1 =
+        (GaussianEliminationInternal.eliminateColLoop pivotRow pivotCol row cur steps).1 := by
+    simp [GaussianEliminationInternal.eliminateColLoop, hpivot]
+  rw [GaussianEliminationInternal.eliminateColLoop, GaussianEliminationInternal.eliminateColLoopAux]
   split_ifs with hr
   · let i : Fin m := ⟨row, hr⟩
     -- At a valid scan row `i`, split into "pivot row" versus "non-pivot row".
@@ -153,12 +156,12 @@ private theorem eliminateColGo_rowEquivalent
             exact hEq hpr.symm
           simp [cur', replace, huse, of_apply]
         have hrec :
-            RowEquivalent cur' (eliminateCol.go pivotRow pivotCol (row + 1) cur' steps').1 := by
+            RowEquivalent cur' (GaussianEliminationInternal.eliminateColLoop pivotRow pivotCol (row + 1) cur' steps').1 := by
           simpa [cur', steps'] using
             (eliminateColGo_rowEquivalent pivotRow pivotCol (row + 1) cur' steps')
         have hrec' :
             RowEquivalent cur'
-              (_root_.eliminateColGoAux pivotRow pivotCol (cur pivotRow pivotCol) (row + 1) cur' steps').1 := by
+              (GaussianEliminationInternal.eliminateColLoopAux pivotRow pivotCol (cur pivotRow pivotCol) (row + 1) cur' steps').1 := by
           simpa [goAux_matrix_eq (pivotVal := cur pivotRow pivotCol) (row := row + 1)
             (cur := cur') (steps := steps') hpivot'] using hrec
         simpa [i, hEq, hcoeff, cur', steps'] using RowEquivalent.trans hreplace hrec'
@@ -169,7 +172,7 @@ private theorem eliminateColGo_rowEquivalent
   · simpa using (RowEquivalent.refl cur)
 
 /--
-Wrapper lemma for `eliminateCol`.
+Wrapper lemma for `GaussianEliminationInternal.eliminateColCore`.
 
 The boolean `reduced` only changes the starting scan row; both branches are
 delegated to `eliminateColGo_rowEquivalent`.
@@ -178,8 +181,8 @@ private theorem eliminateCol_rowEquivalent
     {m n : Nat}
     (M : Matrix (Fin m) (Fin n) R) (pivotRow : Fin m) (pivotCol : Fin n)
     (steps : List (RowOp m R)) (reduced : Bool) :
-    RowEquivalent M (eliminateCol M pivotRow pivotCol steps reduced).1 := by
-  rw [eliminateCol]
+    RowEquivalent M (GaussianEliminationInternal.eliminateColCore M pivotRow pivotCol steps reduced).1 := by
+  rw [GaussianEliminationInternal.eliminateColCore]
   by_cases hred : reduced
   · simpa [hred] using
       (eliminateColGo_rowEquivalent (pivotRow := pivotRow) (pivotCol := pivotCol)
@@ -189,7 +192,7 @@ private theorem eliminateCol_rowEquivalent
         (row := pivotRow.1) (cur := M) (steps := steps))
 
 /--
-Main bridge lemma for the RREF driver `rrefAux`.
+Main bridge lemma for the RREF driver `GaussianEliminationInternal.rowReductionAux`.
 
 Each algorithmic stage preserves row-equivalence:
 `M -> m1` (optional swap), `m1 -> m2` (optional normalization),
@@ -199,8 +202,8 @@ private theorem rrefAux_rowEquivalent
     {m n : Nat}
     (M : Matrix (Fin m) (Fin n) R) (row col : Nat)
     (steps : List (RowOp m R)) (reduced : Bool) :
-    RowEquivalent M (rrefAux M row col steps reduced).1 := by
-  rw [rrefAux.eq_1]
+    RowEquivalent M (GaussianEliminationInternal.rowReductionAux M row col steps reduced).1 := by
+  rw [GaussianEliminationInternal.rowReductionAux.eq_1]
   split_ifs with hrow hcol
   -- Active region: both row and column are in range.
   · cases hcp : checkPivot M row col with
@@ -258,22 +261,22 @@ private theorem rrefAux_rowEquivalent
                     (hj := inv_ne_zero hpivot_ne_zero)
                 simpa [m2, hred, hv] using hfac
         -- Stage 3+4: elimination then recursive processing of the smaller subproblem.
-        cases hp : eliminateCol m2 rowFin pivotCol steps2 reduced with
+        cases hp : GaussianEliminationInternal.eliminateColCore m2 rowFin pivotCol steps2 reduced with
         | mk m3 steps3 =>
-            have hM3raw : RowEquivalent m2 (eliminateCol m2 rowFin pivotCol steps2 reduced).1 := by
+            have hM3raw : RowEquivalent m2 (GaussianEliminationInternal.eliminateColCore m2 rowFin pivotCol steps2 reduced).1 := by
               simpa using
                 (eliminateCol_rowEquivalent (M := m2) (pivotRow := rowFin) (pivotCol := pivotCol)
                   (steps := steps2) (reduced := reduced))
-            have hRec : RowEquivalent m3 (rrefAux m3 (row + 1) (col + 1) steps3 reduced).1 := by
+            have hRec : RowEquivalent m3 (GaussianEliminationInternal.rowReductionAux m3 (row + 1) (col + 1) steps3 reduced).1 := by
               simpa using
                 (rrefAux_rowEquivalent (M := m3) (row := row + 1) (col := col + 1)
                   (steps := steps3) (reduced := reduced))
             have hRecraw :
-                RowEquivalent (eliminateCol m2 rowFin pivotCol steps2 reduced).1
-                  (rrefAux
-                    (eliminateCol m2 rowFin pivotCol steps2 reduced).1
+                RowEquivalent (GaussianEliminationInternal.eliminateColCore m2 rowFin pivotCol steps2 reduced).1
+                  (GaussianEliminationInternal.rowReductionAux
+                    (GaussianEliminationInternal.eliminateColCore m2 rowFin pivotCol steps2 reduced).1
                     (row + 1) (col + 1)
-                    (eliminateCol m2 rowFin pivotCol steps2 reduced).2 reduced).1 := by
+                    (GaussianEliminationInternal.eliminateColCore m2 rowFin pivotCol steps2 reduced).2 reduced).1 := by
               simpa [hp] using hRec
             -- Compose all stages into a single row-equivalence from `M`.
             simpa [m1, m2, steps1, steps2, pivotVal, rowFin, hcp, hp, List.concat_eq_append] using
@@ -290,13 +293,13 @@ decreasing_by
 /--
 Top-level algorithmic invariant.
 
-`reducedRowEchelonForm` always returns a matrix row-equivalent to its input.
+`GaussianEliminationInternal.rawReducedRowEchelonForm` always returns a matrix row-equivalent to its input.
 -/
 theorem reducedRowEchelonForm_rowEquivalent
     {m n : Nat}
     (A : Matrix (Fin m) (Fin n) R) :
-    RowEquivalent A (reducedRowEchelonForm A).1 := by
-  simpa [reducedRowEchelonForm] using
+    RowEquivalent A (GaussianEliminationInternal.rawReducedRowEchelonForm A).1 := by
+  simpa [GaussianEliminationInternal.rawReducedRowEchelonForm] using
     (rrefAux_rowEquivalent (M := A) (row := 0) (col := 0) (steps := List.nil) (reduced := true))
 
 /--
@@ -306,9 +309,10 @@ the computed output is both row-equivalent to `A` and reduced.
 theorem reducedRowEchelonForm_isReducedEchelonFormOf
     {m n : Nat}
     (A : Matrix (Fin m) (Fin n) R) :
-    IsReducedEchelonFormOf A (reducedRowEchelonForm A).1 := by
+    IsReducedEchelonFormOf A (GaussianEliminationInternal.rawReducedRowEchelonForm A).1 := by
   refine ⟨reducedRowEchelonForm_rowEquivalent (A := A), ?_⟩
-  simpa using reducedRowEchelonForm_isReducedEchelon (M := A)
+  simpa [Matrix.reducedRowEchelonForm] using
+    Matrix.reducedRowEchelonForm_isReducedEchelonForm (M := A)
 
 /--
 Auxiliary bridge theorem: algorithm output is also in echelon form.
@@ -319,15 +323,16 @@ This is weaker than reduced form but useful when a statement only requires
 theorem reducedRowEchelonForm_isEchelonFormOf
     {m n : Nat}
     (A : Matrix (Fin m) (Fin n) R) :
-    IsEchelonFormOf (A := A) ((reducedRowEchelonForm A).1) := by
+    IsEchelonFormOf (A := A) ((GaussianEliminationInternal.rawReducedRowEchelonForm A).1) := by
   refine ⟨reducedRowEchelonForm_rowEquivalent (A := A), ?_⟩
-  exact (reducedRowEchelonForm_isReducedEchelon (M := A)).echelon
+  simpa [Matrix.reducedRowEchelonForm] using
+    Matrix.reducedRowEchelonForm_isEchelonForm (M := A)
 
 /-- The algorithm output is canonical by definition (`rfl`). -/
 lemma reducedRowEchelonForm_isCanonicalRrefOf
     {m n : Nat}
     (A : Matrix (Fin m) (Fin n) R) :
-    IsCanonicalRrefOf A (reducedRowEchelonForm A).1 :=
+    IsCanonicalRrefOf A (GaussianEliminationInternal.rawReducedRowEchelonForm A).1 :=
   rfl
 
 /--
@@ -335,9 +340,9 @@ If two matrices have the same computed RREF, then they are row-equivalent.
 -/
 theorem rowEquivalent_of_rref_eq {m n : Nat}
     {A B : Matrix (Fin m) (Fin n) R}
-    (hEq : (reducedRowEchelonForm A).1 = (reducedRowEchelonForm B).1) :
+    (hEq : (GaussianEliminationInternal.rawReducedRowEchelonForm A).1 = (GaussianEliminationInternal.rawReducedRowEchelonForm B).1) :
     RowEquivalent A B := by
-  let C : Matrix (Fin m) (Fin n) R := (reducedRowEchelonForm A).1
+  let C : Matrix (Fin m) (Fin n) R := (GaussianEliminationInternal.rawReducedRowEchelonForm A).1
   have hAC : RowEquivalent A C := by
     simpa [C] using reducedRowEchelonForm_rowEquivalent (A := A)
   have hBC : RowEquivalent B C := by
@@ -353,7 +358,7 @@ example : RowEquivalent A B := by
 -/
 theorem rowEquivalent_of_decide_rref_eq_true {m n : Nat}
     {A B : Matrix (Fin m) (Fin n) R}
-    (hEq : decide ((reducedRowEchelonForm A).1 = (reducedRowEchelonForm B).1) = true) :
+    (hEq : decide ((GaussianEliminationInternal.rawReducedRowEchelonForm A).1 = (GaussianEliminationInternal.rawReducedRowEchelonForm B).1) = true) :
     RowEquivalent A B := by
   exact rowEquivalent_of_rref_eq (A := A) (B := B) (of_decide_eq_true hEq)
 
@@ -756,7 +761,7 @@ Any semantic representative `B` of `A` equals the canonical algorithm output.
 lemma IsReducedEchelonFormOf.canonical {m n : Nat}
     [DecidableEq R]
     {A B : Matrix (Fin m) (Fin n) R} (h : IsReducedEchelonFormOf (A := A) B) :
-    B = (reducedRowEchelonForm A).1 := by
+    B = (GaussianEliminationInternal.rawReducedRowEchelonForm A).1 := by
   exact IsReducedEchelonFormOf.unique h (reducedRowEchelonForm_isReducedEchelonFormOf (A := A))
 
 /--

@@ -1,15 +1,16 @@
-import Mathlib.LinearAlgebra.Matrix.Block
+import ProvableComputation.LinearAlgebra.LU.Defs
+import ProvableComputation.LinearAlgebra.GaussianElimination.Elementary
+import ProvableComputation.LinearAlgebra.GaussianElimination.Rref
 
-import ProvableComputation.linear_algebra.ColumnElementary
-import ProvableComputation.linear_algebra.Rref
+/-!
+# LU Basic Algorithm
+
+This module turns the row-operation log produced by Gaussian elimination into permutation
+and lower-triangular factors, and exposes the structured public LU-factorization API.
+-/
 
 variable {R : Type} [Field R] [DecidableEq R]
 variable {a : Nat} {b : Nat}
-
-abbrev squareMatrix (a : Nat) (R : Type) := Matrix (Fin a) (Fin a) R
-
-def IsUnitLowerTriangular (L : squareMatrix a R) : Prop :=
-  L.BlockTriangular OrderDual.toDual ∧ ∀ i : Fin a, L i i = 1
 
 namespace LUFactorizationInternal
 
@@ -34,17 +35,28 @@ def buildPLStep
       else
         (swaps, ColumnElementary.replaceCol MInv use toReplace (-scale))
 
-end LUFactorizationInternal
-
-def buildPL (steps : List (RowOp a R)) : squareMatrix a R × squareMatrix a R :=
+/-- Replay a row-operation log into the permutation and lower-triangular bookkeeping factors. -/
+def buildPLFromSteps (steps : List (RowOp a R)) : squareMatrix a R × squareMatrix a R :=
   let (swaps, MInv) :=
     steps.foldl (LUFactorizationInternal.buildPLStep (R := R)) ([], 1)
   let P := LUFactorizationInternal.permutationOfSwaps (R := R) swaps
   let L := LUFactorizationInternal.lowerOfSwaps (R := R) swaps MInv
   (P, L)
 
-def LUFactorization (M : Matrix (Fin a) (Fin b) R) :
+/-- Internal tuple-valued LU factorization used by the proof files. -/
+def rawFactorization (M : Matrix (Fin a) (Fin b) R) :
     squareMatrix a R × (squareMatrix a R × Matrix (Fin a) (Fin b) R) :=
-  let (U, steps) := rowEchelonForm M
-  let (P, L) := buildPL steps
+  let (U, steps) := GaussianEliminationInternal.rawRowEchelonForm M
+  let (P, L) := buildPLFromSteps steps
   (P, (L, U))
+
+end LUFactorizationInternal
+
+namespace Matrix
+
+/-- Structured public LU factorization. -/
+def luFactorization (M : Matrix (Fin a) (Fin b) R) : LUFactors a b R :=
+  let raw := LUFactorizationInternal.rawFactorization M
+  { P := raw.1, L := raw.2.1, U := raw.2.2 }
+
+end Matrix

@@ -1,7 +1,15 @@
 import Mathlib.LinearAlgebra.Matrix.NonsingularInverse
 
-import ProvableComputation.linear_algebra.IsInEchelonForm
-import ProvableComputation.linear_algebra.Rref
+import ProvableComputation.LinearAlgebra.Echelon
+import ProvableComputation.LinearAlgebra.GaussianElimination.Defs
+
+/-!
+# Elementary Row and Column Operations
+
+This module collects the reusable linear-algebra facts about elementary row operations,
+row-equivalence, echelon-form witnesses, and the corresponding column-operation helpers
+used by the LU factorization development.
+-/
 
 namespace Matrix
 
@@ -64,7 +72,7 @@ section FinOperations
 
 variable {a b : Nat}
 
-private lemma swap_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R)
+lemma swap_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R)
     (r₁ r₂ : Fin a) :
     swapRow M r₁ r₂ = (swapRow (1 : Matrix (Fin a) (Fin a) R) r₁ r₂) * M := by
   ext i j
@@ -75,7 +83,7 @@ private lemma swap_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R)
     · simp [swapRow, h2, one_apply]
     · simp [swapRow, one_apply]
 
-private lemma factor_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R)
+lemma factor_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R)
     (r : Fin a) (s : R) :
     factor M r s = (factor (1 : Matrix (Fin a) (Fin a) R) r s) * M := by
   ext i j
@@ -85,7 +93,7 @@ private lemma factor_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R)
     simp [factor, one_apply]
   · simp [factor, one_apply, hr]
 
-private lemma replace_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R)
+lemma replace_matrix_eq_elem_mul_matrix (M : Matrix (Fin a) (Fin b) R)
     (use toReplace : Fin a) (k : R) :
     replace M use toReplace k =
       (replace (1 : Matrix (Fin a) (Fin a) R) use toReplace k) * M := by
@@ -133,7 +141,7 @@ lemma elementaryMatrixOfRowOp_mul_eq_applyRowOp
           (M := M) (use := use) (toReplace := toReplace) (k := k)).symm
 
 omit [Field R] in
-private lemma swap_inv (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : Fin a) :
+lemma swap_inv (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : Fin a) :
     swapRow (swapRow M r₁ r₂) r₁ r₂ = M := by
   ext i j
   simp only [swapRow, of_apply]
@@ -143,7 +151,7 @@ private lemma swap_inv (M : Matrix (Fin a) (Fin b) R) (r₁ r₂ : Fin a) :
   · rw [← h3]
   · rfl
 
-private lemma factor_inv (M : Matrix (Fin a) (Fin b) R) (i : Fin a) (j : R) (hj : j ≠ 0) :
+lemma factor_inv (M : Matrix (Fin a) (Fin b) R) (i : Fin a) (j : R) (hj : j ≠ 0) :
     factor (factor M i j) i j⁻¹ = M := by
   ext i j
   simp only [factor, of_apply]
@@ -151,7 +159,7 @@ private lemma factor_inv (M : Matrix (Fin a) (Fin b) R) (i : Fin a) (j : R) (hj 
   · simp [hj]
   · rfl
 
-private lemma replace_inv
+lemma replace_inv
     (M : Matrix (Fin a) (Fin b) R) (use toReplace : Fin a) (k : R)
     (h : use ≠ toReplace) :
     replace (replace M use toReplace k) use toReplace (-k) = M := by
@@ -269,68 +277,116 @@ lemma rowEquivalent_replace
 
 end FinOperations
 
-section FirstPointExample
-
-variable {R : Type} [Field R]
-
-/-- A small source matrix for demonstrating `IsEchelonFormOf`. -/
-def Afirst : Matrix (Fin 2) (Fin 2) R :=
-  !![0, 0;
-    1, 0]
-
-/-- An echelon-form target matrix row-equivalent to `Afirst`. -/
-def Bfirst : Matrix (Fin 2) (Fin 2) R :=
-  !![1, 0;
-    0, 0]
-
-lemma Bfirst_eq_swap : Bfirst (R := R) = swapRow (Afirst (R := R)) 0 1 := by
-  ext i j
-  fin_cases i <;> fin_cases j <;> simp [Bfirst, Afirst, swapRow, Matrix.of_apply]
-
-private lemma Bfirst_row1_zero : RowIsZero (Bfirst (R := R)) 1 := by
-  intro j
-  fin_cases j <;> simp [Bfirst]
-
-lemma Bfirst_isEchelon : IsEchelonForm (M := Bfirst (R := R)) := by
-  refine IsEchelonForm.mk ?row_zero_or_pivot ?zero_rows_bottom ?pivots_strict
-  · intro i
-    fin_cases i
-    · right
-      refine ⟨(0 : Fin 2), ?_⟩
-      refine ⟨?_, ?_⟩
-      · simp [Bfirst]
-      · intro j hj
-        exact (False.elim ((Fin.not_lt_zero j) hj))
-    · left
-      exact Bfirst_row1_zero (R := R)
-  · intro i j hij hzi
-    fin_cases i <;> fin_cases j
-    · exact (False.elim (lt_irrefl _ hij))
-    · exfalso
-      have h00 : (Bfirst (R := R)) 0 0 = 0 := hzi 0
-      simp [Bfirst] at h00
-    · exact (False.elim ((Nat.not_lt_zero _ (show (1 : Fin 2) < (0 : Fin 2) from hij))))
-    · exact (False.elim (lt_irrefl _ hij))
-  · intro i j p q hij hp hq
-    fin_cases i <;> fin_cases j
-    · exact (False.elim (lt_irrefl _ hij))
-    · exfalso
-      exact hq.1 ((Bfirst_row1_zero (R := R)) q)
-    · exact (False.elim ((Nat.not_lt_zero _ (show (1 : Fin 2) < (0 : Fin 2) from hij))))
-    · exact (False.elim (lt_irrefl _ hij))
-
-/--
-Concrete first-point example:
-`Bfirst` is an echelon form of `Afirst` (row-equivalent + echelon predicate).
--/
-theorem firstPointExample :
-    IsEchelonFormOf (A := Afirst (R := R)) (Bfirst (R := R)) := by
-  have hswap : RowEquivalent (Afirst (R := R)) (swapRow (Afirst (R := R)) 0 1) :=
-    rowEquivalent_swapRow (A := Afirst (R := R)) (r₁ := 0) (r₂ := 1)
-  have hRow : RowEquivalent (Afirst (R := R)) (Bfirst (R := R)) := by
-    simpa [Bfirst_eq_swap (R := R)] using hswap
-  exact isEchelonFormOf_mk (hRow := hRow) (hEch := Bfirst_isEchelon (R := R))
-
-end FirstPointExample
-
 end Matrix
+
+namespace ColumnElementary
+
+variable {R : Type} [Field R] [DecidableEq R]
+variable {a : Nat}
+
+def swapCol
+    (given : Matrix (Fin a) (Fin a) R) (col1 col2 : Fin a) :
+    Matrix (Fin a) (Fin a) R :=
+  (swapRow given.transpose col1 col2).transpose
+
+def factorCol
+    (given : Matrix (Fin a) (Fin a) R) (col : Fin a) (scale : R) :
+    Matrix (Fin a) (Fin a) R :=
+  (factor given.transpose col scale).transpose
+
+def replaceCol
+    (given : Matrix (Fin a) (Fin a) R) (use toReplace : Fin a) (k : R) :
+    Matrix (Fin a) (Fin a) R :=
+  (replace given.transpose toReplace use k).transpose
+
+omit [DecidableEq R] in
+lemma elem_swap_transpose (c1 c2 : Fin a) :
+    (Matrix.elementaryMatrixOfRowOp (.swap c1 c2 : RowOp a R)).transpose =
+      Matrix.elementaryMatrixOfRowOp (.swap c1 c2 : RowOp a R) := by
+  ext i j
+  by_cases hi1 : i = c1
+  all_goals
+    by_cases hi2 : i = c2
+    all_goals
+      by_cases hj1 : j = c1
+      all_goals
+        by_cases hj2 : j = c2
+        all_goals
+          simp [Matrix.elementaryMatrixOfRowOp, swapRow, Matrix.one_apply, hi1, hi2, hj1, hj2]
+          try aesop
+
+omit [DecidableEq R] in
+lemma elem_factor_transpose (c : Fin a) (s : R) :
+    (Matrix.elementaryMatrixOfRowOp (.factor c s : RowOp a R)).transpose =
+      Matrix.elementaryMatrixOfRowOp (.factor c s : RowOp a R) := by
+  ext i j
+  by_cases hi : i = c
+  all_goals
+    by_cases hj : j = c
+    all_goals
+      simp [Matrix.elementaryMatrixOfRowOp, factor, Matrix.one_apply, hi, hj]
+      try aesop
+
+omit [DecidableEq R] in
+lemma elem_replace_transpose (use toReplace : Fin a) (k : R) :
+    (Matrix.elementaryMatrixOfRowOp (.replace use toReplace k : RowOp a R)).transpose =
+      Matrix.elementaryMatrixOfRowOp (.replace toReplace use k : RowOp a R) := by
+  by_cases h : use = toReplace
+  case pos =>
+    subst h
+    simpa [Matrix.elementaryMatrixOfRowOp, replace] using
+      (elem_factor_transpose (R := R) (a := a) use (k + 1))
+  case neg =>
+    ext i j
+    by_cases hiUse : i = use
+    all_goals
+      by_cases hiToReplace : i = toReplace
+      all_goals
+        by_cases hjUse : j = use
+        all_goals
+          by_cases hjToReplace : j = toReplace
+          all_goals
+            simp [Matrix.elementaryMatrixOfRowOp, replace, factor, Matrix.one_apply,
+              h, hiUse, hiToReplace, hjUse, hjToReplace]
+            try aesop
+
+omit [DecidableEq R] in
+lemma swapCol_eq_mul_elem
+    (M : Matrix (Fin a) (Fin a) R) (c1 c2 : Fin a) :
+    swapCol M c1 c2 =
+      M * Matrix.elementaryMatrixOfRowOp (.swap c1 c2 : RowOp a R) := by
+  let op : RowOp a R := .swap c1 c2
+  have h := Matrix.elementaryMatrixOfRowOp_mul_eq_applyRowOp (op := op) (M := M.transpose)
+  have ht := congrArg Matrix.transpose h
+  simpa [
+    op, swapCol, Matrix.applyRowOp, Matrix.transpose_mul, elem_swap_transpose
+  ] using
+    ht.symm
+
+omit [DecidableEq R] in
+lemma factorCol_eq_mul_elem
+    (M : Matrix (Fin a) (Fin a) R) (c : Fin a) (s : R) :
+    factorCol M c s =
+      M * Matrix.elementaryMatrixOfRowOp (.factor c s : RowOp a R) := by
+  let op : RowOp a R := .factor c s
+  have h := Matrix.elementaryMatrixOfRowOp_mul_eq_applyRowOp (op := op) (M := M.transpose)
+  have ht := congrArg Matrix.transpose h
+  simpa [
+    op, factorCol, Matrix.applyRowOp, Matrix.transpose_mul, elem_factor_transpose
+  ] using
+    ht.symm
+
+omit [DecidableEq R] in
+lemma replaceCol_eq_mul_elem
+    (M : Matrix (Fin a) (Fin a) R) (use toReplace : Fin a) (k : R) :
+    replaceCol M use toReplace k =
+      M * Matrix.elementaryMatrixOfRowOp (.replace use toReplace k : RowOp a R) := by
+  let opT : RowOp a R := .replace toReplace use k
+  have h := Matrix.elementaryMatrixOfRowOp_mul_eq_applyRowOp (op := opT) (M := M.transpose)
+  have ht := congrArg Matrix.transpose h
+  simpa [
+    opT, replaceCol, Matrix.applyRowOp, Matrix.transpose_mul, elem_replace_transpose
+  ] using
+    ht.symm
+
+end ColumnElementary
