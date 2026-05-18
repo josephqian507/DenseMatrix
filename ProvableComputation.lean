@@ -1,4 +1,5 @@
 import ProvableComputation.certifiable_euclidean_alg
+import ProvableComputation.LinearAlgebra.DenseMatrix.Defs
 import ProvableComputation.LinearAlgebra.Determinant.Basic
 import ProvableComputation.LinearAlgebra.Echelon
 import ProvableComputation.LinearAlgebra.GaussianElimination.Elementary

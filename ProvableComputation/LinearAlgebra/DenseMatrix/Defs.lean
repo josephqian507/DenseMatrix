@@ -54,12 +54,38 @@ theorem rowMajorIndex_lt {m n : Nat} (i : Fin m) (j : Fin n) :
     _ ≤ m * n := Nat.mul_le_mul_right n (Nat.succ_le_iff.mpr i.isLt)
 
 /--
+Unchecked row-major fast-path read.
+
+The row and column are natural numbers, not typed `Fin` indices. This function
+does not prove that `i < m`, `j < n`, or `i * n + j < m * n`; callers are
+responsible for those bounds when they want matrix semantics. Prefer `get` when
+typed indices are available.
+-/
+@[inline]
+def get! {m n : Nat} {α : Type u} [Inhabited α] (M : DenseMatrix m n α) (i j : Nat) : α :=
+  M.data[i * n + j]!
+
+/--
+Unchecked row-major fast-path update.
+
+The row and column are natural numbers, not typed `Fin` indices. This function
+computes the row-major offset `i * n + j` without carrying a bounds proof, so
+callers are responsible for ensuring the offset is inside the backing vector.
+Prefer `set` when typed indices are available.
+-/
+@[inline]
+def set! {m n : Nat} {α : Type u} [Inhabited α] (M : DenseMatrix m n α) (i j : Nat) (val : α)
+    : DenseMatrix m n α where
+  data := M.data.set! (i * n + j) val
+
+/--
 Read an entry using checked row-major indexing.
 
 The value-level index is computed by `rowMajorIndex`; the paired proof
 `rowMajorIndex_lt` turns that offset into a `Fin (m * n)`. Thus `get` has no
 unchecked fallback and no default value.
 -/
+@[inline]
 def get {m n : Nat} {α : Type u} (A : DenseMatrix m n α) (i : Fin m) (j : Fin n) : α :=
   A.data.get ⟨rowMajorIndex i j, rowMajorIndex_lt i j⟩
 
@@ -69,6 +95,7 @@ Return a matrix with one entry updated.
 The update uses the same checked row-major offset as `get`; the `Vector` result
 keeps the same length by construction.
 -/
+@[inline]
 def set {m n : Nat} {α : Type u} (A : DenseMatrix m n α) (i : Fin m) (j : Fin n) (x : α) :
     DenseMatrix m n α where
   data := A.data.set (rowMajorIndex i j) x (rowMajorIndex_lt i j)
@@ -201,5 +228,96 @@ theorem ofMatrix_toMatrix {m n : Nat} {α : Type u} (A : DenseMatrix m n α) :
     apply Vector.ext
     intro x hx
     simp [ofMatrix, toMatrix, get_unflatten, Vector.get]
+
+def add {m n : Nat} {α : Type u} [Add α] (A B : DenseMatrix m n α) : DenseMatrix m n α where
+  data := A.data.zipWith (· + ·) B.data
+
+def smul {m n : Nat} {α : Type u} [Mul α] (c : α) (M : DenseMatrix m n α) : DenseMatrix m n α where
+  data := M.data.map (fun x => c * x)
+
+private def dot {m k n : Nat} {α : Type u} [Add α] [Mul α]
+    (sum : α) (i : Fin m) (j : Fin n) (l : Fin k)
+    (A : DenseMatrix m k α) (B : DenseMatrix k n α) : α :=
+  if h: l + 1 < k then
+    dot (sum + (A.get i l * B.get l j)) i j ⟨l+1, by simp [h]⟩ A B
+  else
+    sum + (A.get i l * B.get l j)
+
+/-- If `i * n + j = out.size` and `j + 1 = n` then `(i + 1) * n = (out.push entry).size`. -/
+private lemma row_size_invariant {α : Type u} (out : Array α) (i j n : Nat)
+    (h_size : out.size = i * n + j) (hj : j + 1 = n) (entry : α)
+    : (out.push entry).size = (i + 1) * n := by
+  simp only [Array.size_push, h_size]
+  suffices j + 1 = n from by grind
+  exact hj
+
+/-- The last `Array α` returned by `mul_helper` has size `m * n`. -/
+private lemma mul_helper_size_invariant {m n : Nat} {α : Type u} (out : Array α) (i j : Nat)
+    (h_size : out.size = i * n + j) (hi : i + 1 = m) (hj : j + 1 = n) (entry : α)
+    : (out.push entry).size = m * n := by
+  rw [Array.size_push, h_size, add_assoc, hj]
+  nth_rewrite 2 [←one_mul n]
+  rw [←right_distrib, hi]
+
+/-- Computes entry ij of `A * B` and appends it to the resulting matrix. -/
+private def mul_helper {m k n : Nat} {α : Type u} [Zero α] [Add α] [Mul α]
+    [NeZero m] [NeZero k] [NeZero n]
+    (out : Array α) (i j : Nat) (A : DenseMatrix m k α) (B : DenseMatrix k n α)
+    (h_size : out.size = i * n + j) (hi : m ≥ i + 1) (hj : n ≥ j + 1)
+    : Vector α (m * n) :=
+  let entry := dot 0 ⟨i, by exact Nat.lt_of_succ_le hi⟩ ⟨j, by exact Nat.lt_of_succ_le hj⟩ 0 A B
+  if h₁ : j + 1 < n then
+    mul_helper (out.push entry) i (j+1) A B (by aesop) hi (by exact Nat.succ_le_of_lt h₁)
+  else if h₂ : i + 1 < m then
+    let hj' : j + 1 = n := by apply le_antisymm hj (by push_neg at h₁; exact h₁)
+    mul_helper (out.push entry) (i+1) 0 A B
+      (row_size_invariant out i j n h_size hj' entry)
+      (by exact Nat.succ_le_of_lt h₂) NeZero.one_le
+  else
+    let hi' : i + 1 = m := by apply le_antisymm hi (by push_neg at h₂; exact h₂)
+    let hj' : j + 1 = n := by apply le_antisymm hj (by push_neg at h₁; exact h₁)
+    ⟨out.push entry, mul_helper_size_invariant out i j h_size hi' hj' entry⟩
+
+/--
+Optimized dense matrix multiplication for nonempty dimensions.
+
+This path builds the output storage sequentially and computes each dot product
+with checked dense reads. It requires `[NeZero m] [NeZero k] [NeZero n]` so the
+recursive helper can start at row, column, and dot-product index `0`.
+-/
+def mul {m k n : Nat} {α : Type u} [Inhabited α] [Zero α] [Add α] [Mul α]
+    [NeZero m] [NeZero k] [NeZero n]
+    (A : DenseMatrix m k α) (B : DenseMatrix k n α) : DenseMatrix m n α where
+  data := mul_helper (Array.mkEmpty (m * n)) 0 0 A B (by simp) NeZero.one_le NeZero.one_le
+
+/-- The last `Array α` returned by `transpose_helper` has size `n * m`. -/
+private lemma transpose_helper_size_invariant {m n : Nat} {α : Type u} (out : Array α) (i j : Nat)
+    (h_size : out.size = j * m + i) (hi : i + 1 = m) (hj : j + 1 = n) (entry : α)
+    : (out.push entry).size = n * m := by
+  rw [Array.size_push, h_size, add_assoc, hi]
+  nth_rewrite 2 [←one_mul m]
+  rw [←right_distrib, hj]
+
+/-- Computes entry `ij` of M.T and appends it to the resulting matrix. -/
+private def transpose_helper {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
+    (out : Array α) (i j : Nat) (M : DenseMatrix m n α)
+    (h_size : out.size = j * m + i) (hi : m ≥ i + 1) (hj : n ≥ j + 1)
+    :  Vector α (n * m) :=
+  let entry := M.get ⟨i, by exact Nat.lt_of_succ_le hi⟩ ⟨j, by exact Nat.lt_of_succ_le hj⟩
+  if h₁ : i + 1 < m then
+    transpose_helper (out.push entry) (i+1) j M (by aesop) (by exact Nat.succ_le_of_lt h₁) hj
+  else if h₂ : j + 1 < n then
+    let hj' : i + 1 = m := by apply le_antisymm hi (by push_neg at h₁; exact h₁)
+    transpose_helper (out.push entry) 0 (j+1) M
+      (row_size_invariant out j i m h_size hj' entry)
+      NeZero.one_le (by exact Nat.succ_le_of_lt h₂)
+  else
+    let hi' : i + 1 = m := by apply le_antisymm hi (by push_neg at h₁; exact h₁)
+    let hj' : j + 1 = n := by apply le_antisymm hj (by push_neg at h₂; exact h₂)
+    ⟨out.push entry, transpose_helper_size_invariant out i j h_size hi' hj' entry⟩
+
+def transpose {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
+    (M : DenseMatrix m n α) : DenseMatrix n m α :=
+  { data := transpose_helper (Array.mkEmpty (n * m)) 0 0 M (by simp) NeZero.one_le NeZero.one_le }
 
 end DenseMatrix
