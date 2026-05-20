@@ -24,6 +24,7 @@ natural-number offsets.
 -/
 structure DenseMatrix (m n : Nat) (α : Type u) where
   data : Vector α (m * n)
+deriving Repr
 
 -- All operations and helper lemmas for dense matrices live under this namespace.
 namespace DenseMatrix
@@ -99,6 +100,23 @@ keeps the same length by construction.
 def set {m n : Nat} {α : Type u} (A : DenseMatrix m n α) (i : Fin m) (j : Fin n) (x : α) :
     DenseMatrix m n α where
   data := A.data.set (rowMajorIndex i j) x (rowMajorIndex_lt i j)
+
+instance {m n : Nat} {α : Type u} [Inhabited α] [ToString α] : ToString (DenseMatrix m n α) where
+  toString A := Id.run do
+    let mut rows : Array String := #[]
+    for i in [0:m] do
+      let mut rowStr : Array String := #[]
+      for j in [0:n] do
+        -- Access the element using your existing `get!` function
+        let val := A.get! i j
+        rowStr := rowStr.push (toString val)
+
+      -- Format the current row, e.g., "[1, 2, 3]"
+      let rowFormatted := "![" ++ String.intercalate ", " rowStr.toList ++ "]"
+      rows := rows.push rowFormatted
+
+    -- Join all rows with a newline and a leading space for alignment
+    return "![" ++ String.intercalate ", " rows.toList ++ "]"
 
 /--
 Convert a dense matrix to mathlib's function-backed matrix type.
@@ -228,6 +246,10 @@ theorem ofMatrix_toMatrix {m n : Nat} {α : Type u} (A : DenseMatrix m n α) :
     apply Vector.ext
     intro x hx
     simp [ofMatrix, toMatrix, get_unflatten, Vector.get]
+
+/-- Define a `DenseMatrix` using a function. -/
+def of {m n : Nat} {α : Type u} (f : Fin m → Fin n → α) : DenseMatrix m n α :=
+  .ofMatrix (Matrix.of f)
 
 def add {m n : Nat} {α : Type u} [Add α] (A B : DenseMatrix m n α) : DenseMatrix m n α where
   data := A.data.zipWith (· + ·) B.data
