@@ -1220,7 +1220,7 @@ def eliminate_proof_helper (r : Fin a) (c : Fin b) (row : Nat) (M : Matrix (Fin 
       let M' := replace M r i (-M i c / M r c)
       let steps' := List.concat steps (.replace r i (-M i c / M r c))
       have huse : r ≠ i := by
-        push_neg at hEq
+        push Not at hEq
         exact hEq.symm
       have hpivot' : M' r c = M r c := by
         simp [M', replace, huse, of_apply]
@@ -1312,7 +1312,7 @@ def elim_col_go_adds_steps_helper (pivotRow : Fin a) (pivotCol : Fin b) (r : Nat
       let M' := replace M pivotRow i (-M i pivotCol / M pivotRow pivotCol)
       let steps' := steps ++ [RowOp.replace pivotRow i (-M i pivotCol / M pivotRow pivotCol)]
       have huse : pivotRow ≠ i := by
-        push_neg at hEq
+        push Not at hEq
         exact hEq.symm
       have hpivot' : M' pivotRow pivotCol = M pivotRow pivotCol := by
         simp [M', replace, huse, of_apply]

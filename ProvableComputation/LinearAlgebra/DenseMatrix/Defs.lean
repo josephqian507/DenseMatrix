@@ -291,13 +291,13 @@ private def mul_helper {m k n : Nat} {α : Type u} [Zero α] [Add α] [Mul α]
   if h₁ : j + 1 < n then
     mul_helper (out.push entry) i (j+1) A B (by aesop) hi (by exact Nat.succ_le_of_lt h₁)
   else if h₂ : i + 1 < m then
-    let hj' : j + 1 = n := by apply le_antisymm hj (by push_neg at h₁; exact h₁)
+    let hj' : j + 1 = n := by apply le_antisymm hj (by push Not at h₁; exact h₁)
     mul_helper (out.push entry) (i+1) 0 A B
       (row_size_invariant out i j n h_size hj' entry)
       (by exact Nat.succ_le_of_lt h₂) NeZero.one_le
   else
-    let hi' : i + 1 = m := by apply le_antisymm hi (by push_neg at h₂; exact h₂)
-    let hj' : j + 1 = n := by apply le_antisymm hj (by push_neg at h₁; exact h₁)
+    let hi' : i + 1 = m := by apply le_antisymm hi (by push Not at h₂; exact h₂)
+    let hj' : j + 1 = n := by apply le_antisymm hj (by push Not at h₁; exact h₁)
     ⟨out.push entry, mul_helper_size_invariant out i j h_size hi' hj' entry⟩
 
 /--
@@ -329,13 +329,13 @@ private def transpose_helper {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
   if h₁ : i + 1 < m then
     transpose_helper (out.push entry) (i+1) j M (by aesop) (by exact Nat.succ_le_of_lt h₁) hj
   else if h₂ : j + 1 < n then
-    let hj' : i + 1 = m := by apply le_antisymm hi (by push_neg at h₁; exact h₁)
+    let hj' : i + 1 = m := by apply le_antisymm hi (by push Not at h₁; exact h₁)
     transpose_helper (out.push entry) 0 (j+1) M
       (row_size_invariant out j i m h_size hj' entry)
       NeZero.one_le (by exact Nat.succ_le_of_lt h₂)
   else
-    let hi' : i + 1 = m := by apply le_antisymm hi (by push_neg at h₁; exact h₁)
-    let hj' : j + 1 = n := by apply le_antisymm hj (by push_neg at h₂; exact h₂)
+    let hi' : i + 1 = m := by apply le_antisymm hi (by push Not at h₁; exact h₁)
+    let hj' : j + 1 = n := by apply le_antisymm hj (by push Not at h₂; exact h₂)
     ⟨out.push entry, transpose_helper_size_invariant out i j h_size hi' hj' entry⟩
 
 def transpose {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
