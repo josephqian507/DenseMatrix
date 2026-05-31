@@ -11,6 +11,9 @@ focus on Gaussian elimination, LU factorization, and determinant computation.
 
 ## Current module tree
 
+- DenseMatrix backend:
+  - [`Defs.lean`](./ProvableComputation/LinearAlgebra/DenseMatrix/Defs.lean)
+  - [`Elementary.lean`](./ProvableComputation/LinearAlgebra/DenseMatrix/Elementary.lean)
 - Core echelon predicates:
   - [`Echelon.lean`](./ProvableComputation/LinearAlgebra/Echelon.lean)
 - Gaussian elimination:
@@ -26,8 +29,12 @@ focus on Gaussian elimination, LU factorization, and determinant computation.
   - [`Correctness.lean`](./ProvableComputation/LinearAlgebra/LU/Correctness.lean)
 - Determinant:
   - [`Basic.lean`](./ProvableComputation/LinearAlgebra/Determinant/Basic.lean)
+  - [`Correctness.lean`](./ProvableComputation/LinearAlgebra/Determinant/Correctness.lean)
 - Examples and benchmarks:
   - [`GaussianEliminationDemos.lean`](./ProvableComputation/Examples/GaussianEliminationDemos.lean)
+  - [`DenseMatrixBench.lean`](./ProvableComputation/Bench/DenseMatrixBench.lean)
+  - [`DenseMatrixKernel.lean`](./ProvableComputation/Bench/DenseMatrixKernel.lean)
+  - [`DenseMatrixRunner.lean`](./ProvableComputation/Bench/DenseMatrixRunner.lean)
   - [`DeterminantRuntimeComparator.lean`](./ProvableComputation/Bench/DeterminantRuntimeComparator.lean)
 
 ## Toolchain
@@ -43,14 +50,32 @@ lake exe cache get
 lake build
 ```
 
+## DenseMatrix benchmarks
+
+The DenseMatrix benchmark executable is available as the Lake target
+`densematrix_bench`:
+
+```bash
+lake build densematrix_bench
+lake exe densematrix_bench --quick --jsonl -
+```
+
+Use `--jsonl PATH` to write JSONL output to a file, or `--jsonl -` to write it
+to stdout.
+
 ## Public entrypoints
 
 - `Matrix.rowEchelonForm` and `Matrix.reducedRowEchelonForm`
-  return `Matrix.RowReductionResult` with named fields `matrix` and `steps`.
+  return `Matrix.RowReductionResult` with named fields `matrix` and `steps`,
+  routed through the native DenseMatrix backend.
 - `Matrix.luFactorization`
-  returns `Matrix.LUFactors` with named fields `P`, `L`, and `U`.
+  returns `Matrix.LUFactors` with named fields `P`, `L`, and `U`, routed
+  through the native DenseMatrix backend.
 - `Matrix.gaussDet` and `Matrix.luDet`
   expose the determinant algorithms on the namespaced public API.
+- `DenseMatrix.rowEchelonForm`, `DenseMatrix.reducedRowEchelonForm`,
+  `DenseMatrix.luFactorization`, `DenseMatrix.gaussDet`, and
+  `DenseMatrix.luDet` expose the DenseMatrix-facing executable surface.
 
 ## Poster
 
@@ -60,4 +85,5 @@ lake build
 
 - The old `linear_algebra/` tree has been replaced by the `LinearAlgebra/` hierarchy.
 - Demo and benchmark code live outside the core library import surface.
-- Determinant correctness proofs are still not implemented as a separate proof module.
+- Determinant correctness is proved in `Determinant/Correctness.lean` for the
+  public Matrix API and native DenseMatrix backend.

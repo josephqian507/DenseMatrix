@@ -1,3 +1,9 @@
+/-
+Copyright (c) 2026 Provable Computation contributors. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Provable Computation contributors
+-/
+
 import Mathlib.Data.Matrix.Basic
 import Mathlib.LinearAlgebra.Determinant
 import Init.Data.Random
@@ -10,8 +16,6 @@ import ProvableComputation.LinearAlgebra.Determinant.Basic
 This module contains profiler-oriented runtime comparisons for the executable determinant
 implementations. It is kept out of the core library import graph.
 -/
-
-set_option profiler true
 
 /-- Generate a reproducible rational matrix from a pseudo-random seed. -/
 def randomMatrix (n : Nat) (seed : Nat) : Matrix (Fin n) (Fin n) Rat :=
@@ -27,28 +31,23 @@ def randomMatrix (n : Nat) (seed : Nat) : Matrix (Fin n) (Fin n) Rat :=
 def benchmark (n : Nat) (samples : Nat) : IO Unit := do
   let mut totalRatio : Float := 0
   let mut validSamples : Nat := 0
-
   for i in [0:samples] do
     let mat := randomMatrix n (i * 12345)
-
     let startGaussDet ← IO.monoNanosNow
     let det := Matrix.gaussDet mat
     let _ := det
     let endGaussDet ← IO.monoNanosNow
     let timeGaussDet := (endGaussDet - startGaussDet).toFloat
     IO.println s!"gaussDet time: {timeGaussDet}"
-
     let startLeibnizDet ← IO.monoNanosNow
     let det := mat.det
     IO.println s!"{det}"
     let endLeibnizDet ← IO.monoNanosNow
     let timeLeibnizDet := (endLeibnizDet - startLeibnizDet).toFloat
     IO.println s!"det time: {timeLeibnizDet}"
-
     if timeGaussDet > 0 then
       totalRatio := totalRatio + (timeLeibnizDet / timeGaussDet)
       validSamples := validSamples + 1
-
   if validSamples > 0 then
     let avg := totalRatio / validSamples.toFloat
     IO.println s!"Average Ratio (Matrix.det / Matrix.gaussDet) for {n}x{n}: {avg}"

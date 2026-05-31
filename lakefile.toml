@@ -20,3 +20,9 @@ name = "ProvableComputation"
 
 [[lean_lib]]
 name = "TEST"
+
+# Benchmark executable for the row-major DenseMatrix backend.  It is kept out of
+# default targets so normal library builds do not run the benchmark harness.
+[[lean_exe]]
+name = "densematrix_bench"
+root = "ProvableComputation.Bench.DenseMatrixRunner"
