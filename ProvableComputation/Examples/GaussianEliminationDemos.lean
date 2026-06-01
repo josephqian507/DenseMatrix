@@ -1,9 +1,3 @@
-/-
-Copyright (c) 2026 Provable Computation contributors. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Provable Computation contributors
--/
-
 import Mathlib.Algebra.Field.Rat
 
 import ProvableComputation.LinearAlgebra.Determinant.Basic
@@ -42,11 +36,6 @@ def sampleMatrix2 : Matrix (Fin 3) (Fin 3) Rat :=
     ![4, 8, 12],
     ![2, 5, 6]]
 
-/-- A `2 × 2` permutation matrix that forces row-swap determinant bookkeeping. -/
-def swapPermutation2 : Matrix (Fin 2) (Fin 2) Rat :=
-  ![![0, 1],
-    ![1, 0]]
-
 /-- A larger `10 × 10` matrix used for runtime comparisons. -/
 def sampleMatrix3 : Matrix (Fin 10) (Fin 10) Rat :=
   ![![9, 8, 6, 9, 7, 4, 6, 8, 4, 7],
@@ -66,66 +55,6 @@ def sampleMatrix4 : Matrix (Fin 4) (Fin 4) Rat :=
     ![94, 2, 8, 0],
     ![9, 3, 2, 9],
     ![45, 3, 9, 8]]
-
-/--
-A grounded Kirchhoff-style conductance matrix for the AI4Math tool-call
-vignette. The paper treats this as a derived linear system, not as a formal
-circuit-semantics claim.
--/
-def kirchhoffMatrix4 : Matrix (Fin 4) (Fin 4) Rat :=
-  ![![6, -2, -1, 0],
-    ![-2, 7, -3, -1],
-    ![-1, -3, 8, -2],
-    ![0, -1, -2, 5]]
-
-/-- Right-hand side for `kirchhoffMatrix4 * x = b`. -/
-def kirchhoffRhs4 : Matrix (Fin 4) (Fin 1) Rat :=
-  ![![5],
-    ![10],
-    ![-11],
-    ![15]]
-
-/-- Exact solution column for the Kirchhoff vignette. -/
-def kirchhoffSolution4 : Matrix (Fin 4) (Fin 1) Rat :=
-  ![![2],
-    ![3],
-    ![1],
-    ![4]]
-
-/-- Augmented matrix `[A | b]` for the Kirchhoff vignette. -/
-def kirchhoffAugmented4 : Matrix (Fin 4) (Fin 5) Rat :=
-  ![![6, -2, -1, 0, 5],
-    ![-2, 7, -3, -1, 10],
-    ![-1, -3, 8, -2, -11],
-    ![0, -1, -2, 5, 15]]
-
-/--
-A small tridiagonal exact system that can arise after a finite-difference
-discretization. The demo checks only the displayed linear system, not the
-discretization step that may have produced it.
--/
-def finiteDifferenceMatrix3 : Matrix (Fin 3) (Fin 3) Rat :=
-  ![![2, -1, 0],
-    ![-1, 2, -1],
-    ![0, -1, 2]]
-
-/-- Right-hand side for `finiteDifferenceMatrix3 * x = b`. -/
-def finiteDifferenceRhs3 : Matrix (Fin 3) (Fin 1) Rat :=
-  ![![0],
-    ![1],
-    ![0]]
-
-/-- Exact solution column for the finite-difference vignette. -/
-def finiteDifferenceSolution3 : Matrix (Fin 3) (Fin 1) Rat :=
-  ![![1 / 2],
-    ![1],
-    ![1 / 2]]
-
-/-- Augmented matrix `[A | b]` for the finite-difference vignette. -/
-def finiteDifferenceAugmented3 : Matrix (Fin 3) (Fin 4) Rat :=
-  ![![2, -1, 0, 0],
-    ![-1, 2, -1, 1],
-    ![0, -1, 2, 0]]
 
 /-- A `5 × 5` matrix used in determinant runtime checks. -/
 def matrix2 : Matrix (Fin 5) (Fin 5) Rat :=
@@ -221,28 +150,9 @@ end Matrix
 #eval (Matrix.reducedRowEchelonForm sampleMatrix).matrix
 #eval (Matrix.rowEchelonForm sampleMatrix4).matrix
 
--- AI4Math-style exact linear-system vignettes: the RREF output solves the
--- displayed augmented system, while the determinant calls check the same dense
--- backend through both public determinant names.
-#eval (Matrix.reducedRowEchelonForm kirchhoffAugmented4).matrix
-#eval Matrix.gaussDet kirchhoffMatrix4
-#eval Matrix.luDet kirchhoffMatrix4
-#eval kirchhoffMatrix4.det
-#eval kirchhoffMatrix4 * kirchhoffSolution4 - kirchhoffRhs4
-#eval (Matrix.reducedRowEchelonForm finiteDifferenceAugmented3).matrix
-#eval Matrix.gaussDet finiteDifferenceMatrix3
-#eval Matrix.luDet finiteDifferenceMatrix3
-#eval finiteDifferenceMatrix3 * finiteDifferenceSolution3 - finiteDifferenceRhs3
-
 -- Determinant runtime tests
 
 -- 3x3 matrices
--- The swap permutation is a small regression case for determinant sign
--- bookkeeping: its determinant is `-1`, so missing row-swap multipliers show up
--- immediately.
-#time #eval Matrix.luDet swapPermutation2
-#time #eval Matrix.gaussDet swapPermutation2
-#time #eval swapPermutation2.det
 #time #eval Matrix.luDet sampleMatrix
 #time #eval Matrix.gaussDet sampleMatrix
 #time #eval sampleMatrix.det

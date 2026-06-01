@@ -1,9 +1,3 @@
-/-
-Copyright (c) 2026 Provable Computation contributors. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Provable Computation contributors
--/
-
 import ProvableComputation.LinearAlgebra.GaussianElimination.Elementary
 import ProvableComputation.LinearAlgebra.GaussianElimination.RrefCorrectness
 
@@ -357,10 +351,10 @@ theorem rowEquivalent_of_rref_eq {m n : Nat}
 
 /--
 Computational wrapper: if `decide` confirms RREF equality, conclude row-equivalence.
-This is convenient with kernel computation on concrete matrices.
+This is convenient with `native_decide` on concrete matrices.
 example : RowEquivalent A B := by
   apply rowEquivalent_of_decide_rref_eq_true (A := A) (B := B)
-  decide
+  native_decide
 -/
 theorem rowEquivalent_of_decide_rref_eq_true {m n : Nat}
     {A B : Matrix (Fin m) (Fin n) R}

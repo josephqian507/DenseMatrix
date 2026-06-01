@@ -1,9 +1,3 @@
-/-
-Copyright (c) 2026 Provable Computation contributors. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Provable Computation contributors
--/
-
 import ProvableComputation.LinearAlgebra.GaussianElimination.Elementary
 import ProvableComputation.LinearAlgebra.GaussianElimination.RrefCorrectness
 import ProvableComputation.LinearAlgebra.LU.Basic

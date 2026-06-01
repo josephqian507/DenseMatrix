@@ -1,9 +1,3 @@
-/-
-Copyright (c) 2026 Provable Computation contributors. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Provable Computation contributors
--/
-
 import Mathlib.Data.Matrix.Basic
 
 /-!
@@ -35,7 +29,7 @@ structure IsEchelonForm {m n : Type*} [LinearOrder m] [LinearOrder n]
   pivots_strictly_increasing :
     ∀ i j p q, i < j → IsPivot M i p → IsPivot M j q → p < q
 
-/- In REF, a pivot column is zero below the pivot (derivable from the minimal assumptions). -/
+/- In REF, a pivot column is zero below the pivot (derivable from the minimal axioms). -/
 lemma IsEchelonForm.pivot_column_zero_below
     {m n : Type*} [LinearOrder m] [LinearOrder n]
     {M : Matrix m n R} (h : IsEchelonForm M) :

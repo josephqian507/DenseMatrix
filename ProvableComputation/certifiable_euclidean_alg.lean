@@ -1,9 +1,3 @@
-/-
-Copyright (c) 2026 Provable Computation contributors. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Provable Computation contributors
--/
-
 import Lean
 import Lean.Elab.Tactic
 import Qq
@@ -13,13 +7,6 @@ import Mathlib.Tactic.Abel
 import Mathlib.Algebra.GroupWithZero.Divisibility
 import Mathlib.Algebra.Ring.Divisibility.Basic
 import Mathlib.Data.Nat.Cast.Basic
-
-/-!
-# Certifiable Euclidean Algorithm
-
-This module implements a small extended Euclidean algorithm and a custom tactic
-that certifies concrete `Nat.gcd` equalities by generating Bézout witnesses.
--/
 
 open Lean Elab Tactic Meta
 open Qq PrettyPrinter
@@ -33,13 +20,8 @@ deriving Repr
 
 abbrev EAM := StateM EAState
 
-/-
-The executable Euclidean loop carries the current Bézout coefficients in
-`EAState`.  The recursive branch is guarded by `b ≠ 0`; Lean's termination proof
-uses that guard to justify the usual `a % b < b` decrease.
--/
 def extendedEuclideanAlgorithm (a b : Nat) : EAM (Int × Int × Nat) := do
-  if b = 0 then
+  if h : b = 0 then
     let s ← get
     -- In the base case, the correct coefficients are (x, y).
     return (s.x, s.y, a)
@@ -49,10 +31,10 @@ def extendedEuclideanAlgorithm (a b : Nat) : EAM (Int × Int × Nat) := do
     set { x := s.x', y := s.y', x' := s.x - q * s.x', y' := s.y - q * s.y' : EAState }
     extendedEuclideanAlgorithm b (a % b)
 termination_by b
-decreasing_by
-  exact Nat.mod_lt a (Nat.zero_lt_of_ne_zero (by assumption))
+decreasing_by refine Nat.mod_lt a ?_; exact Nat.zero_lt_of_ne_zero h
 
 def initialState : EAState := { x := 1, y := 0, x' := 0, y' := 1 }
+#eval (extendedEuclideanAlgorithm 15 56).run initialState
 
 def run_euclidean_alg (a b : Nat):= do (extendedEuclideanAlgorithm a b).run initialState
 
@@ -160,6 +142,7 @@ def gcd_tactic_main (goal : MVarId) : TacticM Unit := do
                   logError m!"'abel' tactic failed on Bezout goal: {e.toMessageData}"
                   unsolvedGoals := goal :: unsolvedGoals
             replaceMainGoal unsolvedGoals.reverse;
+            logInfo m!"'gcd_tactic' finished. {3 - unsolvedGoals.length}/3 subgoals solved."
           } else {
             logWarning (m!"Warning: computed GCD {d} does not match goal {rhs}")
           }
@@ -173,13 +156,8 @@ def gcd_tactic_main (goal : MVarId) : TacticM Unit := do
 
 syntax (name := gcd_tactic) "gcd_tactic" : tactic
 
-/-
-Tactic registration ignores the syntax node because the command has no
-arguments.  All semantic work happens in `gcd_tactic_main`, which reads the main
-goal, computes the certificate, and applies the Bézout lemma.
--/
 @[tactic gcd_tactic]
-def evalGcd : Tactic := fun _stx => do
+def evalGcd : Tactic := fun stx => do
   let goal ← getMainGoal
   gcd_tactic_main goal
 
