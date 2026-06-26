@@ -257,6 +257,38 @@ def add {m n : Nat} {α : Type u} [Add α] (A B : DenseMatrix m n α) : DenseMat
 def smul {m n : Nat} {α : Type u} [Mul α] (c : α) (M : DenseMatrix m n α) : DenseMatrix m n α where
   data := M.data.map (fun x => c * x)
 
+/-- Swap two rows of a dense matrix. -/
+def swapRow {m n : Nat} {α : Type u}
+    (A : DenseMatrix m n α) (r1 r2 : Fin m) : DenseMatrix m n α :=
+  of fun i j =>
+    if i = r1 then
+      A.get r2 j
+    else if i = r2 then
+      A.get r1 j
+    else
+      A.get i j
+
+/-- Scale one row of a dense matrix by a scalar. -/
+def scaleRow {m n : Nat} {α : Type u} [Mul α]
+    (A : DenseMatrix m n α) (r : Fin m) (c : α) : DenseMatrix m n α :=
+  of fun i j =>
+    if i = r then
+      c * A.get i j
+    else
+      A.get i j
+
+/-- Replace `tgt` by `tgt + k * src`, with the diagonal case treated as scaling. -/
+def replaceRow {m n : Nat} {α : Type u} [Add α] [Mul α] [One α]
+    (A : DenseMatrix m n α) (src tgt : Fin m) (k : α) : DenseMatrix m n α :=
+  if src = tgt then
+    scaleRow A tgt (k + 1)
+  else
+    of fun i j =>
+      if i = tgt then
+        A.get tgt j + k * A.get src j
+      else
+        A.get i j
+
 private def dot {m k n : Nat} {α : Type u} [Add α] [Mul α]
     (sum : α) (i : Fin m) (j : Fin n) (l : Fin k)
     (A : DenseMatrix m k α) (B : DenseMatrix k n α) : α :=
