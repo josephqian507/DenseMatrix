@@ -61,4 +61,7 @@ example : toMatrix (replaceRow (ofMatrix smokeA23) (0 : Fin 2) (0 : Fin 2) 2) =
     smokeA23ScaledRow0 := by
   native_decide
 
+#eval s!"{of (m := 3) (n := 3) fun i j => i.val + j.val}"
+#eval Matrix.of fun (i : Fin 3) (j : Fin 3) => i.val + j.val
+
 end DenseMatrix
