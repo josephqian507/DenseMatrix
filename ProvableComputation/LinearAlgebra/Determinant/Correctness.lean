@@ -23,5 +23,5 @@ theorem luDet_eq_det (M : Matrix (Fin n) (Fin n) R) :
 
 theorem gaussDet_eq_luDet (M : Matrix (Fin n) (Fin n) R) :
   Matrix.gaussDet M = Matrix.luDet M := by
-    sorry
+    rw [gaussDet_eq_det, luDet_eq_det]
 end Matrix

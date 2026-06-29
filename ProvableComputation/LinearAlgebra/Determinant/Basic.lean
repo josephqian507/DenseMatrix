@@ -55,7 +55,7 @@ def rawGaussDet (M : Matrix (Fin n) (Fin n) R) : R :=
 /-- Internal determinant computation via the tuple-valued internal LU factorization. -/
 def rawLuDet (M : Matrix (Fin n) (Fin n) R) : R :=
   let (P, L, U) := LUFactorizationInternal.rawFactorization M
-  (diagonalProduct P) * (diagonalProduct L) * (diagonalProduct U)
+  P.det * diagonalProduct L * diagonalProduct U
 
 end DeterminantInternal
 
