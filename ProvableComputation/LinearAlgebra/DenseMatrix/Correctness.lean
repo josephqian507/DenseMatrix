@@ -50,10 +50,9 @@ theorem get_ofMatrix {m n : Nat} {α : Type u}
     get (ofMatrix M) i j = M i j := by
   simp [ofMatrix, get, Vector.get, rowMajorIndex_div, rowMajorIndex_mod]
 
--- TODO: fill in sorry
 theorem get_toMatrix {m n : Nat} {α : Type u} (A : DenseMatrix m n α) (i : Fin m) (j : Fin n)
     : (toMatrix A) i j = get A i j := by
-  sorry
+  rfl
 
 -- Reading storage through the unflattened row and column returns the same flat
 -- slot.
@@ -138,7 +137,7 @@ private theorem dot_eq_sum_plus {m k n : Nat} {α : Type u} [Semiring α]
       congr 1
 
       sorry
-    · push_neg at h₁
+    · push Not at h₁
       have h_step : k ≥ l + 1 := by omega
       have h₁ : k = l + 1 := by apply le_antisymm h₁ h_step
 
@@ -168,15 +167,7 @@ private theorem mul_helper_spec {m k n : Nat} {α : Type u} [Semiring α] [Inhab
   --   sorry
   -- | step =>
   --   sorry
-  fun_induction mul_helper generalizing m n with
-  | case1 =>
-    aesop
-  | case2 =>
-    aesop
-  | case3 out_ind i_ind j_ind =>
-    aesop
-
-    sorry
+  sorry
 
 theorem mul_ofMatrix {m k n : Nat} {α : Type u} [Semiring α] [Inhabited α]
     [NeZero m] [NeZero k] [NeZero n] (A : Matrix (Fin m) (Fin k) α) (B : Matrix (Fin k) (Fin n) α)
