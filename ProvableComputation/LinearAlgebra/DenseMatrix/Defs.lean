@@ -1,4 +1,6 @@
 import Mathlib.Data.Matrix.Basic
+import Mathlib.LinearAlgebra.Matrix.Swap
+import Mathlib.LinearAlgebra.Matrix.Transvection
 
 /-!
 # Dense matrix basics
@@ -310,5 +312,17 @@ def replaceRow {m n : Nat} {α : Type u} [Add α] [Mul α] [One α]
         A.get tgt j + k * A.get src j
       else
         A.get i j
+
+theorem toMatrix_swap_eq_swap_toMatrix {m n : Nat} {α : Type u} [Semiring α]
+    (A : DenseMatrix m n α) (r1 r2 : Fin m) : toMatrix (swapRow A r1 r2) = (Matrix.swap α r1 r2) * (toMatrix A) :=
+    sorry
+
+theorem toMatrix_scale_eq_scale_toMatrix {m n : Nat} {α : Type u} [CommRing α]
+    (A : DenseMatrix m n α) (r : Fin m) (c : α) : toMatrix (scaleRow A r c) = (Matrix.transvection r r (c - 1)) * (toMatrix A) :=
+    sorry
+
+theorem toMatrix_replace_eq_replace_toMatrix {m n : Nat} {α : Type u} [CommRing α]
+    (A : DenseMatrix m n α) (src tgt : Fin m) (k : α) : toMatrix (replaceRow A src tgt k) = (Matrix.transvection tgt src k) * (toMatrix A) :=
+    sorry
 
 end DenseMatrix
