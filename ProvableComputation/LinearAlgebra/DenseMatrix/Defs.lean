@@ -557,16 +557,95 @@ def replaceRow {m n : Nat} {α : Type u} [Add α] [Mul α] [One α]
       else
         A.get i j
 
+private theorem rowMajorIndex_div_eq {m n : Nat} (i : Fin m) (j : Fin n) :
+    rowMajorIndex i j / n = i.val := by
+  unfold rowMajorIndex
+  rw [Nat.mul_comm i.val n]
+  have hn : 0 < n := Nat.lt_of_le_of_lt (Nat.zero_le j.val) j.isLt
+  rw [Nat.mul_add_div hn, Nat.div_eq_of_lt j.isLt, Nat.add_zero]
+
+private theorem rowMajorIndex_mod_eq {m n : Nat} (i : Fin m) (j : Fin n) :
+    rowMajorIndex i j % n = j.val := by
+  unfold rowMajorIndex
+  rw [Nat.mul_comm i.val n]
+  rw [Nat.mul_add_mod_self_left, Nat.mod_eq_of_lt j.isLt]
+
+private theorem get_of {m n : Nat} {α : Type u} (f : Fin m → Fin n → α)
+    (i : Fin m) (j : Fin n) : get (of f) i j = f i j := by
+  simp [of, ofMatrix, get, Vector.get, rowMajorIndex_div_eq, rowMajorIndex_mod_eq]
+
 theorem toMatrix_swap_eq_swap_toMatrix {m n : Nat} {α : Type u} [Semiring α]
     (A : DenseMatrix m n α) (r1 r2 : Fin m) : toMatrix (swapRow A r1 r2) = (Matrix.swap α r1 r2) * (toMatrix A) :=
-    sorry
+  by
+    ext i j
+    by_cases hi1 : i = r1
+    · subst i
+      simp [toMatrix, swapRow, get_of]
+    · by_cases hi2 : i = r2
+      · subst i
+        simp [toMatrix, swapRow, get_of, hi1]
+      · rw [Matrix.swap_mul_of_ne hi1 hi2]
+        simp [toMatrix, swapRow, get_of, hi1, hi2]
 
 theorem toMatrix_scale_eq_scale_toMatrix {m n : Nat} {α : Type u} [CommRing α]
     (A : DenseMatrix m n α) (r : Fin m) (c : α) : toMatrix (scaleRow A r c) = (Matrix.transvection r r (c - 1)) * (toMatrix A) :=
-    sorry
+  by
+    ext i j
+    by_cases hi : i = r
+    · subst i
+      simp [toMatrix, scaleRow, Matrix.mul_apply, Matrix.transvection, get_of]
+      rw [Fintype.sum_eq_single r]
+      · simp
+      · intro b hb
+        simp [Ne.symm hb]
+    · simp [toMatrix, scaleRow, Matrix.mul_apply, Matrix.transvection, get_of, hi]
+      rw [Fintype.sum_eq_single i]
+      · simp [Ne.symm hi]
+      · intro b hb
+        simp [Ne.symm hb, Ne.symm hi]
 
 theorem toMatrix_replace_eq_replace_toMatrix {m n : Nat} {α : Type u} [CommRing α]
     (A : DenseMatrix m n α) (src tgt : Fin m) (k : α) : toMatrix (replaceRow A src tgt k) = (Matrix.transvection tgt src k) * (toMatrix A) :=
-    sorry
+  by
+    ext i j
+    by_cases h : src = tgt
+    · subst src
+      by_cases hi : i = tgt
+      · subst i
+        simp [toMatrix, replaceRow, scaleRow, Matrix.mul_apply, Matrix.transvection, get_of]
+        rw [Fintype.sum_eq_single tgt]
+        · simp
+          ring
+        · intro b hb
+          simp [Ne.symm hb]
+      · simp [toMatrix, replaceRow, scaleRow, Matrix.mul_apply, Matrix.transvection, get_of, hi]
+        rw [Fintype.sum_eq_single i]
+        · simp [Ne.symm hi]
+        · intro b hb
+          simp [Ne.symm hb, Ne.symm hi]
+    · by_cases hi : i = tgt
+      · subst i
+        simp [toMatrix, replaceRow, Matrix.mul_apply, Matrix.transvection, get_of, h]
+        rw [show
+            (∑ x, ((1 : Matrix (Fin m) (Fin m) α) tgt x +
+                Matrix.single tgt src k tgt x) * A.get x j) =
+              (∑ x, (1 : Matrix (Fin m) (Fin m) α) tgt x * A.get x j) +
+                ∑ x, Matrix.single tgt src k tgt x * A.get x j by
+          rw [← Finset.sum_add_distrib]
+          congr
+          ext x
+          ring]
+        rw [Fintype.sum_eq_single tgt]
+        · rw [Fintype.sum_eq_single src]
+          · simp [Matrix.single]
+          · intro b hb
+            simp [Matrix.single, Ne.symm hb]
+        · intro b hb
+          simp [Ne.symm hb]
+      · simp [toMatrix, replaceRow, Matrix.mul_apply, Matrix.transvection, get_of, h, hi]
+        rw [Fintype.sum_eq_single i]
+        · simp [Matrix.single, Ne.symm hi]
+        · intro b hb
+          simp [Matrix.single, Ne.symm hb, Ne.symm hi]
 
 end DenseMatrix
