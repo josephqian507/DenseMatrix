@@ -648,4 +648,20 @@ theorem toMatrix_replace_eq_replace_toMatrix {m n : Nat} {α : Type u} [CommRing
         · intro b hb
           simp [Matrix.single, Ne.symm hb, Ne.symm hi]
 
+theorem toMatrix_left_mul_eq_zero_iff {m n : Nat} {α : Type u} [Semiring α]
+    (U Uinv : Matrix (Fin m) (Fin m) α)
+    (hU : Uinv * U = 1)
+    (A : DenseMatrix m n α)
+    (x : Matrix (Fin n) (Fin 1) α) :
+    (U * toMatrix A) * x = 0 ↔ toMatrix A * x = 0 := by
+  constructor
+  · intro h
+    have hmul :
+        Uinv * ((U * toMatrix A) * x) = Uinv * (0 : Matrix (Fin m) (Fin 1) α) := by
+      rw [h]
+    rw [← Matrix.mul_assoc, ← Matrix.mul_assoc, hU] at hmul
+    simpa [Matrix.one_mul, Matrix.mul_zero] using hmul
+  · intro h
+    rw [Matrix.mul_assoc, h, Matrix.mul_zero]
+
 end DenseMatrix
