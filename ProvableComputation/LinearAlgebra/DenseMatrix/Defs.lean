@@ -286,18 +286,18 @@ theorem add_toMatrix {m n : Nat} {α : Type u} [Add α] (A B : DenseMatrix m n �
   rw [ofMatrix_toMatrix, toMatrix_ofMatrix, toMatrix_ofMatrix]
   exact add_ofMatrix M N
 
--- TODO: Check if this is faster than mathlib Matrix.smul
+-- Benchmarked by `lake exe densematrix_bench --quick --jsonl -` against mathlib Matrix.smul.
 def smul {m n : Nat} {α : Type u} [Mul α] (c : α) (M : DenseMatrix m n α) : DenseMatrix m n α where
   data := M.data.map (fun x => c * x)
 
--- TODO: (benchmarking) compare efficiency of `dot` and `sum_dot`.
+-- Benchmarked by `lake exe densematrix_bench --quick --jsonl -` against `sum_dot`.
 /--
 Given indices `i` and `j`, returns the dot product of the i-th row of `A` and the j-th column
 of `B `.
 
 Note: dot products are defined for function-backed vector representation in Mathlib.Data.Matrix.Mul.
 -/
-private def dot {m k n : Nat} {α : Type u} [Add α] [Mul α]
+def dot {m k n : Nat} {α : Type u} [Add α] [Mul α]
     (sum : α) (i : Fin m) (j : Fin n) (l : Fin k)
     (A : DenseMatrix m k α) (B : DenseMatrix k n α) : α :=
   if h: l + 1 < k then
@@ -305,7 +305,7 @@ private def dot {m k n : Nat} {α : Type u} [Add α] [Mul α]
   else
     sum + (A.get i l * B.get l j)
 
-private def sum_dot {m k n : Nat} {α : Type u} [Semiring α]
+def sum_dot {m k n : Nat} {α : Type u} [Semiring α]
     (i : Fin m) (j : Fin n) (A : DenseMatrix m k α) (B : DenseMatrix k n α) : α :=
   ∑ l : Fin k, A.get i l * B.get l j
 

@@ -20,3 +20,7 @@ name = "ProvableComputation"
 
 [[lean_lib]]
 name = "TEST"
+
+[[lean_exe]]
+name = "densematrix_bench"
+root = "ProvableComputation.Bench.DenseMatrixBench"
