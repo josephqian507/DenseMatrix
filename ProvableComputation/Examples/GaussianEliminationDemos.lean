@@ -2,6 +2,7 @@ import Mathlib.Algebra.Field.Rat
 
 import ProvableComputation.LinearAlgebra.Determinant.Basic
 import ProvableComputation.LinearAlgebra.GaussianElimination.Elementary
+import ProvableComputation.LinearAlgebra.GaussianElimination.Rref
 import ProvableComputation.LinearAlgebra.LU.Basic
 
 /-!
@@ -146,9 +147,18 @@ theorem firstPointExample :
 
 end Matrix
 
-#eval (Matrix.rowEchelonForm sampleMatrix).matrix
-#eval (Matrix.reducedRowEchelonForm sampleMatrix).matrix
-#eval (Matrix.rowEchelonForm sampleMatrix4).matrix
+#time #eval (Matrix.rowEchelonForm sampleMatrix).matrix
+#time #eval (Matrix.reducedRowEchelonForm sampleMatrix).matrix
+#time #eval (Matrix.rowEchelonForm sampleMatrix2).matrix
+#time #eval (Matrix.reducedRowEchelonForm sampleMatrix2).matrix
+#time #eval (Matrix.rowEchelonForm sampleMatrix3).matrix
+#time #eval (Matrix.reducedRowEchelonForm sampleMatrix3).matrix
+#time #eval (Matrix.rowEchelonForm sampleMatrix4).matrix
+#time #eval (Matrix.reducedRowEchelonForm sampleMatrix4).matrix
+#time #eval (Matrix.rowEchelonForm matrix2).matrix
+#time #eval (Matrix.reducedRowEchelonForm matrix2).matrix
+#time #eval (Matrix.rowEchelonForm matrix3).matrix
+#time #eval (Matrix.reducedRowEchelonForm matrix3).matrix
 
 -- Determinant runtime tests
 
@@ -172,11 +182,11 @@ end Matrix
 
 -- 10x10 matrices
 -- Stack overflow: the Leibniz determinant computation cannot handle these comfortably.
-#time #eval Matrix.luDet sampleMatrix3
-#time #eval Matrix.gaussDet sampleMatrix3
+-- #time #eval Matrix.luDet sampleMatrix3
+-- #time #eval Matrix.gaussDet sampleMatrix3
 -- #time #eval sampleMatrix3.det
-#time #eval Matrix.luDet matrix3
-#time #eval Matrix.gaussDet matrix3
+-- #time #eval Matrix.luDet matrix3
+-- #time #eval Matrix.gaussDet matrix3
 -- #time #eval matrix3.det
 
 #time #eval Matrix.luFactorization sampleMatrix
