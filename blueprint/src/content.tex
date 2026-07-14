@@ -1,0 +1,277 @@
+\chapter*{How to read this guide}
+
+This Blueprint is a guided reading map of the main proof route.  Its nodes group declarations
+by mathematical purpose, so it is intentionally smaller than the source.  The
+\href{dependency-graph/index.html}{scoped interactive declaration graph} is generated from
+the compiled Lean environment; generated declaration paths are collapsed and LU modules are
+shown as boundary nodes.  Its
+\href{dependency-graph/graph.json}{raw JSON} records the same graph for other tools.  The
+interactive view initially hides private declarations; it can reveal them, reverse edge
+direction, filter edge kinds, and focus on either side of a selected declaration.
+
+\chapter{Echelon predicates}
+
+\begin{definition}[Echelon and reduced-echelon predicates]
+\label{def:echelon-predicates}
+\lean{Matrix.RowIsZero, Matrix.IsPivot, Matrix.IsEchelonForm,
+  Matrix.IsReducedEchelonForm}
+\leanok
+These predicates are the semantic target of the executable algorithm.  They separate the
+meaning of a valid output from the control flow that computes it, so later correctness results
+can expose stable mathematical statements.
+\end{definition}
+
+\begin{theorem}[Zeros below a pivot]
+\label{thm:pivot-column-zero-below}
+\lean{Matrix.IsEchelonForm.pivot_column_zero_below}
+\leanok
+\uses{def:echelon-predicates}
+An echelon witness forces every entry below a pivot to vanish.  This is the main local fact that
+downstream proofs can consume without unfolding the inductive echelon predicate.
+\end{theorem}
+
+\chapter{Row-operation data and executable algorithm}
+
+\begin{definition}[Row-operation data]
+\label{def:row-operation-data}
+\lean{RowOp, swapRow, factor, replace, checkPivot, Matrix.RowReductionResult}
+\leanok
+The primitive row operations, pivot search, and result log form the executable vocabulary.
+Keeping the log beside the resulting matrix makes later replay and preservation theorems
+possible without changing the public matrix-returning wrappers.
+\end{definition}
+
+\begin{definition}[Single-column elimination loop]
+\label{def:elimination-loop}
+\lean{GaussianEliminationInternal.eliminateColLoopAux,
+  GaussianEliminationInternal.eliminateColLoop,
+  GaussianEliminationInternal.eliminateColCore}
+\leanok
+\uses{def:row-operation-data}
+This loop chooses and normalizes a pivot, eliminates the selected column, and records every row
+operation.  Isolating one column gives the correctness proof a small transition to analyze.
+\end{definition}
+
+\begin{definition}[REF and RREF algorithms]
+\label{def:row-reduction-algorithm}
+\lean{GaussianEliminationInternal.rowReductionAux,
+  GaussianEliminationInternal.rawRowEchelonForm,
+  GaussianEliminationInternal.rawReducedRowEchelonForm,
+  Matrix.rowEchelonForm, Matrix.reducedRowEchelonForm}
+\leanok
+\uses{def:row-operation-data, def:elimination-loop}
+The outer recursion advances through rows and columns, while the public wrappers discard the
+operation log.  The effect is a computable REF or RREF API whose proof-oriented internals still
+retain enough evidence for correctness and reconstruction.
+\end{definition}
+
+\chapter{Row-equivalence semantics}
+
+\begin{definition}[Row equivalence]
+\label{def:row-equivalence}
+\lean{Matrix.RowEquivalent, Matrix.RowEquivalent.refl, Matrix.RowEquivalent.symm,
+  Matrix.RowEquivalent.trans, Matrix.rowEquivalentSetoid}
+\leanok
+Row equivalence packages the existence of an invertible left multiplier and provides the
+equivalence laws.  It is the semantic bridge from low-level row updates to statements about
+the linear system represented by a matrix.
+\end{definition}
+
+\begin{theorem}[Elementary row-operation semantics]
+\label{thm:elementary-row-semantics}
+\lean{Matrix.applyRowOp, Matrix.elementaryMatrixOfRowOp,
+  Matrix.elementaryMatrixOfRowOp_mul_eq_applyRowOp,
+  Matrix.swap_matrix_eq_elem_mul_matrix, Matrix.factor_matrix_eq_elem_mul_matrix,
+  Matrix.replace_matrix_eq_elem_mul_matrix, Matrix.swap_inv, Matrix.factor_inv,
+  Matrix.replace_inv,
+  Matrix.rowEquivalent_swapRow, Matrix.rowEquivalent_factor,
+  Matrix.rowEquivalent_replace}
+\leanok
+\uses{def:row-operation-data, def:row-equivalence}
+Each executable row operation agrees with left multiplication by its elementary matrix, and
+each operation preserves row equivalence.  This turns an algorithmic step into algebra that can
+be composed across the whole reduction.
+\end{theorem}
+
+\begin{definition}[An echelon representative]
+\label{def:echelon-representative}
+\lean{Matrix.IsEchelonFormOf, Matrix.IsEchelonFormOf.rowEquivalent,
+  Matrix.IsEchelonFormOf.echelon, Matrix.isEchelonFormOf_mk}
+\leanok
+\uses{def:echelon-predicates, def:row-equivalence}
+This bundled relation says that a matrix is both echelon and row-equivalent to the source.
+Bundling the two obligations gives later clients one reusable certificate instead of parallel
+hypotheses.
+\end{definition}
+
+\begin{theorem}[Column-operation semantics]
+\label{thm:column-operation-semantics}
+\lean{ColumnElementary.swapCol, ColumnElementary.factorCol,
+  ColumnElementary.replaceCol, ColumnElementary.swapCol_eq_mul_elem,
+  ColumnElementary.factorCol_eq_mul_elem, ColumnElementary.replaceCol_eq_mul_elem}
+\leanok
+\uses{def:row-operation-data}
+Transpose-derived column operations are characterized as right multiplication by elementary
+matrices.  They are included because LU construction consumes the row-operation log from the
+opposite side.
+\end{theorem}
+
+\chapter{Pivot and state-machine correctness}
+
+\begin{theorem}[Pivot search]
+\label{thm:pivot-search}
+\lean{Matrix.checkPivot_none_zero, Matrix.checkPivot_some_row_ge,
+  Matrix.checkPivot_some_minimal, Matrix.checkPivot_some_nonzero}
+\leanok
+\uses{def:row-operation-data}
+The search result is either evidence that the candidate column is zero below the current row or
+a minimal nonzero pivot at a valid row.  These facts justify both branches of the executable
+state transition.
+\end{theorem}
+
+\begin{theorem}[Column-elimination invariants]
+\label{thm:column-elimination-invariants}
+\lean{Matrix.eliminateCol_matrix_irrel, Matrix.eliminateCol_go_preserves_col,
+  Matrix.eliminateCol_pivotRow, Matrix.eliminateCol_pivotCol_zero,
+  Matrix.eliminateCol_below_pivotCol_zero}
+\leanok
+\uses{def:elimination-loop}
+One elimination transition preserves earlier columns, establishes the pivot row, and clears the
+new pivot column below it.  These are exactly the local invariants needed to extend an echelon
+prefix by one step.
+\end{theorem}
+
+\begin{definition}[Echelon machine state]
+\label{def:echelon-state}
+\lean{Matrix.EchelonStateCore, Matrix.ReducedStateExtras, Matrix.EchelonState,
+  Matrix.echelon_of_state, Matrix.reduced_of_state}
+\leanok
+\uses{def:echelon-predicates}
+The state records which prefix has already been justified and adds the extra conditions needed
+for reduced echelon form.  Its projections turn accumulated loop invariants back into the
+public semantic predicates.
+\end{definition}
+
+\begin{theorem}[Algorithmic echelon correctness]
+\label{thm:echelon-correctness}
+\lean{Matrix.rowEchelonForm_isEchelonForm,
+  Matrix.reducedRowEchelonForm_isEchelonForm,
+  Matrix.reducedRowEchelonForm_isReducedEchelonForm}
+\leanok
+\uses{def:row-reduction-algorithm, thm:column-elimination-invariants,
+  def:echelon-state, thm:pivot-search}
+The terminal machine state proves that the executable wrappers satisfy their advertised REF and
+RREF predicates.  Users can rely on these theorems without inspecting recursion or pivot cases.
+\end{theorem}
+
+\chapter{Log and solution preservation}
+
+\begin{theorem}[Solution preservation for primitive steps]
+\label{thm:primitive-solution-preservation}
+\lean{Matrix.mul_by_inv, Matrix.swap_proof, Matrix.factor_proof,
+  Matrix.replace_proof}
+\leanok
+\uses{def:row-operation-data, thm:elementary-row-semantics}
+Invertibility of elementary operations shows that multiplying a vector to zero is unchanged by
+each primitive step.  This is the local preservation law used to lift solution equivalence
+through a recorded reduction.
+\end{theorem}
+
+\begin{theorem}[Solution preservation for complete reductions]
+\label{thm:reduction-solution-preservation}
+\lean{Matrix.eliminate_proof, Matrix.ref_proof, Matrix.rref_proof}
+\leanok
+\uses{def:row-reduction-algorithm, thm:primitive-solution-preservation}
+The local preservation laws are composed over the elimination recursion.  The result is that
+REF and RREF compute different matrix representatives without changing the homogeneous solution
+set.
+\end{theorem}
+
+\begin{theorem}[Operation-log replay]
+\label{thm:operation-log-replay}
+\lean{Matrix.elim_col_adds_steps, Matrix.row_reduction_adds_steps,
+  Matrix.rowEchelonForm_steps, Matrix.reducedRowEchelonForm_steps}
+\leanok
+\uses{def:row-reduction-algorithm, thm:elementary-row-semantics}
+Replaying the recorded operations with \texttt{applyRowOp} reconstructs the computed matrix.
+This connects the audit log to executable output and supplies the bridge consumed by LU
+factorization.
+\end{theorem}
+
+\chapter{RREF semantic uniqueness}
+
+\begin{definition}[A reduced-echelon representative]
+\label{def:reduced-echelon-representative}
+\lean{Matrix.IsReducedEchelonFormOf,
+  Matrix.IsReducedEchelonFormOf.rowEquivalent,
+  Matrix.IsReducedEchelonFormOf.reduced,
+  Matrix.isReducedEchelonFormOf_mk}
+\leanok
+\uses{def:echelon-predicates, def:row-equivalence}
+This is the reduced analogue of an echelon representative: it combines row equivalence to the
+source with the reduced predicate.  It states uniqueness at the semantic boundary rather than
+in terms of one implementation.
+\end{definition}
+
+\begin{theorem}[The algorithm produces the semantic representative]
+\label{thm:algorithmic-rref-representative}
+\lean{Matrix.reducedRowEchelonForm_rowEquivalent,
+  Matrix.reducedRowEchelonForm_isReducedEchelonFormOf,
+  Matrix.reducedRowEchelonForm_isEchelonFormOf}
+\leanok
+\uses{def:row-reduction-algorithm, thm:echelon-correctness,
+  def:reduced-echelon-representative}
+The executable RREF is row-equivalent to its input and satisfies the reduced predicate.  This
+connects the algorithmic result to the implementation-independent uniqueness statement.
+\end{theorem}
+
+\begin{definition}[Canonical algorithmic RREF]
+\label{def:canonical-rref}
+\lean{Matrix.IsCanonicalRrefOf,
+  Matrix.isCanonicalRrefOf_reducedRowEchelonForm,
+  Matrix.IsCanonicalRrefOf.unique, Matrix.IsCanonicalRrefOf.reduced,
+  Matrix.reducedRowEchelonForm_isCanonicalRrefOf}
+\leanok
+\uses{def:row-reduction-algorithm, thm:echelon-correctness}
+The canonical relation identifies a matrix with the implementation's RREF output.  Its immediate
+uniqueness is useful for executable equality checks, while the reduced theorem connects it back
+to the semantic predicate.
+\end{definition}
+
+\begin{theorem}[Semantic uniqueness of RREF]
+\label{thm:semantic-rref-uniqueness}
+\lean{Matrix.IsReducedEchelonFormOf.unique,
+  Matrix.IsReducedEchelonFormOf.canonical,
+  Matrix.RrefUniquenessSemanticGoal,
+  Matrix.rrefUniquenessSemanticGoal_holds}
+\leanok
+\uses{def:reduced-echelon-representative,
+  thm:algorithmic-rref-representative, thm:pivot-column-zero-below}
+Any two reduced-echelon representatives of the same source matrix are equal.  This closes the
+proof route by upgrading a concrete algorithmic normal form into a semantic uniqueness theorem.
+\end{theorem}
+
+\chapter{LU downstream consumers}
+
+\begin{definition}[LU factorization boundary]
+\label{def:lu-factorization-boundary}
+\lean{Matrix.luFactorization}
+\leanok
+\uses{def:row-reduction-algorithm, thm:column-operation-semantics}
+The LU implementation consumes REF and its operation log to build permutation and lower factors.
+This node is a boundary summary: LU declarations are not expanded in the complete Gaussian
+graph.
+\end{definition}
+
+\begin{theorem}[LU correctness boundary]
+\label{thm:lu-correctness-boundary}
+\lean{Matrix.luFactorization_reconstruct,
+  Matrix.luFactorization_upper_isEchelonForm,
+  Matrix.luFactorization_lower_isUnitLowerTriangular}
+\leanok
+\uses{def:lu-factorization-boundary, thm:echelon-correctness,
+  thm:operation-log-replay}
+The downstream correctness layer reconstructs the input and certifies structural properties of
+the factors.  It demonstrates the effect of the Gaussian theory while deliberately treating LU
+internals as outside this visualization's scope.
+\end{theorem}

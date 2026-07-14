@@ -1,0 +1,12 @@
+div.theorem_thmcontent,
+div.proposition_thmcontent,
+div.lemma_thmcontent,
+div.corollary_thmcontent,
+div.definition_thmcontent {
+  border-left: 0.15rem solid #4f6f8f;
+  padding-left: 1rem;
+}
+
+.lean_link {
+  overflow-wrap: anywhere;
+}

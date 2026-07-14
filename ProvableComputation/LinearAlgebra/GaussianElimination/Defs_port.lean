@@ -16,6 +16,8 @@ universe u v
 variable {α : Type u} [Field α] [DecidableEq α]
 variable {m n : ℕ}
 
+namespace DenseMatrix
+
 /-- A logged elementary row operation on `m` rows over `α`. -/
 inductive RowOp (m : ℕ) (α : Type v) : Type (v + 1) where
   | swap : Fin m → Fin m → RowOp m α
@@ -46,7 +48,7 @@ def scaleRow {m n : Nat} {α : Type u} [Mul α]
 def replaceRow {m n : Nat} {α : Type u} [Add α] [Mul α] [One α]
     (A : DenseMatrix m n α) (src tgt : Fin m) (k : α) : DenseMatrix m n α :=
   if src = tgt then
-    _root_.scaleRow A tgt (k + 1)
+    scaleRow A tgt (k + 1)
   else
     of fun i j =>
       if i = tgt then
@@ -72,57 +74,58 @@ private theorem get_of {m n : Nat} {α : Type u} (f : Fin m → Fin n → α)
   simp [of, ofMatrix, DenseMatrix.get, Vector.get, rowMajorIndex_div_eq, rowMajorIndex_mod_eq]
 
 theorem toMatrix_swap_eq_swap_toMatrix {m n : Nat} {α : Type u} [Semiring α]
-    (A : DenseMatrix m n α) (r1 r2 : Fin m) : toMatrix (_root_.swapRow A r1 r2)
+    (A : DenseMatrix m n α) (r1 r2 : Fin m) : toMatrix (swapRow A r1 r2)
     = (Matrix.swap α r1 r2) * (toMatrix A) := by
     ext i j
     by_cases hi1 : i = r1
     · subst i
-      simp [toMatrix, _root_.swapRow, get_of]
+      simp [toMatrix, swapRow, get_of]
     · by_cases hi2 : i = r2
       · subst i
-        simp [toMatrix, _root_.swapRow, get_of, hi1]
+        simp [toMatrix, swapRow, get_of, hi1]
       · rw [Matrix.swap_mul_of_ne hi1 hi2]
-        simp [toMatrix, _root_.swapRow, get_of, hi1, hi2]
+        simp [toMatrix, swapRow, get_of, hi1, hi2]
 
 theorem toMatrix_scale_eq_scale_toMatrix {m n : Nat} {α : Type u} [CommRing α]
-    (A : DenseMatrix m n α) (r : Fin m) (c : α) : toMatrix (_root_.scaleRow A r c)
+    (A : DenseMatrix m n α) (r : Fin m) (c : α) : toMatrix (scaleRow A r c)
     = (Matrix.transvection r r (c - 1)) * (toMatrix A) := by
     ext i j
     by_cases hi : i = r
     · subst i
-      simp only [toMatrix, _root_.scaleRow, Matrix.mul_apply, Matrix.transvection, get_of]
+      simp only [toMatrix, scaleRow, Matrix.mul_apply, Matrix.transvection, get_of]
       rw [Fintype.sum_eq_single r]
       · simp
       · intro b hb
         simp [Ne.symm hb]
-    · simp [toMatrix, _root_.scaleRow, Matrix.mul_apply, Matrix.transvection, get_of, hi]
+    · simp [toMatrix, scaleRow, Matrix.mul_apply, Matrix.transvection, get_of, hi]
       rw [Fintype.sum_eq_single i]
       · simp [Ne.symm hi]
       · intro b hb
         simp [Ne.symm hb, Ne.symm hi]
 
 theorem toMatrix_replace_eq_replace_toMatrix {m n : Nat} {α : Type u} [CommRing α]
-    (A : DenseMatrix m n α) (src tgt : Fin m) (k : α) : toMatrix (_root_.replaceRow A src tgt k) = (Matrix.transvection tgt src k) * (toMatrix A) :=
+    (A : DenseMatrix m n α) (src tgt : Fin m) (k : α) :
+    toMatrix (replaceRow A src tgt k) = (Matrix.transvection tgt src k) * (toMatrix A) :=
   by
     ext i j
     by_cases h : src = tgt
     · subst src
       by_cases hi : i = tgt
       · subst i
-        simp [toMatrix, _root_.replaceRow, _root_.scaleRow, Matrix.mul_apply, Matrix.transvection, get_of]
+        simp [toMatrix, replaceRow, scaleRow, Matrix.mul_apply, Matrix.transvection, get_of]
         rw [Fintype.sum_eq_single tgt]
         · simp
           ring
         · intro b hb
           simp [Ne.symm hb]
-      · simp [toMatrix, _root_.replaceRow, _root_.scaleRow, Matrix.mul_apply, Matrix.transvection, get_of, hi]
+      · simp [toMatrix, replaceRow, scaleRow, Matrix.mul_apply, Matrix.transvection, get_of, hi]
         rw [Fintype.sum_eq_single i]
         · simp [Ne.symm hi]
         · intro b hb
           simp [Ne.symm hb, Ne.symm hi]
     · by_cases hi : i = tgt
       · subst i
-        simp [toMatrix, _root_.replaceRow, Matrix.mul_apply, Matrix.transvection, get_of, h]
+        simp [toMatrix, replaceRow, Matrix.mul_apply, Matrix.transvection, get_of, h]
         rw [show
             (∑ x, ((1 : Matrix (Fin m) (Fin m) α) tgt x +
                 Matrix.single tgt src k tgt x) * A.get x j) =
@@ -139,25 +142,23 @@ theorem toMatrix_replace_eq_replace_toMatrix {m n : Nat} {α : Type u} [CommRing
             simp [Matrix.single, Ne.symm hb]
         · intro b hb
           simp [Ne.symm hb]
-      · simp [toMatrix, _root_.replaceRow, Matrix.mul_apply, Matrix.transvection, get_of, h, hi]
+      · simp [toMatrix, replaceRow, Matrix.mul_apply, Matrix.transvection, get_of, h, hi]
         rw [Fintype.sum_eq_single i]
         · simp [Matrix.single, Ne.symm hi]
         · intro b hb
           simp [Matrix.single, Ne.symm hb, Ne.symm hi]
 
 theorem toMatrix_left_mul_eq_zero_iff {m n : Nat} {α : Type u} [Semiring α]
-    (U Uinv : Matrix (Fin m) (Fin m) α)
-    (hU : Uinv * U = 1)
+    (U : Matrix (Fin m) (Fin m) α) [Invertible U]
     (A : DenseMatrix m n α)
     (x : Matrix (Fin n) (Fin 1) α) :
     (U * toMatrix A) * x = 0 ↔ toMatrix A * x = 0 := by
   constructor
   · intro h
-    have hmul :
-        Uinv * ((U * toMatrix A) * x) = Uinv * (0 : Matrix (Fin m) (Fin 1) α) := by
-      rw [h]
-    rw [← Matrix.mul_assoc, ← Matrix.mul_assoc, hU] at hmul
-    simpa [Matrix.one_mul, Matrix.mul_zero] using hmul
+    have h' : U * (toMatrix A * x) = 0 := by
+      simpa [Matrix.mul_assoc] using h
+    have hmul := congrArg (fun Y : Matrix (Fin m) (Fin 1) α => ⅟U * Y) h'
+    simpa [Matrix.invOf_mul_cancel_left] using hmul
   · intro h
     rw [Matrix.mul_assoc, h, Matrix.mul_zero]
 
@@ -186,11 +187,9 @@ def checkPivot
       none
   scanCol startCol
 
-namespace Matrix
-
 /-- The public structured result of a row-reduction routine. -/
 structure RowReductionResult (m n : Nat) (α : Type) where
   matrix : DenseMatrix m n α
-  steps : List (_root_.RowOp m α)
+  steps : List (RowOp m α)
 
-end Matrix
+end DenseMatrix

@@ -471,7 +471,7 @@ private lemma step_cols_lt_bound_zero
       exact
         (calc
           m3 r j = m2 r j := by
-            simpa [m3] using
+            simpa [m3, eliminateColM, eliminateColCore] using
               (eliminateCol_go_preserves_col (cur := m2) (pivotRow := ⟨row, hrow⟩)
                 (pivotCol := pc) (r := 0) (steps := List.nil) (j := j)
                 (hzero := hzero_left_m2 j hjlt') r)
@@ -633,7 +633,7 @@ private lemma step_pivot_one
     simpa [extendPivs, hlt] using
       (calc
         m3 i (pivs i hlt) = m2 i (pivs i hlt) := by
-          simpa [m3] using
+          simpa [m3, eliminateColM, eliminateColCore] using
             (eliminateCol_go_preserves_col (cur := m2) (pivotRow := ⟨row, hrow⟩)
               (pivotCol := pc) (r := 0) (steps := List.nil) (j := pivs i hlt)
               (hzero := hzero_left_m2 (pivs i hlt) hp_lt) i)
@@ -722,7 +722,7 @@ private lemma step_pivot_col_zero
     simpa [extendPivs, hlt] using
       (calc
         m3 r (pivs i hlt) = m2 r (pivs i hlt) := by
-          simpa [m3] using
+          simpa [m3, eliminateColM, eliminateColCore] using
             (eliminateCol_go_preserves_col (cur := m2) (pivotRow := ⟨row, hrow⟩)
               (pivotCol := pc) (r := 0) (steps := List.nil) (j := pivs i hlt)
               (hzero := hzero_left_m2 (pivs i hlt) hp_lt) r)
@@ -1435,7 +1435,11 @@ private theorem eliminateCol_go_log_correct
         rw [eliminateColLoop, eliminateColLoopAux, dif_pos hr]
         by_cases hEq : i = pivotRow
         · obtain ⟨ops_tail, htail⟩ := ih (r + 1) M steps hk'
-          exact ⟨ops_tail, by simpa [i, hEq, dite_eq_ite] using htail⟩
+          exact ⟨ops_tail, by
+            simpa [i, hEq, dite_eq_ite,
+              eliminateColLoopAux_eq (pivotRow := pivotRow) (pivotCol := pivotCol)
+                (pivotVal := M pivotRow pivotCol) (r := r + 1) (M := M) (steps := steps) rfl]
+              using htail⟩
         · by_cases hcoeff : M i pivotCol ≠ 0
           · let op : RowOp a R := .replace pivotRow i (-M i pivotCol / M pivotRow pivotCol)
             let M' := replace M pivotRow i (-M i pivotCol / M pivotRow pivotCol)

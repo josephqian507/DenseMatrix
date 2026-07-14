@@ -297,6 +297,7 @@ lemma checkPivot_some_row_ge
         | none =>
             -- No pivot in this column; recurse to the next column.
             have hnext : checkPivot M row (col + 1) = some (pr, pc) := by
+              change checkPivot.scanCol M row (col + 1) = some (pr, pc)
               simpa [hscan] using h
             have hk' : n - (col + 1) = k :=
               by omega
@@ -342,7 +343,7 @@ lemma checkPivot_some_minimal
             have hpc : pc = ⟨col, hcol⟩ :=
               scanRow_some_col_eq (M := M) col row hcol hscan
             -- Then `j < pc` forces `j < col`, contradicting `col ≤ j`.
-            have hlt' : j.1 < col := by simpa [hpc] using hlt
+            have hlt' : j.1 < col := by simpa [Fin.lt_def, hpc] using hlt
             exact by omega
         | none =>
             -- Current column is all zero from `row` down.
@@ -478,11 +479,13 @@ private theorem eliminateCol_go_matrix_irrel
       rw [Matrix.eliminateColLoopMatrix, GaussianEliminationInternal.eliminateColLoop, GaussianEliminationInternal.eliminateColLoopAux, dif_pos hr]
       conv_rhs => rw [Matrix.eliminateColLoopMatrix, GaussianEliminationInternal.eliminateColLoop, GaussianEliminationInternal.eliminateColLoopAux, dif_pos hr]
       by_cases hEq : (⟨r, hr⟩ : Fin m) = pivotRow
-      · simpa [hEq, List.concat_eq_append, dite_eq_ite] using
+      · simpa [hEq, List.concat_eq_append, dite_eq_ite,
+          Matrix.eliminateColLoopMatrix, GaussianEliminationInternal.eliminateColLoop] using
           ih (r + 1) cur steps₁ steps₂ hk'
       · by_cases hzero : cur ⟨r, hr⟩ pivotCol = 0
         -- When coefficient is already zero, both executions recurse on same `cur`.
-        · simpa [hEq, hzero, List.concat_eq_append, dite_eq_ite] using
+        · simpa [hEq, hzero, List.concat_eq_append, dite_eq_ite,
+            Matrix.eliminateColLoopMatrix, GaussianEliminationInternal.eliminateColLoop] using
             ih (r + 1) cur steps₁ steps₂ hk'
         -- When replacement happens, both sides recurse on the same updated matrix.
         · let cur' := replace cur pivotRow ⟨r, hr⟩ (-cur ⟨r, hr⟩ pivotCol / cur pivotRow pivotCol)
@@ -908,7 +911,8 @@ lemma eliminateCol_pivotCol_zero
               subst hEq'
               exact hcoeff'
           have hih := ih (r + 1) cur steps hk' hpre' h1 i hi
-          simpa [i0, hi0, hcoeff'] using hih
+          simpa [i0, hi0, hcoeff', Matrix.eliminateColLoopMatrix,
+            GaussianEliminationInternal.eliminateColLoop] using hih
   -- Initial processed-prefix invariant is vacuous at `r = 0`.
   have hpre0 : ∀ i : Fin m, i.1 < 0 → i ≠ pivotRow → M i pivotCol = 0 := by
     intro i hi
@@ -961,7 +965,9 @@ lemma eliminateCol_below_pivotCol_zero
                 simp [hEq, hp] at hi'
               · omega
             exact hpre i hi' hir
-          simpa [i0, hi0] using ih (r0 + 1) cur steps hk' hpre' hpivot i hi
+          simpa [i0, hi0, Matrix.eliminateColLoopMatrix,
+            GaussianEliminationInternal.eliminateColLoop] using
+            ih (r0 + 1) cur steps hk' hpre' hpivot i hi
         · by_cases hcoeff : cur i0 pivotCol ≠ 0
           · have hk' : m - (r0 + 1) = k := by omega
             let cur' := replace cur pivotRow i0 (-cur i0 pivotCol / cur pivotRow pivotCol)
@@ -1027,7 +1033,8 @@ lemma eliminateCol_below_pivotCol_zero
                 subst hEq'
                 exact hcoeff'
             have hih := ih (r0 + 1) cur steps hk' hpre' hpivot i hi
-            simpa [i0, hi0, hcoeff'] using hih
+            simpa [i0, hi0, hcoeff', Matrix.eliminateColLoopMatrix,
+              GaussianEliminationInternal.eliminateColLoop] using hih
   have hpre0 : ∀ i : Fin m, pivotRow.1 < i.1 → i.1 < pivotRow.1 → M i pivotCol = 0 := by
     intro i hi hlt
     exact (False.elim (Nat.not_lt_of_ge (le_of_lt hi) hlt))

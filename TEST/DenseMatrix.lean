@@ -1,4 +1,4 @@
-import ProvableComputation.LinearAlgebra.DenseMatrix.Defs
+import ProvableComputation.LinearAlgebra.GaussianElimination.Defs_port
 
 /-!
 # Dense matrix smoke tests

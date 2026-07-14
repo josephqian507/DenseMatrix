@@ -19,3 +19,25 @@ jobs:
         run: lake exe cache get
       - name: Build project
         run: lake build
+      - name: Install Graphviz
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends graphviz
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.12"
+      - name: Build Gaussian Blueprint
+        run: uvx --python 3.12 --from leanblueprint==0.0.20 leanblueprint web
+      - name: Generate and validate Gaussian dependency graph
+        run: |
+          lake exe gaussian_dependency_graph \
+            --output blueprint/web/dependency-graph \
+            --blueprint blueprint/src/content.tex \
+            --revision "$GITHUB_SHA"
+      - name: Upload Gaussian dependency visualization
+        uses: actions/upload-artifact@v7
+        with:
+          name: gaussian-dependency-visualization-${{ github.sha }}
+          path: blueprint/web/
+          if-no-files-found: error

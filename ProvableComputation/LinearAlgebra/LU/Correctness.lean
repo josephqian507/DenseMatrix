@@ -116,7 +116,7 @@ private lemma inverseRowOp_mul_elem
     (op : RowOp a R) (hop : InvertibleRowOp (R := R) op) :
     Matrix.elementaryMatrixOfRowOp (inverseRowOp (R := R) op) *
       Matrix.elementaryMatrixOfRowOp op = (1 : squareMatrix a R) := by
-  simpa [Matrix.applyRowOp] using
+  simpa [Matrix.applyRowOp, Matrix.elementaryMatrixOfRowOp] using
     inverseRowOp_mul_applyRowOp
       (M := (1 : squareMatrix a R)) (op := op) hop
 
@@ -456,7 +456,13 @@ private theorem eliminateCol_go_steps_invertible
         rw [GaussianEliminationInternal.eliminateColLoop, GaussianEliminationInternal.eliminateColLoopAux, dif_pos hr] at hop
         by_cases hEq : i = pivotRow
         -- The pivot row is skipped and we recurse immediately.
-        · exact ih (r + 1) M steps hk' hsteps op (by simpa [i, hEq, dite_eq_ite] using hop)
+        · have hop' :
+              op ∈ (GaussianEliminationInternal.eliminateColLoop pivotRow pivotCol
+                (r + 1) M steps).2 := by
+            change op ∈ (GaussianEliminationInternal.eliminateColLoopAux pivotRow pivotCol
+              (M pivotRow pivotCol) (r + 1) M steps).2
+            simpa [i, hEq, dite_eq_ite] using hop
+          exact ih (r + 1) M steps hk' hsteps op hop'
         · by_cases hcoeff : M i pivotCol ≠ 0
           -- A nonzero entry below the pivot produces one replacement operation,
           -- which is invertible because `pivotRow /= i`.
@@ -486,8 +492,13 @@ private theorem eliminateCol_go_steps_invertible
                 dite_eq_ite] using hop
             exact ih (r + 1) M' steps' hk' hsteps' op hop'
           -- A zero entry below the pivot appends nothing and just recurses.
-          · exact ih (r + 1) M steps hk' hsteps op
-              (by simpa [i, hEq, hcoeff, dite_eq_ite] using hop)
+          · have hop' :
+                op ∈ (GaussianEliminationInternal.eliminateColLoop pivotRow pivotCol
+                  (r + 1) M steps).2 := by
+              change op ∈ (GaussianEliminationInternal.eliminateColLoopAux pivotRow pivotCol
+                (M pivotRow pivotCol) (r + 1) M steps).2
+              simpa [i, hEq, hcoeff, dite_eq_ite] using hop
+            exact ih (r + 1) M steps hk' hsteps op hop'
   exact hrec (a - r) r M steps rfl hsteps
 
 /- Lifts the previous helper lemma from `GaussianEliminationInternal.eliminateColLoop` to the public
@@ -683,7 +694,7 @@ private lemma buildPL_lower_concat_replace
   simp only [List.foldl]
   set state := steps.foldl (buildPLStep (R := R)) ([], (1 : squareMatrix a R))
   rcases state with ⟨swaps, MInv⟩
-  simpa only [buildPLStep, huse] using
+  simpa [buildPLStep, huse] using
     (lowerOfSwaps_replaceCol
       (R := R) (swaps := swaps) (M := MInv) (use := use) (toReplace := toReplace) (-k))
 
@@ -920,7 +931,8 @@ private theorem eliminateCol_go_lower_invariant
         rw [GaussianEliminationInternal.eliminateColLoop, GaussianEliminationInternal.eliminateColLoopAux, dif_pos hr']
         by_cases hEq : i = pivotRow
         -- The pivot row is skipped.
-        · simpa [i, hEq, dite_eq_ite] using ih (r + 1) M steps hk' (by omega) hL htail
+        · simpa [GaussianEliminationInternal.eliminateColLoop, i, hEq, dite_eq_ite] using
+            ih (r + 1) M steps hk' (by omega) hL htail
         · by_cases hcoeff : M i pivotCol ≠ 0
           -- A genuine elimination step updates the lower factor by a column replacement.
           · let op' : RowOp a R := .replace pivotRow i (-M i pivotCol / M pivotRow pivotCol)
@@ -962,7 +974,7 @@ private theorem eliminateCol_go_lower_invariant
             simpa [GaussianEliminationInternal.eliminateColLoop, List.concat_eq_append, hpivot'']
               using hrec'
           -- Zero entries below the pivot do not change the lower factor.
-          · simpa [i, hEq, hcoeff, dite_eq_ite] using
+          · simpa [GaussianEliminationInternal.eliminateColLoop, i, hEq, hcoeff, dite_eq_ite] using
               ih (r + 1) M steps hk' (by omega) hL htail
   exact hrec (a - r) r M steps rfl hr hL htail
 
@@ -1160,7 +1172,7 @@ theorem rawFactorization_permutation_orthogonal
         exact hP.symm
       subst hP
       -- The identity matrix is orthogonal, and each stored swap preserves that property.
-      simpa using
+      simpa [permutationOfSwaps] using
         permutationOfSwaps_orthogonal
           (R := R)
           (swaps := (steps.foldl (buildPLStep (R := R)) ([], (1 : squareMatrix a R))).1)

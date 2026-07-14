@@ -1,2 +1,5 @@
 /.lake
 .DS_Store
+/blueprint/lean_decls
+/blueprint/src/web.paux
+/blueprint/web/

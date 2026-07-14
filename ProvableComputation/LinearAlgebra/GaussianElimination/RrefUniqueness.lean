@@ -138,8 +138,15 @@ private theorem eliminateColGo_rowEquivalent
   · let i : Fin m := ⟨row, hr⟩
     -- At a valid scan row `i`, split into "pivot row" versus "non-pivot row".
     by_cases hEq : i = pivotRow
-    · simpa [i, hEq] using
-        (eliminateColGo_rowEquivalent pivotRow pivotCol (row + 1) cur steps)
+    · have hrec :
+          RowEquivalent cur (GaussianEliminationInternal.eliminateColLoop pivotRow pivotCol (row + 1) cur steps).1 := by
+        exact eliminateColGo_rowEquivalent pivotRow pivotCol (row + 1) cur steps
+      have hrec' :
+          RowEquivalent cur
+            (GaussianEliminationInternal.eliminateColLoopAux pivotRow pivotCol (cur pivotRow pivotCol) (row + 1) cur steps).1 := by
+        simpa [goAux_matrix_eq (pivotVal := cur pivotRow pivotCol) (row := row + 1)
+          (cur := cur) (steps := steps) rfl] using hrec
+      simpa [i, hEq] using hrec'
     -- For non-pivot rows, branch on whether elimination is needed.
     · by_cases hcoeff : cur i pivotCol ≠ 0
       -- Nonzero coefficient: perform one row replacement, then recurse.
@@ -166,8 +173,15 @@ private theorem eliminateColGo_rowEquivalent
             (cur := cur') (steps := steps') hpivot'] using hrec
         simpa [i, hEq, hcoeff, cur', steps'] using RowEquivalent.trans hreplace hrec'
       -- Zero coefficient: no operation at this row; recurse directly.
-      · simpa [i, hEq, hcoeff] using
-          (eliminateColGo_rowEquivalent pivotRow pivotCol (row + 1) cur steps)
+      · have hrec :
+            RowEquivalent cur (GaussianEliminationInternal.eliminateColLoop pivotRow pivotCol (row + 1) cur steps).1 := by
+          exact eliminateColGo_rowEquivalent pivotRow pivotCol (row + 1) cur steps
+        have hrec' :
+            RowEquivalent cur
+              (GaussianEliminationInternal.eliminateColLoopAux pivotRow pivotCol (cur pivotRow pivotCol) (row + 1) cur steps).1 := by
+          simpa [goAux_matrix_eq (pivotVal := cur pivotRow pivotCol) (row := row + 1)
+            (cur := cur) (steps := steps) rfl] using hrec
+        simpa [i, hEq, hcoeff] using hrec'
   -- End of scan (`row` out of range): result is definitionally unchanged.
   · simpa using (RowEquivalent.refl cur)
 
@@ -575,7 +589,7 @@ private theorem reduced_rowMatch_of_rowEquivalent {m n : Nat}
                     rcases hPivotPair with ⟨qk, hkB', hkCk⟩
                     have hqk : qk = q := IsPivot.eq_of_left hkB' hkB
                     have hkCq : IsPivot C k q := by simpa [hqk] using hkCk
-                    have hkLt' : k < iFin := by simpa [iFin] using hkLt
+                    have hkLt' : k < iFin := by simpa [Fin.lt_def, iFin] using hkLt
                     have hqLtq : q < q :=
                       hC.echelon.pivots_strictly_increasing k iFin q q hkLt' hkCq hqC
                     exact (lt_irrefl _ hqLtq).elim
@@ -584,7 +598,7 @@ private theorem reduced_rowMatch_of_rowEquivalent {m n : Nat}
                 subst hkEqFin
                 exact (RowIsZero.not_isPivot (hzero := hBZero) (hp := hkB)).elim
               -- `i < k`: zero rows stay at bottom in echelon form, so row `k` in `B` is zero.
-              · have hiLt' : iFin < k := by simpa [iFin] using hiLt
+              · have hiLt' : iFin < k := by simpa [Fin.lt_def, iFin] using hiLt
                 have hkZero : RowIsZero B k :=
                   hB.echelon.zero_rows_bottom iFin k hiLt' hBZero
                 exact (RowIsZero.not_isPivot (hzero := hkZero) (hp := hkB)).elim
@@ -606,7 +620,7 @@ private theorem reduced_rowMatch_of_rowEquivalent {m n : Nat}
                 rcases hPivotPair with ⟨pk, hkB, hkC'⟩
                 have hpk : pk = p := IsPivot.eq_of_left hkC' hkC
                 have hkBp : IsPivot B k p := by simpa [hpk] using hkB
-                have hkLt' : k < iFin := by simpa [iFin] using hkLt
+                have hkLt' : k < iFin := by simpa [Fin.lt_def, iFin] using hkLt
                 have hpLtp : p < p :=
                   hB.echelon.pivots_strictly_increasing k iFin p p hkLt' hkBp hpB
                 exact (lt_irrefl _ hpLtp).elim
@@ -615,7 +629,7 @@ private theorem reduced_rowMatch_of_rowEquivalent {m n : Nat}
             subst hkEqFin
             exact (RowIsZero.not_isPivot (hzero := hCZero) (hp := hkC)).elim
           -- `i < k`: zero-row-bottom in `C` forbids a pivot at row `k`.
-          · have hiLt' : iFin < k := by simpa [iFin] using hiLt
+          · have hiLt' : iFin < k := by simpa [Fin.lt_def, iFin] using hiLt
             have hkZero : RowIsZero C k :=
               hC.echelon.zero_rows_bottom iFin k hiLt' hCZero
             exact (RowIsZero.not_isPivot (hzero := hkZero) (hp := hkC)).elim
@@ -642,7 +656,7 @@ private theorem reduced_rowMatch_of_rowEquivalent {m n : Nat}
                 rcases hPivotPair with ⟨qk, hkB, hkCk⟩
                 have hqk : qk = q := IsPivot.eq_of_left hkB hkBq
                 have hkCq : IsPivot C k q := by simpa [hqk] using hkCk
-                have hkLt' : k < iFin := by simpa [iFin] using hkLt
+                have hkLt' : k < iFin := by simpa [Fin.lt_def, iFin] using hkLt
                 have hqLtq : q < q :=
                   hC.echelon.pivots_strictly_increasing k iFin q q hkLt' hkCq hqC
                 exact (lt_irrefl _ hqLtq).elim
@@ -652,7 +666,7 @@ private theorem reduced_rowMatch_of_rowEquivalent {m n : Nat}
             have hpEqQ : p = q := IsPivot.eq_of_left hpB hkBq
             exact (ne_of_lt hqLtP) hpEqQ.symm
           -- `i < k` gives `p < q`, contradicting `q < p`.
-          · have hiLt' : iFin < k := by simpa [iFin] using hiLt
+          · have hiLt' : iFin < k := by simpa [Fin.lt_def, iFin] using hiLt
             have hpLtQ : p < q :=
               hB.echelon.pivots_strictly_increasing iFin k p q hiLt' hpB hkBq
             exact (lt_irrefl _ (hqLtP.trans hpLtQ)).elim
@@ -671,7 +685,7 @@ private theorem reduced_rowMatch_of_rowEquivalent {m n : Nat}
                 rcases hPivotPair with ⟨pk, hkBk, hkCk⟩
                 have hpk : pk = p := IsPivot.eq_of_left hkCk hkCp
                 have hkBp : IsPivot B k p := by simpa [hpk] using hkBk
-                have hkLt' : k < iFin := by simpa [iFin] using hkLt
+                have hkLt' : k < iFin := by simpa [Fin.lt_def, iFin] using hkLt
                 have hpLtp : p < p :=
                   hB.echelon.pivots_strictly_increasing k iFin p p hkLt' hkBp hpB
                 exact (lt_irrefl _ hpLtp).elim
@@ -681,7 +695,7 @@ private theorem reduced_rowMatch_of_rowEquivalent {m n : Nat}
             have hqEqP : q = p := IsPivot.eq_of_left hqC hkCp
             exact (ne_of_lt hpLtQ) hqEqP.symm
           -- `i < k` gives `q < p`, contradicting `p < q`.
-          · have hiLt' : iFin < k := by simpa [iFin] using hiLt
+          · have hiLt' : iFin < k := by simpa [Fin.lt_def, iFin] using hiLt
             have hqLtP : q < p :=
               hC.echelon.pivots_strictly_increasing iFin k q p hiLt' hqC hkCp
             exact (lt_irrefl _ (hpLtQ.trans hqLtP)).elim

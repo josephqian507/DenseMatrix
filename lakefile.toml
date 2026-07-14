@@ -13,7 +13,7 @@ maxSynthPendingDepth = 3
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-rev = "v4.30.0"
+rev = "v4.32.0"
 
 [[lean_lib]]
 name = "ProvableComputation"
@@ -24,3 +24,7 @@ name = "TEST"
 [[lean_exe]]
 name = "densematrix_bench"
 root = "ProvableComputation.Bench.DenseMatrixBench"
+
+[[lean_exe]]
+name = "gaussian_dependency_graph"
+root = "ProvableComputation.Tools.GaussianDependencyGraph"

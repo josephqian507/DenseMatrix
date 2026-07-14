@@ -39,7 +39,7 @@ def eliminateColLoopAux
       let coeff := cur.get i pivotCol
       if coeff ≠ 0 then  -- eliminate unnecessary calls to `replace`
         eliminateColLoopAux pivotRow pivotCol pivotVal (r + 1)
-          (_root_.replaceRow cur pivotRow i (-coeff / pivotVal))
+          (DenseMatrix.replaceRow cur pivotRow i (-coeff / pivotVal))
           (List.concat steps (.replace pivotRow i (-coeff / pivotVal)))
       else
         eliminateColLoopAux pivotRow pivotCol pivotVal (r + 1) cur steps
@@ -70,7 +70,7 @@ def rowReductionAux
   : (DenseMatrix m n α × List (RowOp m α)) :=
   if hrow : row < m then
     if col < n then
-      let pivot_location := checkPivot M row col
+      let pivot_location := DenseMatrix.checkPivot M row col
       match pivot_location with
       | none => (M, steps)
       | some (pivotRow, pivotCol) =>
@@ -78,14 +78,14 @@ def rowReductionAux
           if pivotRow.val = row then
             M
           else
-            _root_.swapRow M ⟨row, hrow⟩ pivotRow
+            DenseMatrix.swapRow M ⟨row, hrow⟩ pivotRow
         let steps := List.concat steps (.swap ⟨row, hrow⟩ pivotRow)
         let pivotVal : α := M1.get ⟨row, hrow⟩ pivotCol
         let M2 :=
           if !reduced || pivotVal = 1 then
             M1
           else
-            _root_.scaleRow M1 ⟨row, hrow⟩ (pivotVal)⁻¹
+            DenseMatrix.scaleRow M1 ⟨row, hrow⟩ (pivotVal)⁻¹
         let steps :=
           if !reduced || pivotVal = 1 then
             steps

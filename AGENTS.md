@@ -2,7 +2,7 @@
 
 ## Repo Shape
 
-- This is a Lean 4/Lake project pinned by `lean-toolchain` to `leanprover/lean4:v4.30.0`.
+- This is a Lean 4/Lake project pinned by `lean-toolchain` to `leanprover/lean4:v4.32.0`.
 - The public library surface is `ProvableComputation.lean`.
 - Executable linear algebra code lives under `ProvableComputation/LinearAlgebra/`.
 - Examples and benchmark harnesses live under `ProvableComputation/Examples/` and `ProvableComputation/Bench/`.

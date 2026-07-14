@@ -32,9 +32,9 @@ focus on Gaussian elimination, LU factorization, and determinant computation.
 
 ## Toolchain
 
-- Lean toolchain: `leanprover/lean4:v4.30.0` (from [`lean-toolchain`](./lean-toolchain))
+- Lean toolchain: `leanprover/lean4:v4.32.0` (from [`lean-toolchain`](./lean-toolchain))
 - Build tool: Lake
-- This project is pinned to `mathlib4` tag `v4.30.0` on the Lean 4.30 line.
+- This project is pinned to `mathlib4` tag `v4.32.0` on the Lean 4.32 line.
 
 ## Quick start
 
@@ -42,6 +42,29 @@ focus on Gaussian elimination, LU factorization, and determinant computation.
 lake exe cache get
 lake build
 ```
+
+## Gaussian dependency documentation
+
+The `Lean Action CI` workflow uploads a private website artifact named
+`gaussian-dependency-visualization-<commit>`. After downloading and extracting it, open
+`index.html` for the guided Blueprint or `dependency-graph/index.html` for the complete
+interactive declaration graph.
+
+To build the same site locally, install Graphviz and
+[uv](https://docs.astral.sh/uv/), then run these commands from a clean checkout:
+
+```bash
+uvx --python 3.12 --from leanblueprint==0.0.20 leanblueprint web
+lake exe gaussian_dependency_graph \
+  --output blueprint/web/dependency-graph \
+  --blueprint blueprint/src/content.tex \
+  --revision "$(git rev-parse HEAD)"
+python3 -m http.server --directory blueprint/web 8000
+```
+
+The Blueprint is a compact reading route. The interactive graph and its
+`dependency-graph/graph.json` file contain declaration-level dependency data for the scoped
+Gaussian modules; generated declaration paths are collapsed and LU is shown as boundary nodes.
 
 ## Public entrypoints
 
