@@ -190,7 +190,7 @@ namespace Matrix
 
 /-- The public structured result of a row-reduction routine. -/
 structure RowReductionResult (m n : Nat) (α : Type) where
-  matrix : Matrix (Fin m) (Fin n) α
+  matrix : DenseMatrix m n α
   steps : List (_root_.RowOp m α)
 
 end Matrix
