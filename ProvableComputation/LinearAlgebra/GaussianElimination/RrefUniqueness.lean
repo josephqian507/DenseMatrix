@@ -365,10 +365,6 @@ theorem rowEquivalent_of_rref_eq {m n : Nat}
 
 /--
 Computational wrapper: if `decide` confirms RREF equality, conclude row-equivalence.
-This is convenient with `native_decide` on concrete matrices.
-example : RowEquivalent A B := by
-  apply rowEquivalent_of_decide_rref_eq_true (A := A) (B := B)
-  native_decide
 -/
 theorem rowEquivalent_of_decide_rref_eq_true {m n : Nat}
     {A B : Matrix (Fin m) (Fin n) R}

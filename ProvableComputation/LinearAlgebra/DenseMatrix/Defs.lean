@@ -205,10 +205,9 @@ theorem get_ofMatrix {m n : Nat} {α : Type u}
     get (ofMatrix M) i j = M i j := by
   simp [ofMatrix, get, Vector.get, rowMajorIndex_div, rowMajorIndex_mod]
 
--- TODO: fill in sorry
 theorem get_toMatrix {m n : Nat} {α : Type u} (A : DenseMatrix m n α) (i : Fin m) (j : Fin n)
     : (toMatrix A) i j = get A i j := by
-  sorry
+  rfl
 
 -- Reading storage through the unflattened row and column returns the same flat
 -- slot.
@@ -521,11 +520,125 @@ private def transpose_helper {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
     let hj' : j + 1 = n := by apply le_antisymm hj (by push Not at h₂; exact h₂)
     ⟨out.push entry, transpose_helper_size_invariant out i j h_size hi' hj' entry⟩
 
+/-
+Flat transpose entries decode an output slot as a source column and row. The
+prefix proof below uses this as the specification for every array slot already
+written by `transpose_helper`.
+-/
+private def transposeFlatEntry {m n : Nat} {α : Type u}
+    (M : DenseMatrix m n α) (x : Fin (n * m)) : α :=
+  M.toMatrix
+    ⟨x.val % m, index_mod_lt (m := n) (n := m) x.isLt⟩
+    ⟨x.val / m, index_div_lt (m := n) (n := m) x.isLt⟩
+
+private def arrayMatchesTransposePrefix {m n : Nat} {α : Type u}
+    (out : Array α) (M : DenseMatrix m n α) : Prop :=
+  ∀ x (hx_out : x < out.size) (hx_bound : x < n * m),
+    out[x]'(hx_out) = transposeFlatEntry M ⟨x, hx_bound⟩
+
+private theorem transpose_current_index_lt {m n : Nat} {α : Type u}
+    (out : Array α) (i j : Nat)
+    (h_size : out.size = j * m + i) (hi : m ≥ i + 1) (hj : n ≥ j + 1) :
+    out.size < n * m := by
+  have hi_lt : i < m := Nat.lt_of_succ_le hi
+  have hj_lt : j < n := Nat.lt_of_succ_le hj
+  rw [h_size]
+  simpa [rowMajorIndex] using
+    rowMajorIndex_lt (m := n) (n := m) ⟨j, hj_lt⟩ ⟨i, hi_lt⟩
+
+private theorem transpose_current_entry_eq_flat {m n : Nat} {α : Type u}
+    (out : Array α) (i j : Nat) (M : DenseMatrix m n α)
+    (h_size : out.size = j * m + i) (hi : m ≥ i + 1) (hj : n ≥ j + 1)
+    (h_bound : out.size < n * m) :
+    M.get ⟨i, Nat.lt_of_succ_le hi⟩ ⟨j, Nat.lt_of_succ_le hj⟩ =
+      transposeFlatEntry M ⟨out.size, h_bound⟩ := by
+  have hi_lt : i < m := Nat.lt_of_succ_le hi
+  have hj_lt : j < n := Nat.lt_of_succ_le hj
+  have hdiv : out.size / m = j := by
+    rw [h_size]
+    simpa [rowMajorIndex] using
+      rowMajorIndex_div (m := n) (n := m) ⟨j, hj_lt⟩ ⟨i, hi_lt⟩
+  have hmod : out.size % m = i := by
+    rw [h_size]
+    simpa [rowMajorIndex] using
+      rowMajorIndex_mod (m := n) (n := m) ⟨j, hj_lt⟩ ⟨i, hi_lt⟩
+  simp [transposeFlatEntry, hdiv, hmod, get_toMatrix]
+
+private theorem arrayMatchesTransposePrefix_push {m n : Nat} {α : Type u}
+    {out : Array α} {entry : α} {M : DenseMatrix m n α}
+    (h_out : arrayMatchesTransposePrefix out M) (h_bound : out.size < n * m)
+    (h_entry : entry = transposeFlatEntry M ⟨out.size, h_bound⟩) :
+    arrayMatchesTransposePrefix (out.push entry) M := by
+  intro x hx_push hx_bound
+  by_cases hx_out : x < out.size
+  · simpa [Array.getElem_push_lt hx_out] using h_out x hx_out hx_bound
+  · have hx_le : x ≤ out.size := Nat.le_of_lt_succ (by simpa [Array.size_push] using hx_push)
+    have hx_ge : out.size ≤ x := Nat.le_of_not_gt hx_out
+    have hx_eq : x = out.size := le_antisymm hx_le hx_ge
+    subst x
+    simpa [Array.getElem_push_eq] using h_entry
+
+private theorem transpose_helper_get_flat {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
+    (out : Array α) (i j : Nat) (M : DenseMatrix m n α)
+    (h_size : out.size = j * m + i) (hi : m ≥ i + 1) (hj : n ≥ j + 1)
+    (h_out : arrayMatchesTransposePrefix out M) (x : Fin (n * m)) :
+    (transpose_helper out i j M h_size hi hj).get x = transposeFlatEntry M x := by
+  fun_induction transpose_helper out i j M h_size hi hj with
+  | case1 out i j h_size hi hj entry h ih =>
+      have h_bound : out.size < n * m :=
+        transpose_current_index_lt out i j h_size hi hj
+      have h_entry : entry = transposeFlatEntry M ⟨out.size, h_bound⟩ := by
+        simpa [entry] using
+          transpose_current_entry_eq_flat out i j M h_size hi hj h_bound
+      exact ih (arrayMatchesTransposePrefix_push h_out h_bound h_entry)
+  | case2 out i j h_size hi hj entry h₁ h₂ hi' ih =>
+      have h_bound : out.size < n * m :=
+        transpose_current_index_lt out i j h_size hi hj
+      have h_entry : entry = transposeFlatEntry M ⟨out.size, h_bound⟩ := by
+        simpa [entry] using
+          transpose_current_entry_eq_flat out i j M h_size hi hj h_bound
+      exact ih (arrayMatchesTransposePrefix_push h_out h_bound h_entry)
+  | case3 out i j h_size hi hj entry h₁ h₂ hi' hj' =>
+      have h_bound : out.size < n * m :=
+        transpose_current_index_lt out i j h_size hi hj
+      have h_entry : entry = transposeFlatEntry M ⟨out.size, h_bound⟩ := by
+        simpa [entry] using
+          transpose_current_entry_eq_flat out i j M h_size hi hj h_bound
+      have h_push := arrayMatchesTransposePrefix_push h_out h_bound h_entry
+      have hx : x.val < (out.push entry).size := by
+        rw [transpose_helper_size_invariant out i j h_size hi' hj' entry]
+        exact x.isLt
+      simpa [Vector.get] using h_push x.val hx x.isLt
+
+/-- Dense transpose built by writing the transposed row-major storage directly. -/
 def transpose {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
     (M : DenseMatrix m n α) : DenseMatrix n m α :=
   { data := transpose_helper (Array.mkEmpty (n * m)) 0 0 M (by simp) NeZero.one_le NeZero.one_le }
 
--- TODO: write proofs for transpose because it is used in GaussianElimination.Elementary (for
--- swapCol, scaleCol, replaceCol)
+@[simp]
+theorem get_transpose {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
+    (M : DenseMatrix m n α) (i : Fin n) (j : Fin m) :
+    get (transpose M) i j = M.get j i := by
+  let x : Fin (n * m) := ⟨rowMajorIndex i j, rowMajorIndex_lt i j⟩
+  have h_prefix : arrayMatchesTransposePrefix (Array.mkEmpty (n * m)) M := by
+    intro y hy
+    simp at hy
+  have h_get :
+      (transpose_helper (Array.mkEmpty (n * m)) 0 0 M (by simp) NeZero.one_le NeZero.one_le).get x =
+        transposeFlatEntry M x :=
+    transpose_helper_get_flat (Array.mkEmpty (n * m)) 0 0 M
+      (by simp) NeZero.one_le NeZero.one_le h_prefix x
+  have hdiv : x.val / m = i.val := by
+    simpa [x] using rowMajorIndex_div (m := n) (n := m) i j
+  have hmod : x.val % m = j.val := by
+    simpa [x] using rowMajorIndex_mod (m := n) (n := m) i j
+  simpa [transpose, get, x, transposeFlatEntry, hdiv, hmod, get_toMatrix] using h_get
+
+@[simp]
+theorem toMatrix_transpose {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
+  (M : DenseMatrix m n α) :
+    toMatrix (transpose M) = M.toMatrix.transpose := by
+  ext i j
+  simp [get_toMatrix]
 
 end DenseMatrix

@@ -1,7 +1,8 @@
 name = "provable_computation"
 version = "0.1.0"
 keywords = ["math"]
-defaultTargets = ["ProvableComputation", "TEST"]
+defaultTargets = ["ProvableComputation"]
+testDriver = "ProvableComputationTest"
 
 [leanOptions]
 pp.unicode.fun = true # pretty-prints `fun a ↦ b`
@@ -19,7 +20,9 @@ rev = "v4.32.0"
 name = "ProvableComputation"
 
 [[lean_lib]]
-name = "TEST"
+name = "ProvableComputationTest"
+globs = ["ProvableComputationTest.+"]
+leanOptions = { weak.linter.mathlibStandardSet = false }
 
 [[lean_exe]]
 name = "densematrix_bench"

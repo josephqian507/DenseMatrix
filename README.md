@@ -40,7 +40,8 @@ focus on Gaussian elimination, LU factorization, and determinant computation.
 
 ```bash
 lake exe cache get
-lake build
+lake build  # Build the public library.
+lake test   # Build the internal test library.
 ```
 
 ## Gaussian dependency documentation
