@@ -376,11 +376,60 @@ private theorem dot_eq_sum_plus {m k n : Nat} {α : Type u} [Semiring α]
     · rw [ih (sum + A.get i l * B.get l j) ⟨l + 1, h₁⟩ h_next]
       rw [add_assoc]
       congr 1
-      sorry
+      have h_split : (∑ x : Fin k, if x ≥ l then A.get i x * B.get x j else 0) =
+          (if l ≥ l then A.get i l * B.get l j else 0) +
+          (∑ x : Fin k, if x ≥ ⟨l.val + 1, h₁⟩ then A.get i x * B.get x j else 0) := by
+        -- 1. Extract `l` from the LHS sum
+        rw [← Finset.add_sum_erase _ _ (Finset.mem_univ l)]
+        -- 2. Extract `l` from the RHS sum
+        have h_rhs_split : (∑ x : Fin k, if x ≥ ⟨l.val + 1, h₁⟩ then A.get i x * B.get x j else 0) =
+            (if l ≥ ⟨l.val + 1, h₁⟩ then A.get i l * B.get l j else 0) +
+            ∑ x ∈ Finset.univ.erase l, if x ≥ ⟨l.val + 1, h₁⟩ then A.get i x * B.get x j else 0 :=
+          (Finset.add_sum_erase _ _ (Finset.mem_univ l)).symm
+        rw [h_rhs_split]
+        have hl_false : ¬ ((l : Fin k) ≥ ⟨l.val + 1, h₁⟩) := by
+          intro h
+          have : l.val ≥ l.val + 1 := h
+          omega
+        simp only [hl_false, ite_false, zero_add]
+        congr 1
+        apply Finset.sum_congr rfl
+        intro x hx
+        have h_ne : x.val ≠ l.val := by
+          intro h_eq
+          have : x = l := Fin.ext h_eq
+          exact (Finset.mem_erase.mp hx).1 this
+        have h_iff : x ≥ l ↔ x ≥ ⟨l.val + 1, h₁⟩ := by
+          constructor
+          · intro h
+            have h_le : l.val ≤ x.val := h
+            have h_lt : l.val < x.val := Nat.lt_of_le_of_ne h_le h_ne.symm
+            exact h_lt
+          · intro h
+            have : x.val ≥ l.val + 1 := h
+            omega
+        simp only [h_iff]
+      rw [h_split]
+      simp only [ge_iff_le, le_refl, ite_true]
     · push Not at h₁
-      have h_step : k ≥ l + 1 := by omega
-      have h₁ : k = l + 1 := by apply le_antisymm h₁ h_step
-      sorry -- Standard structural induction / termination-based proof on `k - l`
+      have h_eq : k = l.val + 1 := le_antisymm h₁ (by omega)
+      congr 1
+      symm
+      rw [Finset.sum_eq_single l]
+      · simp only [ge_iff_le, le_refl, ite_true]
+      · intro x _ hx_ne
+        have h_not_ge : ¬(x ≥ l) := by
+          intro h_ge
+          have h_le : l.val ≤ x.val := h_ge
+          have h_lt : x.val < l.val + 1 := by
+            rw [← h_eq]
+            exact x.isLt
+          have h_le_rev : x.val ≤ l.val := Order.le_of_lt_add_one h_lt
+          have h_val_eq : x.val = l.val := le_antisymm h_le_rev h_le
+          exact hx_ne (Fin.ext h_val_eq)
+        simp only [h_not_ge, ite_false]
+      · intro h_abs
+        exact False.elim (h_abs (Finset.mem_univ l))
 
 /-- Core specification lemma for `dot` starting at 0 -/
 private theorem dot_zero_eq_matrix_mul {m k n : Nat} {α : Type u} [Semiring α] [NeZero k]
