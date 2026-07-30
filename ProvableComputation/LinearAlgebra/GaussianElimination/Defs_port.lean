@@ -56,22 +56,10 @@ def replaceRow {m n : Nat} {α : Type u} [Add α] [Mul α] [One α]
       else
         A.get i j
 
-private theorem rowMajorIndex_div_eq {m n : Nat} (i : Fin m) (j : Fin n) :
-    rowMajorIndex i j / n = i.val := by
-  unfold rowMajorIndex
-  rw [Nat.mul_comm i.val n]
-  have hn : 0 < n := Nat.lt_of_le_of_lt (Nat.zero_le j.val) j.isLt
-  rw [Nat.mul_add_div hn, Nat.div_eq_of_lt j.isLt, Nat.add_zero]
-
-private theorem rowMajorIndex_mod_eq {m n : Nat} (i : Fin m) (j : Fin n) :
-    rowMajorIndex i j % n = j.val := by
-  unfold rowMajorIndex
-  rw [Nat.mul_comm i.val n]
-  rw [Nat.mul_add_mod_self_left, Nat.mod_eq_of_lt j.isLt]
-
 private theorem get_of {m n : Nat} {α : Type u} (f : Fin m → Fin n → α)
     (i : Fin m) (j : Fin n) : get (of f) i j = f i j := by
-  simp [of, ofMatrix, DenseMatrix.get, Vector.get, rowMajorIndex_div_eq, rowMajorIndex_mod_eq]
+  simp [of, ofMatrix, DenseMatrix.get, Vector.get, RowMajorIndex.div_eq_row,
+    RowMajorIndex.mod_eq_col]
 
 theorem toMatrix_swap_eq_swap_toMatrix {m n : Nat} {α : Type u} [Semiring α]
     (A : DenseMatrix m n α) (r1 r2 : Fin m) : toMatrix (swapRow A r1 r2)

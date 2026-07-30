@@ -20,31 +20,6 @@ namespace DenseMatrix
 
 variable {m n : Nat}
 
-private theorem rowMajorIndex_div_eq (i : Fin m) (j : Fin n) :
-    rowMajorIndex i j / n = i.val := by
-  unfold rowMajorIndex
-  rw [Nat.mul_comm i.val n]
-  have hn : 0 < n := Nat.lt_of_le_of_lt (Nat.zero_le j.val) j.isLt
-  rw [Nat.mul_add_div hn, Nat.div_eq_of_lt j.isLt, Nat.add_zero]
-
-private theorem rowMajorIndex_mod_eq (i : Fin m) (j : Fin n) :
-    rowMajorIndex i j % n = j.val := by
-  unfold rowMajorIndex
-  rw [Nat.mul_comm i.val n]
-  rw [Nat.mul_add_mod_self_left, Nat.mod_eq_of_lt j.isLt]
-
-private theorem rowMajorIndex_inj {i₁ i₂ : Fin m} {j₁ j₂ : Fin n} :
-    rowMajorIndex i₁ j₁ = rowMajorIndex i₂ j₂ ↔ i₁ = i₂ ∧ j₁ = j₂ := by
-  constructor
-  · intro h
-    constructor
-    · apply Fin.ext
-      rw [← rowMajorIndex_div_eq i₁ j₁, h, rowMajorIndex_div_eq i₂ j₂]
-    · apply Fin.ext
-      rw [← rowMajorIndex_mod_eq i₁ j₁, h, rowMajorIndex_mod_eq i₂ j₂]
-  · rintro ⟨rfl, rfl⟩
-    rfl
-
 private theorem rowMajorIndex_lt_array {α : Type u} {data : Array α}
     (hsize : data.size = m * n) (i : Fin m) (j : Fin n) :
     rowMajorIndex i j < data.size := by
@@ -78,10 +53,10 @@ private theorem get_swapColArray_not_mem {α : Type u}
       have hrow_ne_i : row ≠ i := fun h => hmem.1 h.symm
       have h₁ : rowMajorIndex i j ≠ rowMajorIndex row c₁ := by
         intro hidx
-        exact hrow_ne_i (rowMajorIndex_inj.mp hidx).1.symm
+        exact hrow_ne_i (RowMajorIndex.eq_iff.mp hidx).1.symm
       have h₂ : rowMajorIndex i j ≠ rowMajorIndex row c₂ := by
         intro hidx
-        exact hrow_ne_i (rowMajorIndex_inj.mp hidx).1.symm
+        exact hrow_ne_i (RowMajorIndex.eq_iff.mp hidx).1.symm
       rw [swapColArray]
       rw [ih (data := data.swap (rowMajorIndex row c₁) (rowMajorIndex row c₂)
           (rowMajorIndex_lt_array hsize row c₁)
@@ -123,14 +98,14 @@ private theorem get_swapColArray_mem {α : Type u}
                   simp
                 · have hne : rowMajorIndex i c₂ ≠ rowMajorIndex i c₁ := by
                     intro hidx
-                    exact hcols (rowMajorIndex_inj.mp hidx).2
+                    exact hcols (RowMajorIndex.eq_iff.mp hidx).2
                   simp [hcols, hne]
               · have hne₁ : rowMajorIndex i j ≠ rowMajorIndex i c₁ := by
                   intro hidx
-                  exact hj₁ (rowMajorIndex_inj.mp hidx).2
+                  exact hj₁ (RowMajorIndex.eq_iff.mp hidx).2
                 have hne₂ : rowMajorIndex i j ≠ rowMajorIndex i c₂ := by
                   intro hidx
-                  exact hj₂ (rowMajorIndex_inj.mp hidx).2
+                  exact hj₂ (RowMajorIndex.eq_iff.mp hidx).2
                 simp [hj₁, hj₂, hne₁, hne₂]
           · exact hnot
       | inr himem =>
@@ -145,22 +120,22 @@ private theorem get_swapColArray_mem {α : Type u}
             exact (List.nodup_cons.mp hnd).1 himem
           have t₂₁ : rowMajorIndex i c₂ ≠ rowMajorIndex row c₁ := by
             intro hidx
-            exact hrow_ne_i (rowMajorIndex_inj.mp hidx).1.symm
+            exact hrow_ne_i (RowMajorIndex.eq_iff.mp hidx).1.symm
           have t₂₂ : rowMajorIndex i c₂ ≠ rowMajorIndex row c₂ := by
             intro hidx
-            exact hrow_ne_i (rowMajorIndex_inj.mp hidx).1.symm
+            exact hrow_ne_i (RowMajorIndex.eq_iff.mp hidx).1.symm
           have t₁₁ : rowMajorIndex i c₁ ≠ rowMajorIndex row c₁ := by
             intro hidx
-            exact hrow_ne_i (rowMajorIndex_inj.mp hidx).1.symm
+            exact hrow_ne_i (RowMajorIndex.eq_iff.mp hidx).1.symm
           have t₁₂ : rowMajorIndex i c₁ ≠ rowMajorIndex row c₂ := by
             intro hidx
-            exact hrow_ne_i (rowMajorIndex_inj.mp hidx).1.symm
+            exact hrow_ne_i (RowMajorIndex.eq_iff.mp hidx).1.symm
           have ti₁ : rowMajorIndex i j ≠ rowMajorIndex row c₁ := by
             intro hidx
-            exact hrow_ne_i (rowMajorIndex_inj.mp hidx).1.symm
+            exact hrow_ne_i (RowMajorIndex.eq_iff.mp hidx).1.symm
           have ti₂ : rowMajorIndex i j ≠ rowMajorIndex row c₂ := by
             intro hidx
-            exact hrow_ne_i (rowMajorIndex_inj.mp hidx).1.symm
+            exact hrow_ne_i (RowMajorIndex.eq_iff.mp hidx).1.symm
           simp [t₂₁, t₂₂, t₁₁, t₁₂, ti₁, ti₂]
 
 private theorem get_swapColArray_finRange {α : Type u}
@@ -212,7 +187,7 @@ private theorem get_setColArray_not_mem {α : Type u}
       have hrow_ne_i : row ≠ i := fun h => hmem.1 h.symm
       have hne : rowMajorIndex row col ≠ rowMajorIndex i j := by
         intro hidx
-        exact hrow_ne_i (rowMajorIndex_inj.mp hidx).1
+        exact hrow_ne_i (RowMajorIndex.eq_iff.mp hidx).1
       rw [setColArray]
       rw [ih (data := data.set (rowMajorIndex row col) (f row)
           (rowMajorIndex_lt_array hsize row col))
@@ -244,7 +219,7 @@ private theorem get_setColArray_mem {α : Type u}
               simp
             · have hne : rowMajorIndex i col ≠ rowMajorIndex i j := by
                 intro hidx
-                exact hj (rowMajorIndex_inj.mp hidx).2.symm
+                exact hj (RowMajorIndex.eq_iff.mp hidx).2.symm
               simp [hj, hne]
           · exact hnot
       | inr himem =>
@@ -258,7 +233,7 @@ private theorem get_setColArray_mem {α : Type u}
             exact (List.nodup_cons.mp hnd).1 himem
           have ti : rowMajorIndex row col ≠ rowMajorIndex i j := by
             intro hidx
-            exact hrow_ne_i (rowMajorIndex_inj.mp hidx).1
+            exact hrow_ne_i (RowMajorIndex.eq_iff.mp hidx).1
           simp [Array.getElem_set, ti]
 
 private theorem get_setColArray_finRange {α : Type u}

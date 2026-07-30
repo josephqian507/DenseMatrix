@@ -87,6 +87,8 @@ private theorem rowMajorIndex_unflatten {m n : Nat} (x : Fin (m * n)) :
   unfold rowMajorIndex
   rw [Nat.mul_comm (x.val / n) n, Nat.div_add_mod]
 
+namespace RowMajorIndex
+
 /--
 When a proof starts from typed indices `i : Fin m` and `j : Fin n`, the
 witness `j` proves `n > 0`: `0 <= j.val < n`. That positivity is what lets
@@ -96,7 +98,7 @@ from the flattened row-major offset.
 Dividing a flattened typed row-major index by the row width recovers the
 row.
 -/
-private theorem rowMajorIndex_div {m n : Nat} (i : Fin m) (j : Fin n) :
+theorem div_eq_row {m n : Nat} (i : Fin m) (j : Fin n) :
     rowMajorIndex i j / n = i.val := by
   unfold rowMajorIndex
   rw [Nat.mul_comm i.val n]
@@ -104,11 +106,26 @@ private theorem rowMajorIndex_div {m n : Nat} (i : Fin m) (j : Fin n) :
   rw [Nat.mul_add_div hn, Nat.div_eq_of_lt j.isLt, Nat.add_zero]
 
 /-- Taking a flattened typed row-major index modulo the row width recovers the column. -/
-private theorem rowMajorIndex_mod {m n : Nat} (i : Fin m) (j : Fin n) :
+theorem mod_eq_col {m n : Nat} (i : Fin m) (j : Fin n) :
     rowMajorIndex i j % n = j.val := by
   unfold rowMajorIndex
   rw [Nat.mul_comm i.val n]
   rw [Nat.mul_add_mod_self_left, Nat.mod_eq_of_lt j.isLt]
+
+/-- Two typed row-major indices are equal exactly when both coordinates are equal. -/
+theorem eq_iff {m n : Nat} {i₁ i₂ : Fin m} {j₁ j₂ : Fin n} :
+    rowMajorIndex i₁ j₁ = rowMajorIndex i₂ j₂ ↔ i₁ = i₂ ∧ j₁ = j₂ := by
+  constructor
+  · intro h
+    constructor
+    · apply Fin.ext
+      rw [← div_eq_row i₁ j₁, h, div_eq_row i₂ j₂]
+    · apply Fin.ext
+      rw [← mod_eq_col i₁ j₁, h, mod_eq_col i₂ j₂]
+  · rintro ⟨rfl, rfl⟩
+    rfl
+
+end RowMajorIndex
 
 /--
 Unchecked row-major fast-path read.
@@ -203,7 +220,7 @@ def ofMatrix {m n : Nat} {α : Type u} (M : Matrix (Fin m) (Fin n) α) :
 theorem get_ofMatrix {m n : Nat} {α : Type u}
     (M : Matrix (Fin m) (Fin n) α) (i : Fin m) (j : Fin n) :
     get (ofMatrix M) i j = M i j := by
-  simp [ofMatrix, get, Vector.get, rowMajorIndex_div, rowMajorIndex_mod]
+  simp [ofMatrix, get, Vector.get, RowMajorIndex.div_eq_row, RowMajorIndex.mod_eq_col]
 
 theorem get_toMatrix {m n : Nat} {α : Type u} (A : DenseMatrix m n α) (i : Fin m) (j : Fin n)
     : (toMatrix A) i j = get A i j := by
@@ -473,8 +490,8 @@ private theorem mul_helper_spec {m k n : Nat} {α : Type u} [Semiring α] [Inhab
       simp only [h_eq_size, Array.getElem_push_eq]
       have h_out' : out.size = rowMajorIndex ⟨i, by exact hi⟩ ⟨j, by exact hj⟩ := by
         rw [h_size, rowMajorIndex]
-      have h_div : out.size / n = i := by rw [h_out', rowMajorIndex_div]
-      have h_mod : out.size % n = j := by rw [h_out', rowMajorIndex_mod]
+      have h_div : out.size / n = i := by rw [h_out', RowMajorIndex.div_eq_row]
+      have h_mod : out.size % n = j := by rw [h_out', RowMajorIndex.mod_eq_col]
       simp [h_div, h_mod]
   · rename_i h_not_₁
     split
@@ -493,8 +510,8 @@ private theorem mul_helper_spec {m k n : Nat} {α : Type u} [Semiring α] [Inhab
         simp only [h_eq_size, Array.getElem_push_eq]
         have h_out' : out.size = rowMajorIndex ⟨i, by exact hi⟩ ⟨j, by exact hj⟩ := by
           rw [h_size, rowMajorIndex]
-        have h_div : out.size / n = i := by rw [h_out', rowMajorIndex_div]
-        have h_mod : out.size % n = j := by rw [h_out', rowMajorIndex_mod]
+        have h_div : out.size / n = i := by rw [h_out', RowMajorIndex.div_eq_row]
+        have h_mod : out.size % n = j := by rw [h_out', RowMajorIndex.mod_eq_col]
         simp [h_div, h_mod]
     · rename_i h_not_₂
       -- Case 3: Base Case (End of Matrix)
@@ -517,8 +534,8 @@ private theorem mul_helper_spec {m k n : Nat} {α : Type u} [Semiring α] [Inhab
         simp only [h_eq_size, Array.getElem_push_eq]
         have h_out' : out.size = rowMajorIndex ⟨i, by exact hi⟩ ⟨j, by exact hj⟩ := by
           rw [h_size, rowMajorIndex]
-        have h_div : x / n = i := by rw [h_eq_size, h_out', rowMajorIndex_div]
-        have h_mod : x % n = j := by rw [h_eq_size, h_out', rowMajorIndex_mod]
+        have h_div : x / n = i := by rw [h_eq_size, h_out', RowMajorIndex.div_eq_row]
+        have h_mod : x % n = j := by rw [h_eq_size, h_out', RowMajorIndex.mod_eq_col]
         simp [←h_eq_size, h_div, h_mod]
 
 theorem mul_ofMatrix {m k n : Nat} {α : Type u} [Semiring α] [Inhabited α]
@@ -606,11 +623,11 @@ private theorem transpose_current_entry_eq_flat {m n : Nat} {α : Type u}
   have hdiv : out.size / m = j := by
     rw [h_size]
     simpa [rowMajorIndex] using
-      rowMajorIndex_div (m := n) (n := m) ⟨j, hj_lt⟩ ⟨i, hi_lt⟩
+      RowMajorIndex.div_eq_row (m := n) (n := m) ⟨j, hj_lt⟩ ⟨i, hi_lt⟩
   have hmod : out.size % m = i := by
     rw [h_size]
     simpa [rowMajorIndex] using
-      rowMajorIndex_mod (m := n) (n := m) ⟨j, hj_lt⟩ ⟨i, hi_lt⟩
+      RowMajorIndex.mod_eq_col (m := n) (n := m) ⟨j, hj_lt⟩ ⟨i, hi_lt⟩
   simp [transposeFlatEntry, hdiv, hmod, get_toMatrix]
 
 private theorem arrayMatchesTransposePrefix_push {m n : Nat} {α : Type u}
@@ -678,9 +695,9 @@ theorem get_transpose {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
     transpose_helper_get_flat (Array.mkEmpty (n * m)) 0 0 M
       (by simp) NeZero.one_le NeZero.one_le h_prefix x
   have hdiv : x.val / m = i.val := by
-    simpa [x] using rowMajorIndex_div (m := n) (n := m) i j
+    simpa [x] using RowMajorIndex.div_eq_row (m := n) (n := m) i j
   have hmod : x.val % m = j.val := by
-    simpa [x] using rowMajorIndex_mod (m := n) (n := m) i j
+    simpa [x] using RowMajorIndex.mod_eq_col (m := n) (n := m) i j
   simpa [transpose, get, x, transposeFlatEntry, hdiv, hmod, get_toMatrix] using h_get
 
 @[simp]
