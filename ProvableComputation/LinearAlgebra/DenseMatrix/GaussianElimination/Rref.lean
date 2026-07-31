@@ -1,5 +1,5 @@
 import ProvableComputation.LinearAlgebra.DenseMatrix.Defs
-import ProvableComputation.LinearAlgebra.GaussianElimination.Defs_port
+import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Defs
 
 /-!
 # Gaussian Elimination Algorithms

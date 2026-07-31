@@ -244,6 +244,19 @@ private theorem get_unflatten {m n : Nat} {α : Type u}
     exact rowMajorIndex_unflatten x
   simp [get, hflat]
 
+/-- Two DenseMatrices are equal iff their underlying Vectors are equal at every single index. -/
+@[ext]
+theorem ext {m n : Nat} {α : Type u} : ∀ {M N : DenseMatrix m n α}
+    (_ : ∀ i : Fin m, ∀ j : Fin n, DenseMatrix.get M i j = DenseMatrix.get N i j), M = N
+  | ⟨M_data⟩, ⟨N_data⟩, h => by
+    rw [DenseMatrix.mk.injEq]
+    apply Vector.ext
+    intro x hx
+    let idx : Fin (m * n) := ⟨x, hx⟩
+    change M_data.get idx = N_data.get idx
+    rw [←get_unflatten, ←get_unflatten]
+    exact h ⟨x / n, index_div_lt hx⟩ ⟨x % n, index_mod_lt hx⟩
+
 /--
 Round trip from `Matrix` to `DenseMatrix` and back.
 
@@ -280,6 +293,11 @@ Note: `DenseMatrix.of f` is equivalent to `DenseMatrix.ofMatrix (Matrix.of f)`.
 -/
 def of {m n : Nat} {α : Type u} (f : Fin m → Fin n → α) : DenseMatrix m n α :=
   .ofMatrix (Matrix.of f)
+
+@[simp]
+theorem of_apply {m n : Nat} {α : Type u} (f : Fin m → Fin n → α) (i j)
+    : (of f).get i j = f i j := by
+  exact get_ofMatrix (Matrix.of f) i j
 
 def add {m n : Nat} {α : Type u} [Add α] (A B : DenseMatrix m n α) : DenseMatrix m n α where
   data := A.data.zipWith (· + ·) B.data

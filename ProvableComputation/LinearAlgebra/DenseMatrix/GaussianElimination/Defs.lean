@@ -67,12 +67,12 @@ theorem toMatrix_swap_eq_swap_toMatrix {m n : Nat} {α : Type u} [Semiring α]
     ext i j
     by_cases hi1 : i = r1
     · subst i
-      simp [toMatrix, swapRow, get_of]
+      simp [toMatrix, swapRow]
     · by_cases hi2 : i = r2
       · subst i
-        simp [toMatrix, swapRow, get_of, hi1]
+        simp [toMatrix, swapRow, hi1]
       · rw [Matrix.swap_mul_of_ne hi1 hi2]
-        simp [toMatrix, swapRow, get_of, hi1, hi2]
+        simp [toMatrix, swapRow, hi1, hi2]
 
 theorem toMatrix_scale_eq_scale_toMatrix {m n : Nat} {α : Type u} [CommRing α]
     (A : DenseMatrix m n α) (r : Fin m) (c : α) : toMatrix (scaleRow A r c)
@@ -100,7 +100,7 @@ theorem toMatrix_replace_eq_replace_toMatrix {m n : Nat} {α : Type u} [CommRing
     · subst src
       by_cases hi : i = tgt
       · subst i
-        simp [toMatrix, replaceRow, scaleRow, Matrix.mul_apply, Matrix.transvection, get_of]
+        simp only [toMatrix, replaceRow, scaleRow, Matrix.mul_apply, Matrix.transvection]
         rw [Fintype.sum_eq_single tgt]
         · simp
           ring
