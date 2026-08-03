@@ -1,7 +1,10 @@
 import ProvableComputation.certifiable_euclidean_alg
 import ProvableComputation.LinearAlgebra.DenseMatrix.Defs
 import ProvableComputation.LinearAlgebra.DenseMatrix.Echelon
-import ProvableComputation.LinearAlgebra.DenseMatrix.Elementary
+import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Defs
+import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Elementary
+import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Pivot
+import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Rref
 import ProvableComputation.LinearAlgebra.Determinant.Basic
 import ProvableComputation.LinearAlgebra.Determinant.Correctness
 import ProvableComputation.LinearAlgebra.Echelon

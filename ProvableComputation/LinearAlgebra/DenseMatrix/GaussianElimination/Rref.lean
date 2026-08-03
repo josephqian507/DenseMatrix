@@ -17,7 +17,7 @@ variable {α : Type} [Field α] [DecidableEq α]
 variable {m n : ℕ}
 variable {hm : m > 0} {hn : n > 0}
 
-namespace GaussianEliminationInternal
+namespace DenseMatrix.GaussianEliminationInternal
 
 -- `eliminateCol` iterates through the matrix row by row, and uses the `replace` operation
 -- to set the value in column `pivotCol` of the row to 0.
@@ -109,7 +109,7 @@ def rawReducedRowEchelonForm
 : (DenseMatrix m n α × List (RowOp m α)) :=
   rowReductionAux given 0 0 List.nil true
 
-end GaussianEliminationInternal
+end DenseMatrix.GaussianEliminationInternal
 
 namespace DenseMatrix
 

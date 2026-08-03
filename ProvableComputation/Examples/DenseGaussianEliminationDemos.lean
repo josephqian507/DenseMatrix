@@ -1,7 +1,7 @@
 import Mathlib.Algebra.Field.Rat
 
 import ProvableComputation.LinearAlgebra.DenseMatrix.Defs
-import ProvableComputation.LinearAlgebra.GaussianElimination.Rref_port
+import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Rref
 
 /-!
 # Gaussian Elimination Demos
