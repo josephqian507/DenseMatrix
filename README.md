@@ -28,7 +28,6 @@ focus on Gaussian elimination, LU factorization, and determinant computation.
   - [`Basic.lean`](./ProvableComputation/LinearAlgebra/Determinant/Basic.lean)
 - Examples and benchmarks:
   - [`GaussianEliminationDemos.lean`](./ProvableComputation/Examples/GaussianEliminationDemos.lean)
-  - [`DeterminantRuntimeComparator.lean`](./ProvableComputation/Bench/DeterminantRuntimeComparator.lean)
 
 ## Toolchain
 

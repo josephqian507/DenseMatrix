@@ -320,11 +320,11 @@ theorem add_toMatrix {m n : Nat} {α : Type u} [Add α] (A B : DenseMatrix m n �
   rw [ofMatrix_toMatrix, toMatrix_ofMatrix, toMatrix_ofMatrix]
   exact add_ofMatrix M N
 
--- Benchmarked by `lake exe densematrix_bench --quick --jsonl -` against mathlib Matrix.smul.
+-- Benchmarked by `lake exe densematrix_bench --profile smoke --jsonl` against mathlib Matrix.smul.
 def smul {m n : Nat} {α : Type u} [Mul α] (c : α) (M : DenseMatrix m n α) : DenseMatrix m n α where
   data := M.data.map (fun x => c * x)
 
--- Benchmarked by `lake exe densematrix_bench --quick --jsonl -` against `sum_dot`.
+-- Benchmarked by `lake exe densematrix_bench --profile smoke --jsonl` against `sum_dot`.
 /--
 Given indices `i` and `j`, returns the dot product of the i-th row of `A` and the j-th column
 of `B `.

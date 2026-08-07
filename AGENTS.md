@@ -19,7 +19,7 @@
 - Narrow Lean check: `lake env lean <path>`.
 - Public library check: `lake build`.
 - Internal test check: `lake test`.
-- Executable benchmark smoke check: `lake exe densematrix_bench --quick --jsonl -`.
+- Executable benchmark smoke check: `lake exe densematrix_bench --profile smoke --jsonl`.
 
 ## Agent skills
 

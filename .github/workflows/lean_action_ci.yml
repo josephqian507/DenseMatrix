@@ -21,6 +21,10 @@ jobs:
         run: lake build
       - name: Build tests
         run: lake test
+      - name: Build DenseMatrix benchmark
+        run: lake build densematrix_bench
+      - name: Run DenseMatrix benchmark smoke
+        run: lake exe densematrix_bench --profile smoke --jsonl > /tmp/densematrix-bench-smoke.jsonl
       - name: Install Graphviz
         run: |
           sudo apt-get update
