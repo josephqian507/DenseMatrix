@@ -28,11 +28,6 @@ private theorem toMatrix_injective {m n : Nat} {α : Type u} :
     _ = ofMatrix (toMatrix B) := congrArg ofMatrix h
     _ = B := ofMatrix_toMatrix B
 
-/-- The dense identity matrix. -/
-def identity {n : Nat} {α : Type u} [Zero α] [One α] [DecidableEq (Fin n)] :
-    DenseMatrix n n α :=
-  of fun i j => if i = j then 1 else 0
-
 @[simp]
 theorem get_identity {n : Nat} {α : Type u} [Zero α] [One α] [DecidableEq (Fin n)]
     (i j : Fin n) :
@@ -89,7 +84,6 @@ theorem elementaryMatrixOfRowOp_mul_eq_applyRowOp
     (op : RowOp m α) (A : DenseMatrix m n α) :
     elementaryMatrixOfRowOp op * A = applyRowOp A op := by
   apply toMatrix_injective
-  change toMatrix (mul (elementaryMatrixOfRowOp op) A) = toMatrix (applyRowOp A op)
   rw [mul_toMatrix]
   cases op <;>
     simp [elementaryMatrixOfRowOp, applyRowOp, toMatrix_swap_eq_swap_toMatrix,
