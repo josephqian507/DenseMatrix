@@ -707,6 +707,10 @@ def suiteDotCase (cfg : BenchConfig) (k : Nat) : IO (List BenchSample) := do
   let m := 8
   let n := 8
   if hk : 0 < k then
+    let denseDot : Fin m → Fin n → DenseMatrix m k Nat → DenseMatrix k n Nat → Nat :=
+      fun row col A B =>
+        letI : NeZero k := ⟨Nat.ne_of_gt hk⟩
+        DenseMatrix.dotProduct row col A B
     let hm : 0 < m := by decide
     let hn : 0 < n := by decide
     let shape : Shape := { rows := m, inner := k, cols := n }
@@ -719,8 +723,8 @@ def suiteDotCase (cfg : BenchConfig) (k : Nat) : IO (List BenchSample) := do
     let nativeB := nativeNatArray k n (validationSeed + 1)
     let i := finMod m hm 1
     let j := finMod n hn 3
-    let recursive := DenseMatrix.dot 0 i j ⟨0, hk⟩ denseA denseB
-    let finset := DenseMatrix.sum_dot i j denseA denseB
+    let recursive := denseDot i j denseA denseB
+    let finset := ∑ l : Fin k, denseA.get i l * denseB.get l j
     let native := nativeDot m k n nativeA nativeB i.val j.val
     let matrix := matrixDot matrixA matrixB i j
     let context := s!"inner={k} seed={validationSeed}"
@@ -730,7 +734,7 @@ def suiteDotCase (cfg : BenchConfig) (k : Nat) : IO (List BenchSample) := do
     let batch ← calibrateBatch fun iteration =>
       let row := finMod m hm iteration
       let col := finMod n hn (iteration * 3 + 1)
-      hash (DenseMatrix.dot 0 row col ⟨0, hk⟩ denseA denseB)
+      hash (denseDot row col denseA denseB)
     let measure := fun round implementation =>
       let seed := sampleSeed cfg round
       match implementation with
@@ -742,7 +746,7 @@ def suiteDotCase (cfg : BenchConfig) (k : Nat) : IO (List BenchSample) := do
           (fun input => batchUInt64 batch fun iteration =>
             let row := finMod m hm (round + iteration)
             let col := finMod n hn (round + iteration * 3 + 1)
-            hash (DenseMatrix.dot 0 row col ⟨0, hk⟩ input.1 input.2)) id
+            hash (denseDot row col input.1 input.2)) id
       | "dense_finset" =>
         measureValue
           (makeMeta cfg "dot" "dot" "dense_api" "dense_finset" "Nat" "deterministic"
@@ -751,7 +755,7 @@ def suiteDotCase (cfg : BenchConfig) (k : Nat) : IO (List BenchSample) := do
           (fun input => batchUInt64 batch fun iteration =>
             let row := finMod m hm (round + iteration)
             let col := finMod n hn (round + iteration * 3 + 1)
-            hash (DenseMatrix.sum_dot row col input.1 input.2)) id
+            hash (∑ l : Fin k, input.1.get row l * input.2.get l col)) id
       | "dense_native" =>
         measureValue
           (makeMeta cfg "dot" "dot" "dense_native" "dense_native" "Nat" "deterministic"
