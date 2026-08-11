@@ -220,7 +220,14 @@ def ofMatrix {m n : Nat} {α : Type u} (M : Matrix (Fin m) (Fin n) α) :
 theorem get_ofMatrix {m n : Nat} {α : Type u}
     (M : Matrix (Fin m) (Fin n) α) (i : Fin m) (j : Fin n) :
     get (ofMatrix M) i j = M i j := by
-  simp [ofMatrix, get, Vector.get, RowMajorIndex.div_eq_row, RowMajorIndex.mod_eq_col]
+  simp [ofMatrix, get, Vector.get]
+  apply congrArg₂ M
+  · apply Fin.ext
+    change rowMajorIndex i j / n = i.val
+    exact RowMajorIndex.div_eq_row i j
+  · apply Fin.ext
+    change rowMajorIndex i j % n = j.val
+    exact RowMajorIndex.mod_eq_col i j
 
 theorem get_toMatrix {m n : Nat} {α : Type u} (A : DenseMatrix m n α) (i : Fin m) (j : Fin n)
     : (toMatrix A) i j = get A i j := by

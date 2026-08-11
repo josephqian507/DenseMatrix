@@ -31,9 +31,9 @@ focus on Gaussian elimination, LU factorization, and determinant computation.
 
 ## Toolchain
 
-- Lean toolchain: `leanprover/lean4:v4.32.2` (from [`lean-toolchain`](./lean-toolchain))
+- Lean toolchain: `leanprover/lean4:v4.33.0` (from [`lean-toolchain`](./lean-toolchain))
 - Build tool: Lake
-- This project is pinned to `mathlib4` tag `v4.32.2` on the Lean 4.32 line.
+- This project is pinned to `mathlib4` tag `v4.33.0` on the Lean 4.33 line.
 
 ## Quick start
 

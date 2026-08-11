@@ -58,8 +58,7 @@ def replaceRow {m n : Nat} {α : Type u} [Add α] [Mul α] [One α]
 
 private theorem get_of {m n : Nat} {α : Type u} (f : Fin m → Fin n → α)
     (i : Fin m) (j : Fin n) : get (of f) i j = f i j := by
-  simp [of, ofMatrix, DenseMatrix.get, Vector.get, RowMajorIndex.div_eq_row,
-    RowMajorIndex.mod_eq_col]
+  exact of_apply f i j
 
 theorem toMatrix_swap_eq_swap_toMatrix {m n : Nat} {α : Type u} [Semiring α]
     (A : DenseMatrix m n α) (r1 r2 : Fin m) : toMatrix (swapRow A r1 r2)
