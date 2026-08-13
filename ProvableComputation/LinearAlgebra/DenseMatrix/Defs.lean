@@ -294,6 +294,22 @@ theorem ofMatrix_toMatrix {m n : Nat} {α : Type u} (A : DenseMatrix m n α) :
     intro x hx
     simp [ofMatrix, toMatrix, get_unflatten, Vector.get]
 
+lemma toMatrix_inj {m n : Nat} {α : Type u} {A B : DenseMatrix m n α} :
+    toMatrix A = toMatrix B ↔ A = B := by
+  constructor
+  · intro h
+    rw [← ofMatrix_toMatrix A, h, ofMatrix_toMatrix B]
+  · intro h
+    rw [h]
+
+lemma ofMatrix_inj {m n : Nat} {α : Type u} {A B : Matrix (Fin m) (Fin n) α} :
+    ofMatrix A = ofMatrix B ↔ A = B := by
+  constructor
+  · intro h
+    rw [←toMatrix_ofMatrix A, h, toMatrix_ofMatrix B]
+  · intro h
+    rw [h]
+
 /-- Define a `DenseMatrix` using a function.
 
 Note: `DenseMatrix.of f` is equivalent to `DenseMatrix.ofMatrix (Matrix.of f)`.
@@ -475,7 +491,8 @@ instance {m k n : Nat} {α : Type u} [Inhabited α] [Zero α] [Add α] [Mul α]
 private theorem dot_eq_sum_plus {m k n : Nat} {α : Type u} [Semiring α]
     (sum : α) (i : Fin m) (j : Fin n) (l : Fin k)
     (A : DenseMatrix m k α) (B : DenseMatrix k n α) :
-    dotProduct_helper sum i j l A B = sum + ∑ x : Fin k, if x ≥ l then A.get i x * B.get x j else 0 := by
+    dotProduct_helper sum i j l A B = sum + ∑ x : Fin k,
+    if x ≥ l then A.get i x * B.get x j else 0 := by
   -- We prove this by well-founded induction on the remaining distance `k - l.val`
   induction h_step : k - l.val generalizing l sum with
   | zero =>
@@ -661,14 +678,11 @@ theorem mul_toMatrix {m k n : Nat} {α : Type u} [Semiring α] [Inhabited α]
 
 instance {n : Nat} {α : Type u} [Semiring α] [Inhabited α] [NeZero n] :
     Semiring (DenseMatrix n n α) where
-  -- 1. Map to your existing high-performance operations
   add := (· + ·)
   mul := (· * ·)
   zero := 0
   one := 1
   nsmul := nsmulRec
-
-  -- 2. Provide the proofs for the axioms (placeholders for now)
   add_assoc := fun A B C => by
     apply_fun toMatrix using (fun X Y h => by rw [← ofMatrix_toMatrix X, h, ofMatrix_toMatrix Y])
     simp only [add_toMatrix]
@@ -716,7 +730,6 @@ instance {n : Nat} {α : Type u} [Semiring α] [Inhabited α] [NeZero n] :
 
 instance {n : Nat} {α : Type u} [Ring α] [Inhabited α] [NeZero n] :
     Ring (DenseMatrix n n α) where
-  -- 1. Map to your existing high-performance operations
   add := (· + ·)
   mul := (· * ·)
   zero := 0
@@ -724,8 +737,6 @@ instance {n : Nat} {α : Type u} [Ring α] [Inhabited α] [NeZero n] :
   neg := fun A => -A
   nsmul := nsmulRec
   zsmul := zsmulRec
-
-  -- 2. Provide the proofs for the axioms (placeholders for now)
   add_assoc := fun A B C => by
     apply_fun toMatrix using (fun X Y h => by rw [← ofMatrix_toMatrix X, h, ofMatrix_toMatrix Y])
     simp only [add_toMatrix]

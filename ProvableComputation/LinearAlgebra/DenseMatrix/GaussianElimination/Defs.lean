@@ -84,7 +84,8 @@ theorem toMatrix_scale_eq_scale_toMatrix {m n : Nat} {α : Type u} [CommRing α]
       · simp
       · intro b hb
         simp [Ne.symm hb]
-    · simp [toMatrix, scaleRow, Matrix.mul_apply, Matrix.transvection, get_of, hi]
+    · simp only [toMatrix, scaleRow, Matrix.mul_apply, Matrix.transvection, Matrix.of_apply, get_of,
+        ↓reduceIte, Matrix.add_apply, hi]
       rw [Fintype.sum_eq_single i]
       · simp [Ne.symm hi]
       · intro b hb
@@ -105,14 +106,16 @@ theorem toMatrix_replace_eq_replace_toMatrix {m n : Nat} {α : Type u} [CommRing
           ring
         · intro b hb
           simp [Ne.symm hb]
-      · simp [toMatrix, replaceRow, scaleRow, Matrix.mul_apply, Matrix.transvection, get_of, hi]
+      · simp only [toMatrix, replaceRow, scaleRow, Matrix.mul_apply, Matrix.transvection,
+          ↓reduceIte, of_apply, Matrix.of_apply, Matrix.add_apply, hi]
         rw [Fintype.sum_eq_single i]
         · simp [Ne.symm hi]
         · intro b hb
           simp [Ne.symm hb, Ne.symm hi]
     · by_cases hi : i = tgt
       · subst i
-        simp [toMatrix, replaceRow, Matrix.mul_apply, Matrix.transvection, get_of, h]
+        simp only [toMatrix, replaceRow, Matrix.mul_apply, Matrix.transvection, ↓reduceIte,
+          of_apply, Matrix.of_apply, Matrix.add_apply, h]
         rw [show
             (∑ x, ((1 : Matrix (Fin m) (Fin m) α) tgt x +
                 Matrix.single tgt src k tgt x) * A.get x j) =
@@ -129,7 +132,8 @@ theorem toMatrix_replace_eq_replace_toMatrix {m n : Nat} {α : Type u} [CommRing
             simp [Matrix.single, Ne.symm hb]
         · intro b hb
           simp [Ne.symm hb]
-      · simp [toMatrix, replaceRow, Matrix.mul_apply, Matrix.transvection, get_of, h, hi]
+      · simp only [toMatrix, replaceRow, Matrix.mul_apply, Matrix.transvection, ↓reduceIte,
+          of_apply, Matrix.of_apply, Matrix.add_apply, h, hi]
         rw [Fintype.sum_eq_single i]
         · simp [Matrix.single, Ne.symm hi]
         · intro b hb
