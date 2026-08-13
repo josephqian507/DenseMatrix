@@ -220,7 +220,7 @@ def ofMatrix {m n : Nat} {α : Type u} (M : Matrix (Fin m) (Fin n) α) :
 theorem get_ofMatrix {m n : Nat} {α : Type u}
     (M : Matrix (Fin m) (Fin n) α) (i : Fin m) (j : Fin n) :
     get (ofMatrix M) i j = M i j := by
-  simp [ofMatrix, get, Vector.get]
+  simp only [ofMatrix, get, Vector.get, Vector.toArray_ofFn, Array.getElem_ofFn]
   apply congrArg₂ M
   · apply Fin.ext
     change rowMajorIndex i j / n = i.val
