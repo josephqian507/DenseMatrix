@@ -5,6 +5,7 @@ import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Defs
 import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Elementary
 import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Pivot
 import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Rref
+import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.RrefUniqueness
 import ProvableComputation.LinearAlgebra.Determinant.Basic
 import ProvableComputation.LinearAlgebra.Determinant.Correctness
 import ProvableComputation.LinearAlgebra.Echelon
