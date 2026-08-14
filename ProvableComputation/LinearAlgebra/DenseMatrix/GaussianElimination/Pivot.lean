@@ -1,4 +1,4 @@
-import ProvableComputation.LinearAlgebra.DenseMatrix.Echelon
+import ProvableComputation.LinearAlgebra.DenseMatrix.Echelon.Basic
 import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Rref
 
 /-!
@@ -39,23 +39,6 @@ private lemma eliminateColLoopAux_matrix_eq
     (GaussianEliminationInternal.eliminateColLoopAux pivotRow pivotCol pivotVal r cur steps).1 =
       eliminateColLoopMatrix pivotRow pivotCol r cur steps := by
   simp [eliminateColLoopMatrix, GaussianEliminationInternal.eliminateColLoop, hpivot]
-
-/-! ## Elementary pivot facts -/
-
--- A row cannot have two distinct pivot columns.
-omit [DecidableEq α] in
-lemma IsPivot.eq_of_left {M : DenseMatrix m n α} {i : Fin m} {p q : Fin n}
-    (hp : IsPivot M i p) (hq : IsPivot M i q) :
-    p = q := by
-  have hnot_lt_pq : ¬ p < q := fun hlt ↦ hp.left (hq.right p hlt)
-  have hnot_lt_qp : ¬ q < p := fun hlt ↦ hq.left (hp.right q hlt)
-  exact le_antisymm (le_of_not_gt hnot_lt_qp) (le_of_not_gt hnot_lt_pq)
-
--- A zero row cannot contain a pivot.
-omit [DecidableEq α] in
-lemma RowIsZero.not_isPivot {M : DenseMatrix m n α} {i : Fin m} {p : Fin n}
-    (hzero : RowIsZero M i) (hp : IsPivot M i p) :
-    False := hp.left (hzero p)
 
 /-! ## `checkPivot` search invariants -/
 

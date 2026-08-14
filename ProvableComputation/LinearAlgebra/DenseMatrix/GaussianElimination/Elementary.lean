@@ -5,6 +5,7 @@ Authors: Provable Computation contributors
 -/
 
 import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Defs
+import ProvableComputation.LinearAlgebra.DenseMatrix.Echelon.Basic
 
 /-!
 # Dense matrix elementary operations
@@ -66,6 +67,39 @@ theorem get_replaceRow {m n : Nat} {α : Type u} [Semiring α]
     · simp [replaceRow, hi]
   · simp [replaceRow, hst]
 
+/-! ## Direct left multiplication -/
+
+/-- Left multiplication of a dense matrix by a function-backed square matrix. -/
+def leftMul {m n : Nat} {R : Type u} [Semiring R]
+    (U : Matrix (Fin m) (Fin m) R) (A : DenseMatrix m n R) : DenseMatrix m n R :=
+  DenseMatrix.of fun i j ↦ ∑ k, U i k * A.get k j
+
+@[simp]
+theorem get_leftMul {m n : Nat} {R : Type u} [Semiring R]
+    (U : Matrix (Fin m) (Fin m) R) (A : DenseMatrix m n R) (i : Fin m) (j : Fin n) :
+    (leftMul U A).get i j = ∑ k, U i k * A.get k j := by
+  simp [leftMul]
+
+@[simp]
+theorem toMatrix_leftMul {m n : Nat} {R : Type u} [Semiring R]
+    (U : Matrix (Fin m) (Fin m) R) (A : DenseMatrix m n R) :
+    toMatrix (leftMul U A) = U * toMatrix A := by
+  ext i j
+  change (leftMul U A).get i j = ∑ k, U i k * A.get k j
+  exact get_leftMul U A i j
+
+@[simp]
+theorem leftMul_one {m n : Nat} {R : Type u} [Semiring R] (A : DenseMatrix m n R) :
+    leftMul (1 : Matrix (Fin m) (Fin m) R) A = A := by
+  apply toMatrix_injective
+  simp
+
+theorem leftMul_mul {m n : Nat} {R : Type u} [Semiring R]
+    (U V : Matrix (Fin m) (Fin m) R) (A : DenseMatrix m n R) :
+    leftMul (U * V) A = leftMul U (leftMul V A) := by
+  apply toMatrix_injective
+  simp [Matrix.mul_assoc]
+
 /-- Apply one shared row-operation certificate to a dense matrix. -/
 def applyRowOp {m n : Nat} {α : Type u} [Semiring α]
     (A : DenseMatrix m n α) (op : RowOp m α) : DenseMatrix m n α :=
@@ -120,5 +154,58 @@ theorem replace_inv {m n : Nat} {α : Type u} [Ring α]
   by_cases hi : i = tgt
   · simp [hi, h]
   · simp [hi]
+
+/-! ## Row equivalence -/
+
+/-- Row-equivalence via direct left multiplication by a unit square matrix. -/
+def RowEquivalent {m n : Nat} {R : Type u} [Field R]
+    (A B : DenseMatrix m n R) : Prop :=
+  ∃ U : (Matrix (Fin m) (Fin m) R)ˣ, B = leftMul (U : Matrix (Fin m) (Fin m) R) A
+
+theorem RowEquivalent.refl {m n : Nat} {R : Type u} [Field R]
+    (A : DenseMatrix m n R) : RowEquivalent A A := by
+  refine ⟨1, ?_⟩
+  simp
+
+theorem RowEquivalent.symm {m n : Nat} {R : Type u} [Field R]
+    {A B : DenseMatrix m n R} (h : RowEquivalent A B) : RowEquivalent B A := by
+  rcases h with ⟨U, rfl⟩
+  refine ⟨U⁻¹, ?_⟩
+  rw [← leftMul_mul]
+  simp
+
+theorem RowEquivalent.trans {m n : Nat} {R : Type u} [Field R]
+    {A B C : DenseMatrix m n R} (hAB : RowEquivalent A B) (hBC : RowEquivalent B C) :
+    RowEquivalent A C := by
+  rcases hAB with ⟨U, rfl⟩
+  rcases hBC with ⟨V, rfl⟩
+  refine ⟨V * U, ?_⟩
+  exact (leftMul_mul (V : Matrix (Fin m) (Fin m) R) U A).symm
+
+instance rowEquivalentSetoid {m n : Nat} {R : Type u} [Field R] :
+    Setoid (DenseMatrix m n R) where
+  r := RowEquivalent
+  iseqv := ⟨RowEquivalent.refl, RowEquivalent.symm, RowEquivalent.trans⟩
+
+/-- `B` is an echelon-form representative of `A`. -/
+def IsEchelonFormOf {m n : Nat} {R : Type u} [Field R]
+    (A B : DenseMatrix m n R) : Prop :=
+  RowEquivalent A B ∧ IsEchelonForm B
+
+/-- Extract row equivalence from a dense echelon-form representative. -/
+theorem IsEchelonFormOf.rowEquivalent {m n : Nat} {R : Type u} [Field R]
+    {A B : DenseMatrix m n R} (h : IsEchelonFormOf A B) : RowEquivalent A B :=
+  h.1
+
+/-- Extract echelon form from a dense echelon-form representative. -/
+theorem IsEchelonFormOf.echelon {m n : Nat} {R : Type u} [Field R]
+    {A B : DenseMatrix m n R} (h : IsEchelonFormOf A B) : IsEchelonForm B :=
+  h.2
+
+/-- Build a dense echelon-form representative from its two defining properties. -/
+theorem isEchelonFormOf_mk {m n : Nat} {R : Type u} [Field R]
+    {A B : DenseMatrix m n R} (hRow : RowEquivalent A B) (hEch : IsEchelonForm B) :
+    IsEchelonFormOf A B :=
+  ⟨hRow, hEch⟩
 
 end DenseMatrix
