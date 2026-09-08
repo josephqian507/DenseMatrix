@@ -1,76 +1,39 @@
+/-
+Copyright (c) 2026 Joseph Qian. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Joseph Qian, Junye Ji, Dhruv Bhatia
+-/
+
 import Mathlib.Data.Matrix.Basic
 import Mathlib.LinearAlgebra.Matrix.Swap
 import Mathlib.LinearAlgebra.Matrix.Transvection
 
 /-!
-# Dense matrix basics
+# DenseMatrix
 
-This file contains only the minimal Vector-backed representation for dense
+This file contains the Vector-backed representation for dense
 matrices and the bridge to mathlib's function-backed `Matrix` type.
 
-The dimensions are tracked by the storage type itself: a value of
-`DenseMatrix m n α` stores exactly `m * n` entries in one `Vector α (m * n)`.
-Entries are flattened in row-major order, so row `i`, column `j` lives at offset
-`i * n + j`.
+## Main definitions
+
+- `DenseMatrix` is the 1D array representation of matrices.
+- `DenseMatrix.equivMatrix` is a bijection between `DenseMatrix` and `Matrix`.
 -/
 
 universe u
 
-/--
-Row-major matrix with dimensions tracked in the type.
+/-! ## Row-major index -/
 
-The raw storage is the `data` field. Its `Vector` length is the representation
-invariant, so callers index by `Fin m` and `Fin n` rather than by unchecked
-natural-number offsets.
--/
-structure DenseMatrix (m n : Nat) (α : Type u) where
-  data : Vector α (m * n)
-deriving Repr
-
-namespace DenseMatrix
-
-/--
-Row-major offset for an entry of an `m` by `n` dense matrix.
-
-For row `i` and column `j`, all entries in earlier rows contribute `i.val * n`
-slots, and `j.val` selects the slot inside the current row. The companion
-theorem `rowMajorIndex_lt` proves that this offset is inside the storage
-interval `[0, m * n)`.
--/
+/-- Row-major offset for an entry of an `m × n` `DenseMatrix`. -/
 def rowMajorIndex {m n : Nat} (i : Fin m) (j : Fin n) : Nat :=
   i.val * n + j.val
 
-/--
-The row-major offset is always a valid index into the flat storage vector.
-
-The proof bounds `j` by the width `n`, rewrites the next row boundary as
-`(i.val + 1) * n`, then uses `i.isLt` to stay below `m * n`.
--/
-theorem rowMajorIndex_lt {m n : Nat} (i : Fin m) (j : Fin n) :
-    rowMajorIndex i j < m * n := by
-  unfold rowMajorIndex
-  calc
-    i.val * n + j.val < i.val * n + n := Nat.add_lt_add_left j.isLt (i.val * n)
-    _ = (i.val + 1) * n := by rw [Nat.succ_mul]
-    _ ≤ m * n := Nat.mul_le_mul_right n (Nat.succ_le_iff.mpr i.isLt)
-
-/--
-Flatten/unflatten arithmetic for row-major storage. Given a flat index
- `x < m * n`, division by `n` recovers the row and modulo `n` recovers the
-column. The modulo proof first rules out `n = 0`: otherwise `m * n = 0`,
-contradicting the existence of such an `x`.
-
-The quotient of a flat in-bounds index by the row width is a valid row
-index.
--/
+/-- The quotient of a flat in-bounds index `x` by the row width `n` is a valid row index. -/
 theorem index_div_lt {m n : Nat} {x : Nat} (h : x < m * n) : x / n < m := by
   rw [Nat.mul_comm] at h
   exact Nat.div_lt_of_lt_mul h
 
-/--
-The remainder of a flat in-bounds index by the row width is a valid column
-index.
--/
+/-- The remainder of a flat in-bounds index `x` by the row width `n` is a valid column index. -/
 theorem index_mod_lt {m n : Nat} {x : Nat} (h : x < m * n) : x % n < n := by
   have hn : n ≠ 0 := by
     intro hn
@@ -78,8 +41,19 @@ theorem index_mod_lt {m n : Nat} {x : Nat} (h : x < m * n) : x % n < n := by
     simp at h
   exact Nat.mod_lt x (Nat.pos_of_ne_zero hn)
 
-/-- Flattening the row and column recovered from a flat index returns that index. -/
-private theorem rowMajorIndex_unflatten {m n : Nat} (x : Fin (m * n)) :
+namespace RowMajorIndex
+
+/-- The row-major offset is always a valid index into the flat storage vector. -/
+theorem lt {m n : Nat} (i : Fin m) (j : Fin n) :
+    rowMajorIndex i j < m * n := by
+  unfold rowMajorIndex
+  calc
+    i.val * n + j.val < i.val * n + n := Nat.add_lt_add_left j.isLt (i.val * n)
+    _ = (i.val + 1) * n := by rw [Nat.succ_mul]
+    _ ≤ m * n := Nat.mul_le_mul_right n (Nat.succ_le_iff.mpr i.isLt)
+
+/-- Flattening the row and column recovered from a flat index `x` returns that index. -/
+theorem unflatten {m n : Nat} (x : Fin (m * n)) :
     rowMajorIndex
         (m := m) (n := n)
         ⟨x.val / n, index_div_lt x.isLt⟩
@@ -87,17 +61,7 @@ private theorem rowMajorIndex_unflatten {m n : Nat} (x : Fin (m * n)) :
   unfold rowMajorIndex
   rw [Nat.mul_comm (x.val / n) n, Nat.div_add_mod]
 
-namespace RowMajorIndex
-
-/--
-When a proof starts from typed indices `i : Fin m` and `j : Fin n`, the
-witness `j` proves `n > 0`: `0 <= j.val < n`. That positivity is what lets
-the division and modulo simplification lemmas recover `i.val` and `j.val`
-from the flattened row-major offset.
-
-Dividing a flattened typed row-major index by the row width recovers the
-row.
--/
+/-- Dividing a flattened typed row-major index by the row width `n` recovers the row. -/
 theorem div_eq_row {m n : Nat} (i : Fin m) (j : Fin n) :
     rowMajorIndex i j / n = i.val := by
   unfold rowMajorIndex
@@ -105,7 +69,7 @@ theorem div_eq_row {m n : Nat} (i : Fin m) (j : Fin n) :
   have hn : 0 < n := Nat.lt_of_le_of_lt (Nat.zero_le j.val) j.isLt
   rw [Nat.mul_add_div hn, Nat.div_eq_of_lt j.isLt, Nat.add_zero]
 
-/-- Taking a flattened typed row-major index modulo the row width recovers the column. -/
+/-- Taking a flattened typed row-major index modulo the row width `n` recovers the column. -/
 theorem mod_eq_col {m n : Nat} (i : Fin m) (j : Fin n) :
     rowMajorIndex i j % n = j.val := by
   unfold rowMajorIndex
@@ -127,114 +91,48 @@ theorem eq_iff {m n : Nat} {i₁ i₂ : Fin m} {j₁ j₂ : Fin n} :
 
 end RowMajorIndex
 
-/--
-Unchecked row-major fast-path read.
+/-! ## DenseMatrix basics -/
 
-The row and column are natural numbers, not typed `Fin` indices. This function
-does not prove that `i < m`, `j < n`, or `i * n + j < m * n`; callers are
-responsible for those bounds when they want matrix semantics. Prefer `get` when
-typed indices are available.
--/
+/-- Flattened array representation of matrix. -/
+structure DenseMatrix (m n : Nat) (α : Type u) where
+  data : Vector α (m * n)
+deriving Repr
+
+namespace DenseMatrix
+
+/-- Get an element of a `DenseMatrix` (without bounds checking). -/
 @[inline]
 def get! {m n : Nat} {α : Type u} [Inhabited α] (M : DenseMatrix m n α) (i j : Nat) : α :=
   M.data[i * n + j]!
 
 /--
-Unchecked row-major fast-path update.
+Set an element of a `DenseMatrix` (without bounds checking).
 
-The row and column are natural numbers, not typed `Fin` indices. This function
-computes the row-major offset `i * n + j` without carrying a bounds proof, so
-callers are responsible for ensuring the offset is inside the backing vector.
-Prefer `set` when typed indices are available.
+This will perform the update destructively provided that the `DenseMatrix` has a reference count of
+1.
 -/
 @[inline]
 def set! {m n : Nat} {α : Type u} [Inhabited α] (M : DenseMatrix m n α) (i j : Nat) (val : α)
     : DenseMatrix m n α where
   data := M.data.set! (i * n + j) val
 
-/--
-Read an entry using checked row-major indexing.
-
-The value-level index is computed by `rowMajorIndex`; the paired proof
-`rowMajorIndex_lt` turns that offset into a `Fin (m * n)`. Thus `get` has no
-unchecked fallback and no default value.
--/
+/-- Get an element of a `DenseMatrix`. -/
 @[inline]
 def get {m n : Nat} {α : Type u} (A : DenseMatrix m n α) (i : Fin m) (j : Fin n) : α :=
-  A.data.get ⟨rowMajorIndex i j, rowMajorIndex_lt i j⟩
+  A.data.get ⟨rowMajorIndex i j, RowMajorIndex.lt i j⟩
 
 /--
-Return a matrix with one entry updated.
+Set an element of a `DenseMatrix`.
 
-The update uses the same checked row-major offset as `get`; the `Vector` result
-keeps the same length by construction.
+This will perform the update destructively provided that the `DenseMatrix` has a reference count of
+1.
 -/
 @[inline]
 def set {m n : Nat} {α : Type u} (A : DenseMatrix m n α) (i : Fin m) (j : Fin n) (x : α) :
     DenseMatrix m n α where
-  data := A.data.set (rowMajorIndex i j) x (rowMajorIndex_lt i j)
+  data := A.data.set (rowMajorIndex i j) x (RowMajorIndex.lt i j)
 
--- ToString instance
-instance {m n : Nat} {α : Type u} [Inhabited α] [ToString α] : ToString (DenseMatrix m n α) where
-  toString A := Id.run do
-    let mut rows : Array String := #[]
-    for i in [0:m] do
-      let mut rowStr : Array String := #[]
-      for j in [0:n] do
-        -- Access the element using your existing `get!` function
-        let val := A.get! i j
-        rowStr := rowStr.push (toString val)
-      -- Format the current row, e.g., "[1, 2, 3]"
-      let rowFormatted := "![" ++ String.intercalate ", " rowStr.toList ++ "]"
-      rows := rows.push rowFormatted
-    -- Join all rows with a newline and a leading space for alignment
-    return "![" ++ String.intercalate ", " rows.toList ++ "]"
-
-/--
-Convert a dense matrix to mathlib's function-backed matrix type.
-
-`Matrix (Fin m) (Fin n) α` is represented extensionally as a function from row
-and column indices to entries. The conversion exposes each dense entry through
-`get`, preserving checked row-major access while hiding the underlying storage.
--/
-def toMatrix {m n : Nat} {α : Type u} (A : DenseMatrix m n α) :
-    Matrix (Fin m) (Fin n) α :=
-  Matrix.of fun i j => A.get i j
-
-/--
-Convert a function-backed matrix to row-major dense storage.
-
-`Vector.ofFn` enumerates every `x : Fin (m * n)` exactly once. Each flat index
-is unflattened as `(x / n, x % n)`, then the helper lemmas supply the `Fin m`
-and `Fin n` bounds.
-
-Note: `ofMatrix` is computationally expensive due to division, use sparingly.
--/
-def ofMatrix {m n : Nat} {α : Type u} (M : Matrix (Fin m) (Fin n) α) :
-    DenseMatrix m n α where
-  data := Vector.ofFn fun x : Fin (m * n) =>
-    M ⟨x.val / n, index_div_lt x.isLt⟩ ⟨x.val % n, index_mod_lt x.isLt⟩
-
--- Reading a dense matrix built from a function-backed matrix returns the source
--- entry.
-theorem get_ofMatrix {m n : Nat} {α : Type u}
-    (M : Matrix (Fin m) (Fin n) α) (i : Fin m) (j : Fin n) :
-    get (ofMatrix M) i j = M i j := by
-  simp only [ofMatrix, get, Vector.get, Vector.toArray_ofFn, Array.getElem_ofFn]
-  apply congrArg₂ M
-  · apply Fin.ext
-    change rowMajorIndex i j / n = i.val
-    exact RowMajorIndex.div_eq_row i j
-  · apply Fin.ext
-    change rowMajorIndex i j % n = j.val
-    exact RowMajorIndex.mod_eq_col i j
-
-theorem get_toMatrix {m n : Nat} {α : Type u} (A : DenseMatrix m n α) (i : Fin m) (j : Fin n)
-    : (toMatrix A) i j = get A i j := by
-  rfl
-
--- Reading storage through the unflattened row and column returns the same flat
--- slot.
+/-- Reading storage through the unflattened row and column returns the same flat slot. -/
 private theorem get_unflatten {m n : Nat} {α : Type u}
     (data : Vector α (m * n)) (x : Fin (m * n)) :
     get { data := data }
@@ -244,14 +142,14 @@ private theorem get_unflatten {m n : Nat} {α : Type u}
       (⟨rowMajorIndex
           ⟨x.val / n, index_div_lt x.isLt⟩
           ⟨x.val % n, index_mod_lt x.isLt⟩,
-        rowMajorIndex_lt
+        RowMajorIndex.lt
           ⟨x.val / n, index_div_lt x.isLt⟩
           ⟨x.val % n, index_mod_lt x.isLt⟩⟩ : Fin (m * n)) = x := by
     apply Fin.ext
-    exact rowMajorIndex_unflatten x
+    exact RowMajorIndex.unflatten x
   simp [get, hflat]
 
-/-- Two DenseMatrices are equal iff their underlying Vectors are equal at every single index. -/
+/-- Two `DenseMatrices` are equal iff their underlying `Vectors` are equal at every single index. -/
 @[ext]
 theorem ext {m n : Nat} {α : Type u} : ∀ {M N : DenseMatrix m n α}
     (_ : ∀ i : Fin m, ∀ j : Fin n, DenseMatrix.get M i j = DenseMatrix.get N i j), M = N
@@ -264,26 +162,68 @@ theorem ext {m n : Nat} {α : Type u} : ∀ {M N : DenseMatrix m n α}
     rw [←get_unflatten, ←get_unflatten]
     exact h ⟨x / n, index_div_lt hx⟩ ⟨x % n, index_mod_lt hx⟩
 
-/--
-Round trip from `Matrix` to `DenseMatrix` and back.
+/-- ToString instance -/
+instance {m n : Nat} {α : Type u} [Inhabited α] [ToString α] : ToString (DenseMatrix m n α) where
+  toString A := Id.run do
+    let mut rows : Array String := #[]
+    for i in [0:m] do
+      let mut rowStr : Array String := #[]
+      for j in [0:n] do
+        let val := A.get! i j
+        rowStr := rowStr.push (toString val)
+      let rowFormatted := "![" ++ String.intercalate ", " rowStr.toList ++ "]"
+      rows := rows.push rowFormatted
+    return "![" ++ String.intercalate ", " rows.toList ++ "]"
 
-The proof is extensional in the row and column indices. After unfolding the two
-conversions, the division and modulo helper lemmas show that reading the
-row-major slot created for `(i, j)` returns exactly `M i j`.
+/-! ## Equivalence of DenseMatrix and Matrix -/
+
+/-- Convert a `DenseMatrix` to mathlib `Matrix`. -/
+def toMatrix {m n : Nat} {α : Type u} (A : DenseMatrix m n α) :
+    Matrix (Fin m) (Fin n) α :=
+  Matrix.of fun i j => A.get i j
+
+/--
+Convert a mathlib `Matrix` to `DenseMatrix`.
+
+Note: `ofMatrix` is computationally expensive due to division. Use only when necessary.
 -/
+def ofMatrix {m n : Nat} {α : Type u} (M : Matrix (Fin m) (Fin n) α) :
+    DenseMatrix m n α where
+  data := Vector.ofFn fun x : Fin (m * n) =>
+    M ⟨x.val / n, index_div_lt x.isLt⟩ ⟨x.val % n, index_mod_lt x.isLt⟩
+
+/--
+Reading a `DenseMatrix` built from a mathlib `Matrix` returns the same value as directly reading
+the source `Matrix`.
+-/
+theorem get_ofMatrix {m n : Nat} {α : Type u}
+    (M : Matrix (Fin m) (Fin n) α) (i : Fin m) (j : Fin n) :
+    get (ofMatrix M) i j = M i j := by
+  simp only [ofMatrix, get, Vector.get, Vector.toArray_ofFn, Array.getElem_ofFn]
+  apply congrArg₂ M
+  · apply Fin.ext
+    change rowMajorIndex i j / n = i.val
+    exact RowMajorIndex.div_eq_row i j
+  · apply Fin.ext
+    change rowMajorIndex i j % n = j.val
+    exact RowMajorIndex.mod_eq_col i j
+
+/--
+Reading a `Matrix` built from a `DenseMatrix` returns the same value as directly reading the source
+`DenseMatrix`.
+-/
+theorem get_toMatrix {m n : Nat} {α : Type u} (A : DenseMatrix m n α) (i : Fin m) (j : Fin n)
+    : (toMatrix A) i j = get A i j := by
+  rfl
+
+/-- Converting a `Matrix` to a `DenseMatrix` and back returns the source `Matrix`. -/
 @[simp]
 theorem toMatrix_ofMatrix {m n : Nat} {α : Type u} (M : Matrix (Fin m) (Fin n) α) :
     toMatrix (ofMatrix M) = M := by
   ext i j
   exact get_ofMatrix M i j
 
-/--
-Round trip from `DenseMatrix` to `Matrix` and back.
-
-After destructing the dense matrix, it is enough to prove equality of the
-backing vectors pointwise. The `get_unflatten` helper identifies each recreated
-slot with the original flat slot.
--/
+/-- Converting a `DenseMatrix` to a `Matrix` and back returns the source `DenseMatrix`. -/
 @[simp]
 theorem ofMatrix_toMatrix {m n : Nat} {α : Type u} (A : DenseMatrix m n α) :
     ofMatrix (toMatrix A) = A := by
@@ -294,14 +234,26 @@ theorem ofMatrix_toMatrix {m n : Nat} {α : Type u} (A : DenseMatrix m n α) :
     intro x hx
     simp [ofMatrix, toMatrix, get_unflatten, Vector.get]
 
+/--
+There is a bijection between the set of `m × n` `DenseMatrices` and the set of `m × n`
+`Matrices`.
+-/
+protected def equivMatrix {m n : Nat} {α : Type u} :
+    DenseMatrix m n α ≃ Matrix (Fin m) (Fin n) α :=
+  { toFun := toMatrix,
+    invFun := ofMatrix,
+    left_inv := ofMatrix_toMatrix,
+    right_inv := toMatrix_ofMatrix }
+
+/-- Two `DenseMatrices` are equal iff they are still equal when converted to `Matrices`. -/
 lemma toMatrix_inj {m n : Nat} {α : Type u} {A B : DenseMatrix m n α} :
     toMatrix A = toMatrix B ↔ A = B := by
   constructor
-  · intro h
-    rw [← ofMatrix_toMatrix A, h, ofMatrix_toMatrix B]
+  · apply DenseMatrix.equivMatrix.injective
   · intro h
     rw [h]
 
+/-- Two `Matrices` are equal iff they are still equal when converted to `DenseMatrices`. -/
 lemma ofMatrix_inj {m n : Nat} {α : Type u} {A B : Matrix (Fin m) (Fin n) α} :
     ofMatrix A = ofMatrix B ↔ A = B := by
   constructor
@@ -310,63 +262,37 @@ lemma ofMatrix_inj {m n : Nat} {α : Type u} {A B : Matrix (Fin m) (Fin n) α} :
   · intro h
     rw [h]
 
-/-- Define a `DenseMatrix` using a function.
-
-Note: `DenseMatrix.of f` is equivalent to `DenseMatrix.ofMatrix (Matrix.of f)`.
--/
+/-- Define a `DenseMatrix` using a function. -/
 def of {m n : Nat} {α : Type u} (f : Fin m → Fin n → α) : DenseMatrix m n α :=
   .ofMatrix (Matrix.of f)
 
+/--
+Reading a `DenseMatrix` built from a function returns the same value as querying the
+function.
+-/
 @[simp]
-theorem of_apply {m n : Nat} {α : Type u} (f : Fin m → Fin n → α) (i j)
-    : (of f).get i j = f i j := by
+theorem of_apply {m n : Nat} {α : Type u} (f : Fin m → Fin n → α) (i j) :
+    (of f).get i j = f i j := by
   exact get_ofMatrix (Matrix.of f) i j
 
-/-- Constructs an m by n zero matrix. -/
+/-! ## DenseMatrix literals. -/
+
+/-- Constructs an `m × n` zero matrix. -/
 def zero {m n : Nat} {α : Type u} [Zero α] : DenseMatrix m n α :=
   of fun _ _ => 0
 
-/-- Registers the `0` literal for DenseMatrix. -/
 instance {m n : Nat} {α : Type u} [Zero α] : Zero (DenseMatrix m n α) where
   zero := zero
 
-theorem zero_ofMatrix {m n : Nat} {α : Type u} [Zero α] :
-    ofMatrix (0 : Matrix (Fin m) (Fin n) α) = 0 := by
-  ext i j
-  change (ofMatrix 0).get i j = zero.get i j
-  rw [zero, get_ofMatrix, of_apply]
-  rfl
-
-theorem zero_toMatrix {m n : Nat} {α : Type u} [Zero α] :
-    toMatrix (0 : DenseMatrix m n α) = 0 := by
-  ext i j
-  change (toMatrix zero) i j = (0 : Matrix (Fin m) (Fin n) α) i j
-  rw [zero, get_toMatrix, of_apply]
-  rfl
-
-/-- Constructs an n by n identity matrix. -/
+/-- Constructs an `n × n` identity matrix. -/
 def identity {n : Nat} {α : Type u} [Zero α] [One α] :
     DenseMatrix n n α :=
   of fun i j => if i = j then 1 else 0
 
-/-- Registers the `1` literal for square DenseMatrices. -/
 instance {n : Nat} {α : Type u} [Zero α] [One α] : One (DenseMatrix n n α) where
   one := identity
 
-theorem one_ofMatrix {n : Nat} {α : Type u} [Zero α] [One α] :
-    ofMatrix (1 : Matrix (Fin n) (Fin n) α) = 1 := by
-  ext i j
-  change (ofMatrix 1).get i j = identity.get i j
-  rw [identity, get_ofMatrix, of_apply]
-  rfl
-
-theorem one_toMatrix {n : Nat} {α : Type u} [Zero α] [One α] :
-    toMatrix (1 : DenseMatrix n n α) = 1 := by
-  ext i j
-  change (toMatrix identity) i j = (1 : Matrix (Fin n) (Fin n) α) i j
-  rw [identity, get_toMatrix, of_apply]
-  rfl
-
+/-- Negates a `DenseMatrix`. -/
 def neg {m n : Nat} {α : Type u} [Neg α] :
     DenseMatrix m n α → DenseMatrix m n α :=
   fun A => of (fun i j => -A.get i j)
@@ -374,6 +300,45 @@ def neg {m n : Nat} {α : Type u} [Neg α] :
 instance {m n : Nat} {α : Type u} [Neg α] : Neg (DenseMatrix m n α) where
   neg := neg
 
+/-- `DenseMatrix` 0 is equivalent to `Matrix` 0. -/
+theorem zero_ofMatrix {m n : Nat} {α : Type u} [Zero α] :
+    ofMatrix (0 : Matrix (Fin m) (Fin n) α) = 0 := by
+  ext i j
+  change (ofMatrix 0).get i j = zero.get i j
+  rw [zero, get_ofMatrix, of_apply]
+  rfl
+
+/-- ``Matrix` 0 is equivalent to `DenseMatrix` 0. -/
+theorem zero_toMatrix {m n : Nat} {α : Type u} [Zero α] :
+    toMatrix (0 : DenseMatrix m n α) = 0 := by
+  ext i j
+  change (toMatrix zero) i j = (0 : Matrix (Fin m) (Fin n) α) i j
+  rw [zero, get_toMatrix, of_apply]
+  rfl
+
+@[simp]
+theorem get_identity {n : Nat} {α : Type u} [Zero α] [One α] [DecidableEq (Fin n)]
+    (i j : Fin n) :
+    (identity : DenseMatrix n n α).get i j = if i = j then 1 else 0 := by
+  simp [identity]
+
+/-- `DenseMatrix` 1 is equivalent to `Matrix` 1. -/
+theorem one_ofMatrix {n : Nat} {α : Type u} [Zero α] [One α] :
+    ofMatrix (1 : Matrix (Fin n) (Fin n) α) = 1 := by
+  ext i j
+  change (ofMatrix 1).get i j = identity.get i j
+  rw [identity, get_ofMatrix, of_apply]
+  rfl
+
+/-- ``Matrix` 1 is equivalent to `DenseMatrix` 1. -/
+theorem one_toMatrix {n : Nat} {α : Type u} [Zero α] [One α] :
+    toMatrix (1 : DenseMatrix n n α) = 1 := by
+  ext i j
+  change (toMatrix identity) i j = (1 : Matrix (Fin n) (Fin n) α) i j
+  rw [identity, get_toMatrix, of_apply]
+  rfl
+
+/-- `DenseMatrix` negation and `ofMatrix` commute. -/
 theorem neg_ofMatrix {m n : Nat} {α : Type u} [Neg α] (M : Matrix (Fin m) (Fin n) α) :
     ofMatrix (-M) = -(ofMatrix M) := by
   ext i j
@@ -381,17 +346,22 @@ theorem neg_ofMatrix {m n : Nat} {α : Type u} [Neg α] (M : Matrix (Fin m) (Fin
   rw [get_ofMatrix, of_apply, get_ofMatrix]
   rfl
 
+/-- `DenseMatrix` negation and `toMatrix` commute. -/
 theorem neg_toMatrix {m n : Nat} {α : Type u} [Neg α] (M : DenseMatrix m n α) :
     toMatrix (-M) = -(toMatrix M) := by
   ext i j
   change (toMatrix (of (fun k l => -M.get k l))) i j = -(toMatrix M) i j
   rw [get_toMatrix, of_apply, get_toMatrix]
 
+/-! ## Matrix operations -/
+
+/-- Add two `DenseMatrices. -/
 def add {m n : Nat} {α : Type u} [Add α] (A B : DenseMatrix m n α) : DenseMatrix m n α where
   data := A.data.zipWith (· + ·) B.data
 
 instance {m n : Nat} {α : Type u} [Add α] : Add (DenseMatrix m n α) := ⟨add⟩
 
+/-- `DenseMatrix` addition commutes with `ofMatrix`. -/
 theorem add_ofMatrix {m n : Nat} {α : Type u} [Add α] (A B : Matrix (Fin m) (Fin n) α)
     : (ofMatrix A) + (ofMatrix B) = ofMatrix (A + B) := by
   change add (ofMatrix A) (ofMatrix B) = ofMatrix (A + B)
@@ -400,6 +370,7 @@ theorem add_ofMatrix {m n : Nat} {α : Type u} [Add α] (A B : Matrix (Fin m) (F
   intro x hx
   simp [ofMatrix]
 
+/-- `DenseMatrix` addition commutes with `toMatrix`. -/
 theorem add_toMatrix {m n : Nat} {α : Type u} [Add α] (A B : DenseMatrix m n α)
     : toMatrix (A + B) = (toMatrix A) + (toMatrix B) := by
   change toMatrix (add A B) = (toMatrix A) + (toMatrix B)
@@ -410,19 +381,10 @@ theorem add_toMatrix {m n : Nat} {α : Type u} [Add α] (A B : DenseMatrix m n �
   rw [ofMatrix_toMatrix, toMatrix_ofMatrix, toMatrix_ofMatrix]
   exact add_ofMatrix M N
 
--- Benchmarked by `lake exe densematrix_bench --profile smoke --jsonl` against mathlib Matrix.smul.
+/-- Multiplies a `DenseMatrix` by a scalar. -/
 def smul {m n : Nat} {α : Type u} [Mul α] (c : α) (M : DenseMatrix m n α) : DenseMatrix m n α where
   data := M.data.map (fun x => c * x)
 
--- Benchmarked by `lake exe densematrix_bench --profile smoke --jsonl` against `sum_dot`.
-/--
-Given indices `i` and `j`, returns the dot product of the i-th row of `A` and the j-th column
-of `B `.
-
-dotProduct is used to simplify the recursive function used for mul.
-
-Note: dot products are defined for function-backed vector representation in Mathlib.Data.Matrix.Mul.
--/
 private def dotProduct_helper {m k n : Nat} {α : Type u} [Zero α] [Add α] [Mul α]
     (sum : α) (i : Fin m) (j : Fin n) (l : Fin k)
     (M : DenseMatrix m k α) (N : DenseMatrix k n α) : α :=
@@ -431,11 +393,17 @@ private def dotProduct_helper {m k n : Nat} {α : Type u} [Zero α] [Add α] [Mu
   else
     sum + (M.get i l * N.get l j)
 
+/--
+Given indices `i` and `j`, returns the dot product of the i-th row of `A` and the j-th column
+of `B `.
+
+dotProduct is used to simplify the recursive function used for mul.
+-/
 def dotProduct {m k n : Nat} {α : Type u} [Zero α] [Add α] [Mul α] [NeZero k]
     (i : Fin m) (j : Fin n) (M : DenseMatrix m k α) (N : DenseMatrix k n α) : α :=
   dotProduct_helper 0 i j ⟨0, Nat.pos_of_neZero k⟩ M N
 
-/-- If `i * n + j = out.size` and `j + 1 = n` then `(i + 1) * n = (out.push entry).size`. -/
+/-- The `Array α` has size `(i + 1) * n` after computing the `i + 1`th row of `A * B`. -/
 private lemma row_size_invariant {α : Type u} (out : Array α) (i j n : Nat)
     (h_size : out.size = i * n + j) (hj : j + 1 = n) (entry : α)
     : (out.push entry).size = (i + 1) * n := by
@@ -451,7 +419,10 @@ private lemma mul_helper_size_invariant {m n : Nat} {α : Type u} (out : Array �
   nth_rewrite 2 [←one_mul n]
   rw [←right_distrib, hi]
 
-/-- Computes entry ij of `A * B` and appends it to the resulting matrix. -/
+/--
+Computes the entry in the `i`th row and `j`th column of `A * B` and appends it to the resulting
+matrix.
+-/
 private def mul_helper {m k n : Nat} {α : Type u} [Zero α] [Add α] [Mul α]
     [NeZero m] [NeZero k] [NeZero n]
     (out : Array α) (i j : Nat) (A : DenseMatrix m k α) (B : DenseMatrix k n α)
@@ -470,13 +441,7 @@ private def mul_helper {m k n : Nat} {α : Type u} [Zero α] [Add α] [Mul α]
     let hj' : j + 1 = n := by apply le_antisymm hj (by push Not at h₁; exact h₁)
     ⟨out.push entry, mul_helper_size_invariant out i j h_size hi' hj' entry⟩
 
-/--
-Optimized dense matrix multiplication for nonempty dimensions.
-
-This path builds the output storage sequentially and computes each dot product
-with checked dense reads. It requires `[NeZero m] [NeZero k] [NeZero n]` so the
-recursive helper can start at row, column, and dot-product index `0`.
--/
+/-- Multiply two `DenseMatrices`. -/
 def mul {m k n : Nat} {α : Type u} [Inhabited α] [Zero α] [Add α] [Mul α]
     [NeZero m] [NeZero k] [NeZero n]
     (A : DenseMatrix m k α) (B : DenseMatrix k n α) : DenseMatrix m n α where
@@ -487,13 +452,11 @@ instance {m k n : Nat} {α : Type u} [Inhabited α] [Zero α] [Add α] [Mul α]
   : HMul (DenseMatrix m k α) (DenseMatrix k n α) (DenseMatrix m n α) where
   hMul A B := mul A B
 
-/- --- Step 1: Characterize the `dot` accumulator loop --- -/
 private theorem dot_eq_sum_plus {m k n : Nat} {α : Type u} [Semiring α]
     (sum : α) (i : Fin m) (j : Fin n) (l : Fin k)
     (A : DenseMatrix m k α) (B : DenseMatrix k n α) :
     dotProduct_helper sum i j l A B = sum + ∑ x : Fin k,
     if x ≥ l then A.get i x * B.get x j else 0 := by
-  -- We prove this by well-founded induction on the remaining distance `k - l.val`
   induction h_step : k - l.val generalizing l sum with
   | zero =>
     omega
@@ -508,9 +471,7 @@ private theorem dot_eq_sum_plus {m k n : Nat} {α : Type u} [Semiring α]
       have h_split : (∑ x : Fin k, if x ≥ l then A.get i x * B.get x j else 0) =
           (if l ≥ l then A.get i l * B.get l j else 0) +
           (∑ x : Fin k, if x ≥ ⟨l.val + 1, h₁⟩ then A.get i x * B.get x j else 0) := by
-        -- 1. Extract `l` from the LHS sum
         rw [← Finset.add_sum_erase _ _ (Finset.mem_univ l)]
-        -- 2. Extract `l` from the RHS sum
         have h_rhs_split : (∑ x : Fin k, if x ≥ ⟨l.val + 1, h₁⟩ then A.get i x * B.get x j else 0) =
             (if l ≥ ⟨l.val + 1, h₁⟩ then A.get i l * B.get l j else 0) +
             ∑ x ∈ Finset.univ.erase l, if x ≥ ⟨l.val + 1, h₁⟩ then A.get i x * B.get x j else 0 :=
@@ -560,7 +521,7 @@ private theorem dot_eq_sum_plus {m k n : Nat} {α : Type u} [Semiring α]
       · intro h_abs
         exact False.elim (h_abs (Finset.mem_univ l))
 
-/-- Core specification lemma for `dot` starting at 0 -/
+/-- Rewrite `dotProduct` as a summation. -/
 private theorem dot_zero_eq_matrix_mul {m k n : Nat} {α : Type u} [Semiring α] [NeZero k]
     (i : Fin m) (j : Fin n) (A : DenseMatrix m k α) (B : DenseMatrix k n α) :
     dotProduct i j A B = ∑ l : Fin k, A.get i l * B.get l j := by
@@ -568,7 +529,7 @@ private theorem dot_zero_eq_matrix_mul {m k n : Nat} {α : Type u} [Semiring α]
   rw [dot_eq_sum_plus 0 i j ⟨0, _⟩ A B, zero_add]
   congr 1
 
-/- --- Step 2: Characterize the flat array building loop --- -/
+/-- Characterize the flat array building loop. -/
 private theorem mul_helper_spec {m k n : Nat} {α : Type u} [Semiring α] [Inhabited α]
     [NeZero m] [NeZero k] [NeZero n]
     (out : Array α) (i j : Nat) (A : DenseMatrix m k α) (B : DenseMatrix k n α)
@@ -588,7 +549,6 @@ private theorem mul_helper_spec {m k n : Nat} {α : Type u} [Semiring α] [Inhab
   simp only [h_entry]
   split
   · rename_i h₁
-    -- Case 1: Next column in the same row (j + 1 < n)
     have h_size' : (out.push
       (∑ l : Fin k, A.get ⟨i, by exact hi⟩ l * B.get l ⟨j, by exact hj⟩)).size
       = i * n + (j + 1) := by
@@ -609,7 +569,6 @@ private theorem mul_helper_spec {m k n : Nat} {α : Type u} [Semiring α] [Inhab
   · rename_i h_not_₁
     split
     · rename_i h₂
-      -- Case 2: Row overflow, wrap to next row (¬(j + 1 < n) ∧ i + 1 < m)
       have hj' : j + 1 = n := by omega
       have h_size' := row_size_invariant out i j n h_size hj'
         (∑ l : Fin k, A.get ⟨i, by exact hi⟩ l * B.get l ⟨j, by exact hj⟩)
@@ -627,7 +586,6 @@ private theorem mul_helper_spec {m k n : Nat} {α : Type u} [Semiring α] [Inhab
         have h_mod : out.size % n = j := by rw [h_out', RowMajorIndex.mod_eq_col]
         simp [h_div, h_mod]
     · rename_i h_not_₂
-      -- Case 3: Base Case (End of Matrix)
       have hi' : i + 1 = m := by omega
       have hj' : j + 1 = n := by omega
       apply Vector.ext
@@ -651,6 +609,7 @@ private theorem mul_helper_spec {m k n : Nat} {α : Type u} [Semiring α] [Inhab
         have h_mod : x % n = j := by rw [h_eq_size, h_out', RowMajorIndex.mod_eq_col]
         simp [←h_eq_size, h_div, h_mod]
 
+/-- `DenseMatrix` multiplication commutes with `ofMatrix`. -/
 theorem mul_ofMatrix {m k n : Nat} {α : Type u} [Semiring α] [Inhabited α]
     [NeZero m] [NeZero k] [NeZero n] (A : Matrix (Fin m) (Fin k) α) (B : Matrix (Fin k) (Fin n) α) :
     -- mul (ofMatrix A) (ofMatrix B) = ofMatrix (A * B : Matrix (Fin m) (Fin n) α) := by
@@ -665,6 +624,7 @@ theorem mul_ofMatrix {m k n : Nat} {α : Type u} [Semiring α] [Inhabited α]
   nth_rewrite 3 [ofMatrix]
   simp only [Vector.getElem_ofFn, Matrix.mul_apply, get_ofMatrix]
 
+/-- `DenseMatrix` multiplication commutes with `toMatrix`. -/
 theorem mul_toMatrix {m k n : Nat} {α : Type u} [Semiring α] [Inhabited α]
     [NeZero m] [NeZero k] [NeZero n] (A : DenseMatrix m k α) (B : DenseMatrix k n α) :
     toMatrix (A * B) = (toMatrix A) * (toMatrix B) := by
@@ -676,6 +636,7 @@ theorem mul_toMatrix {m k n : Nat} {α : Type u} [Semiring α] [Inhabited α]
   rw [ofMatrix_toMatrix, toMatrix_ofMatrix, toMatrix_ofMatrix]
   exact mul_ofMatrix M N
 
+/-- Semiring instance for `DenseMatrix`, when the type of matrix elements is a Semiring. -/
 instance {n : Nat} {α : Type u} [Semiring α] [Inhabited α] [NeZero n] :
     Semiring (DenseMatrix n n α) where
   add := (· + ·)
@@ -728,6 +689,7 @@ instance {n : Nat} {α : Type u} [Semiring α] [Inhabited α] [NeZero n] :
     rw [mul_toMatrix, add_toMatrix, add_toMatrix, mul_toMatrix, mul_toMatrix]
     exact add_mul (toMatrix A) (toMatrix B) (toMatrix C)
 
+/-- Ring instance for `DenseMatrix`, when the type of matrix elements is a Ring. -/
 instance {n : Nat} {α : Type u} [Ring α] [Inhabited α] [NeZero n] :
     Ring (DenseMatrix n n α) where
   add := (· + ·)
@@ -860,7 +822,10 @@ private lemma transpose_helper_size_invariant {m n : Nat} {α : Type u} (out : A
   nth_rewrite 2 [←one_mul m]
   rw [←right_distrib, hj]
 
-/-- Computes entry `ij` of M.T and appends it to the resulting matrix. -/
+/--
+Computes the entry in the `i`th row and `j`th column of `M.transpose` and appends it to the
+resulting matrix.
+-/
 private def transpose_helper {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
     (out : Array α) (i j : Nat) (M : DenseMatrix m n α)
     (h_size : out.size = j * m + i) (hi : m ≥ i + 1) (hj : n ≥ j + 1)
@@ -877,6 +842,12 @@ private def transpose_helper {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
     let hi' : i + 1 = m := by apply le_antisymm hi (by push Not at h₁; exact h₁)
     let hj' : j + 1 = n := by apply le_antisymm hj (by push Not at h₂; exact h₂)
     ⟨out.push entry, transpose_helper_size_invariant out i j h_size hi' hj' entry⟩
+
+/-- Transposes a `DenseMatrix`. -/
+def transpose {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
+    (M : DenseMatrix m n α) : DenseMatrix n m α :=
+  { data := transpose_helper (Array.mkEmpty (n * m)) 0 0 M (by simp) NeZero.one_le NeZero.one_le }
+
 
 /-
 Flat transpose entries decode an output slot as a source column and row. The
@@ -902,7 +873,7 @@ private theorem transpose_current_index_lt {m n : Nat} {α : Type u}
   have hj_lt : j < n := Nat.lt_of_succ_le hj
   rw [h_size]
   simpa [rowMajorIndex] using
-    rowMajorIndex_lt (m := n) (n := m) ⟨j, hj_lt⟩ ⟨i, hi_lt⟩
+    RowMajorIndex.lt (m := n) (n := m) ⟨j, hj_lt⟩ ⟨i, hi_lt⟩
 
 private theorem transpose_current_entry_eq_flat {m n : Nat} {α : Type u}
     (out : Array α) (i j : Nat) (M : DenseMatrix m n α)
@@ -968,16 +939,15 @@ private theorem transpose_helper_get_flat {m n : Nat} {α : Type u} [NeZero m] [
         exact x.isLt
       simpa [Vector.get] using h_push x.val hx x.isLt
 
-/-- Dense transpose built by writing the transposed row-major storage directly. -/
-def transpose {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
-    (M : DenseMatrix m n α) : DenseMatrix n m α :=
-  { data := transpose_helper (Array.mkEmpty (n * m)) 0 0 M (by simp) NeZero.one_le NeZero.one_le }
-
+/--
+The `ij`th entry of the transpose of a `DenseMatrix` is the `ji`th entry of the source
+`DenseMatrix`.
+-/
 @[simp]
 theorem get_transpose {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
     (M : DenseMatrix m n α) (i : Fin n) (j : Fin m) :
     get (transpose M) i j = M.get j i := by
-  let x : Fin (n * m) := ⟨rowMajorIndex i j, rowMajorIndex_lt i j⟩
+  let x : Fin (n * m) := ⟨rowMajorIndex i j, RowMajorIndex.lt i j⟩
   have h_prefix : arrayMatchesTransposePrefix (Array.mkEmpty (n * m)) M := by
     intro y hy
     simp at hy
@@ -992,12 +962,14 @@ theorem get_transpose {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
     simpa [x] using RowMajorIndex.mod_eq_col (m := n) (n := m) i j
   simpa [transpose, get, x, transposeFlatEntry, hdiv, hmod, get_toMatrix] using h_get
 
+/-- `DenseMatrix` transposition commutes with `ofMatrix`. -/
 theorem transpose_ofMatrix {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
     (M : Matrix (Fin m) (Fin n) α) :
     ofMatrix M.transpose = transpose (ofMatrix M) := by
   ext i j
   simp [get_ofMatrix]
 
+/-- `DenseMatrix` transposition commutes with `toMatrix`. -/
 theorem transpose_toMatrix {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
     (M : DenseMatrix m n α) :
     toMatrix (transpose M) = M.toMatrix.transpose := by

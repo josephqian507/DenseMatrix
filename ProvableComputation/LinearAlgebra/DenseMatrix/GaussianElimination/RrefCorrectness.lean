@@ -1,6 +1,12 @@
-import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Defs
-import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Elementary
+/-
+Copyright (c) 2026 Joseph Qian. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Joseph Qian, Junye Ji, Dhruv Bhatia
+-/
+
+import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Basic
 import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Pivot
+import ProvableComputation.LinearAlgebra.Matrix.Echelon
 
 /-!
 # Gaussian Elimination Correctness
@@ -53,7 +59,7 @@ lemma mul_by_inv [Inhabited α] [NeZero m] [NeZero n]
   · intro h
     rw [DenseMatrix.mul_assoc, h, DenseMatrix.mul_zero]
 
-/- Applying each row operation does not change the matrix's solution set -/
+/- Swapping two rows of a `DenseMatrix` does not change the matrix's solution set. -/
 lemma swap_proof {x : DenseMatrix n 1 α} [Inhabited α] [NeZero m] [NeZero n]
     (M : DenseMatrix m n α) (r₁ r₂ : Fin m)
     : (swapRow M r₁ r₂) * x = 0 ↔ M * x = 0 := by
@@ -67,6 +73,7 @@ lemma swap_proof {x : DenseMatrix n 1 α} [Inhabited α] [NeZero m] [NeZero n]
   simp only [ofMatrix_toMatrix]
   exact mul_by_inv A_inv _ hA M x
 
+/-- Scaling a row of a `DenseMatrix` does not change the matrix's solution set. -/
 lemma scale_proof {x : DenseMatrix n 1 α} [Inhabited α] [NeZero m] [NeZero n]
     (M : DenseMatrix m n α) (r : Fin m) (c : α)
     (hc : c ≠ 0)
@@ -102,6 +109,10 @@ lemma scale_proof {x : DenseMatrix n 1 α} [Inhabited α] [NeZero m] [NeZero n]
   simp only [ofMatrix_toMatrix]
   exact mul_by_inv _ A_inv hA M x
 
+/--
+Adding a multiple of one row to another row of a `DenseMatrix` does not change the matrix's
+solution set.
+-/
 lemma replace_proof {x : DenseMatrix n 1 α} [Inhabited α] [NeZero m] [NeZero n]
     (M : DenseMatrix m n α)
     (use toReplace : Fin m) (k : α) (h : use ≠ toReplace)
@@ -128,6 +139,7 @@ private lemma eliminateColLoopAux_eq
       eliminateColLoop pivotRow pivotCol r M steps := by
   simp [eliminateColLoop, hpivot]
 
+/-- Running `eliminateColLoop` preserves the solution set of the matrix. -/
 theorem eliminate_proof_helper [Inhabited α] [NeZero m] [NeZero n]
     (r : Fin m) (c : Fin n) (row : Nat) (M : DenseMatrix m n α)
     (x : DenseMatrix n 1 α) (steps : List (RowOp m α)) (reduced : Bool)
@@ -167,11 +179,12 @@ theorem eliminate_proof_helper [Inhabited α] [NeZero m] [NeZero n]
       exact huse
   · rfl
 
+/-- Running `eliminateCol` preserves the solution set of the matrix. -/
 theorem eliminate_proof {x : DenseMatrix n 1 α} [Inhabited α] [NeZero m] [NeZero n]
     (M : DenseMatrix m n α)
     (r : Fin m) (c : Fin n) (steps : List (RowOp m α)) (reduced : Bool)
-    : (eliminateColCore M r c steps reduced).1 * x = 0 ↔ M * x = 0 := by
-  rw [eliminateColCore]
+    : (eliminateCol M r c steps reduced).1 * x = 0 ↔ M * x = 0 := by
+  rw [eliminateCol]
   split
   · exact eliminate_proof_helper r c 0 M x steps reduced
   · exact eliminate_proof_helper r c (↑r) M x steps reduced
@@ -213,19 +226,18 @@ theorem rref_proof_helper [Inhabited α] [NeZero m] [NeZero n]
 
 theorem ref_proof [Inhabited α] [NeZero m] [NeZero n]
     (M : DenseMatrix m n α) (x : DenseMatrix n 1 α) :
-    (rawRowEchelonForm M).1 * x = 0 ↔ M * x = 0 := by
-  rw [rawRowEchelonForm]
+    (rowEchelonForm M).1 * x = 0 ↔ M * x = 0 := by
+  rw [rowEchelonForm]
   exact rref_proof_helper M 0 0 x List.nil false
 
 theorem rref_proof [Inhabited α] [NeZero m] [NeZero n]
     (M : DenseMatrix m n α) (x : DenseMatrix n 1 α) :
-    (rawReducedRowEchelonForm M).1 * x = 0 ↔ M * x = 0 := by
-  rw [rawReducedRowEchelonForm]
+    (reducedRowEchelonForm M).1 * x = 0 ↔ M * x = 0 := by
+  rw [reducedRowEchelonForm]
   exact rref_proof_helper M 0 0 x List.nil true
 
--- Length of steps list does not decrease after an iteration of Gaussian elimination algorithm
-
-theorem elim_col_go_adds_steps_helper (pivotRow : Fin m) (pivotCol : Fin n) (r : Nat)
+/-- The helper function `eliminateColLoop` does not decrease the length of the steps list. -/
+private theorem elim_col_go_adds_steps_helper (pivotRow : Fin m) (pivotCol : Fin n) (r : Nat)
     (M : DenseMatrix m n α) (steps : List (RowOp m α)) :
     (eliminateColLoop pivotRow pivotCol r M steps).2.length ≥ steps.length := by
   rw [eliminateColLoop, eliminateColLoopAux]
@@ -269,8 +281,8 @@ lemma elim_col_go_adds_steps (pivotRow : Fin m) (pivotCol : Fin n) (r : Nat)
 
 lemma elim_col_adds_steps (M : DenseMatrix m n α) (pivotRow : Fin m) (pivotCol : Fin n)
     (l1 l2 : List (RowOp m α)) (reduced : Bool) :
-    (eliminateColCore M pivotRow pivotCol (l1 ++ l2) reduced).2.length ≥ l1.length := by
-  rw [eliminateColCore]
+    (eliminateCol M pivotRow pivotCol (l1 ++ l2) reduced).2.length ≥ l1.length := by
+  rw [eliminateCol]
   split_ifs
   · exact elim_col_go_adds_steps pivotRow pivotCol 0 M l1 l2
   · exact elim_col_go_adds_steps pivotRow pivotCol (↑pivotRow) M l1 l2
@@ -288,7 +300,7 @@ theorem row_reduction_adds_steps (M : DenseMatrix m n α) (r c : Nat)
         simp only [List.concat_eq_append, List.append_assoc]
         split_ifs with hswap hpivot
         · let rowFin : Fin m := ⟨r, hrow⟩
-          let res := eliminateColCore M rowFin pivotCol
+          let res := eliminateCol M rowFin pivotCol
             (steps ++ [RowOp.swap rowFin pivotRow])
             reduced
           trans res.2.length
@@ -296,7 +308,7 @@ theorem row_reduction_adds_steps (M : DenseMatrix m n α) (r c : Nat)
           · unfold res
             exact elim_col_adds_steps M rowFin pivotCol steps [RowOp.swap rowFin pivotRow] reduced
         · let rowFin : Fin m := ⟨r, hrow⟩
-          let res := eliminateColCore (scaleRow M rowFin (M.get rowFin pivotCol)⁻¹) rowFin pivotCol
+          let res := eliminateCol (scaleRow M rowFin (M.get rowFin pivotCol)⁻¹) rowFin pivotCol
             (steps ++
               ([RowOp.swap rowFin pivotRow] ++ [RowOp.factor rowFin (M.get rowFin pivotCol)⁻¹]))
             reduced
@@ -308,7 +320,7 @@ theorem row_reduction_adds_steps (M : DenseMatrix m n α) (r c : Nat)
               ([RowOp.swap rowFin pivotRow] ++ [RowOp.factor rowFin (M.get rowFin pivotCol)⁻¹])
               reduced
         · let rowFin : Fin m := ⟨r, hrow⟩
-          let res := eliminateColCore (swapRow M rowFin pivotRow) rowFin pivotCol
+          let res := eliminateCol (swapRow M rowFin pivotRow) rowFin pivotCol
             (steps ++ [RowOp.swap rowFin pivotRow])
             reduced
           trans res.2.length
@@ -318,7 +330,7 @@ theorem row_reduction_adds_steps (M : DenseMatrix m n α) (r c : Nat)
               [RowOp.swap rowFin pivotRow] reduced
         · let rowFin : Fin m := ⟨r, hrow⟩
           let swapped := swapRow M rowFin pivotRow
-          let res := eliminateColCore (scaleRow swapped rowFin (swapped.get rowFin pivotCol)⁻¹) rowFin
+          let res := eliminateCol (scaleRow swapped rowFin (swapped.get rowFin pivotCol)⁻¹) rowFin
             pivotCol
             (steps ++
               ([RowOp.swap rowFin pivotRow] ++ [RowOp.factor rowFin (swapped.get rowFin pivotCol)⁻¹]))
@@ -333,9 +345,6 @@ theorem row_reduction_adds_steps (M : DenseMatrix m n α) (r c : Nat)
               reduced
   · exact le_rfl
   · exact le_rfl
-
--- Proof that we can apply the steps in the steps list to the original matrix to get its row
--- echelon form
 
 private theorem eliminateCol_go_log_correct
     (pivotRow : Fin m) (pivotCol : Fin n) (r : Nat)
@@ -392,9 +401,9 @@ private theorem eliminateCol_log_correct
     (M : DenseMatrix m n α) (pivotRow : Fin m) (pivotCol : Fin n)
     (steps : List (RowOp m α)) (reduced : Bool) :
     ∃ ops_tail : List (RowOp m α),
-      eliminateColCore M pivotRow pivotCol steps reduced =
+      eliminateCol M pivotRow pivotCol steps reduced =
         (ops_tail.foldl applyRowOp M, steps ++ ops_tail) := by
-  rw [eliminateColCore]
+  rw [eliminateCol]
   by_cases hred : reduced
   · simpa [hred] using eliminateCol_go_log_correct pivotRow pivotCol 0 M steps
   · simpa [hred] using eliminateCol_go_log_correct pivotRow pivotCol pivotRow.1 M steps
@@ -455,7 +464,7 @@ private theorem rrefAux_log_correct
                     ih (ops_elim.foldl applyRowOp m1) (r + 1) (c + 1) (steps1 ++ ops_elim) false hk'
                   refine ⟨[swapOp] ++ ops_elim ++ ops_rec, ?_⟩
                   have hbranch :
-                      (match eliminateColCore m1 rowFin pivotCol steps1 false with
+                      (match eliminateCol m1 rowFin pivotCol steps1 false with
                         | (m3, steps3) => rowReductionAux m3 (r + 1) (c + 1) steps3 false) =
                         (ops_rec.foldl applyRowOp (ops_elim.foldl applyRowOp m1),
                           steps1 ++ ops_elim ++ ops_rec) := by
@@ -481,7 +490,7 @@ private theorem rrefAux_log_correct
                         true hk'
                     refine ⟨[swapOp] ++ ops_elim ++ ops_rec, ?_⟩
                     have hbranch :
-                        (match eliminateColCore m1 rowFin pivotCol steps1 true with
+                        (match eliminateCol m1 rowFin pivotCol steps1 true with
                           | (m3, steps3) => rowReductionAux m3 (r + 1) (c + 1) steps3 true) =
                           (ops_rec.foldl applyRowOp (ops_elim.foldl applyRowOp m1),
                             steps1 ++ ops_elim ++ ops_rec) := by
@@ -509,7 +518,7 @@ private theorem rrefAux_log_correct
                         true hk'
                     refine ⟨[swapOp, factorOp] ++ ops_elim ++ ops_rec, ?_⟩
                     have hbranch :
-                        (match eliminateColCore m2 rowFin pivotCol steps2 true with
+                        (match eliminateCol m2 rowFin pivotCol steps2 true with
                           | (m3, steps3) => rowReductionAux m3 (r + 1) (c + 1) steps3 true) =
                           (ops_rec.foldl applyRowOp (ops_elim.foldl applyRowOp m2),
                             steps2 ++ ops_elim ++ ops_rec) := by
@@ -530,6 +539,10 @@ private theorem rrefAux_log_correct
           simp [hc]
   exact hrec (m - r) M r c steps reduced rfl
 
+/--
+If the `steps` certificate is empty, then the resulting matrix is the same as the source
+matrix.
+-/
 lemma empty_list_iff_no_change (M M' : DenseMatrix m n α) (r c : Nat)
     (ops : List (RowOp m α)) (reduced : Bool)
     : rowReductionAux M r c ops reduced = (M', []) → M = M' := by
@@ -556,31 +569,38 @@ theorem steps_helper (M M' : DenseMatrix m n α) (r c : Nat)
   have htail : ops_tail' = ops_tail := (List.append_right_inj ops_head).mp hOps'
   simpa [htail] using hM
 
-private theorem rawRowEchelonForm_steps (M M' : DenseMatrix m n α) (ops : List (RowOp m α))
-    : rawRowEchelonForm M = (M', ops) → ops.foldl applyRowOp M = M' := by
+private theorem rowEchelonForm_steps_helper (M M' : DenseMatrix m n α) (ops : List (RowOp m α))
+    : rowEchelonForm M = { matrix := M', steps := ops } → ops.foldl applyRowOp M = M' := by
   intro h
   have h_ops : ops = [] ++ ops := by simp
   have h' : rowReductionAux M 0 0 [] false = (M', [] ++ ops) := by
-    simpa [rawRowEchelonForm]
+    simp only [List.nil_append]
+    unfold rowEchelonForm at h
+    injection h with h_matrix h_steps
+    rw [← h_matrix, ← h_steps]
   simpa using steps_helper M M' 0 0 [] ops ops false h_ops h'
 
-private theorem rawReducedRowEchelonForm_steps (M M' : DenseMatrix m n α)
+private theorem reducedRowEchelonForm_steps_helper (M M' : DenseMatrix m n α)
     (ops : List (RowOp m α))
-    : rawReducedRowEchelonForm M = (M', ops) → ops.foldl applyRowOp M = M' := by
+    : reducedRowEchelonForm M = { matrix := M', steps := ops } → ops.foldl applyRowOp M = M' := by
   intro h
   have h_ops : ops = [] ++ ops := by simp
   have h' : rowReductionAux M 0 0 [] true = (M', [] ++ ops) := by
-    simpa [rawReducedRowEchelonForm]
+    simp only [List.nil_append]
+    unfold reducedRowEchelonForm at h
+    injection h with h_matrix h_steps
+    rw [← h_matrix, ← h_steps]
   simpa using steps_helper M M' 0 0 [] ops ops true h_ops h'
 
+/-- Applying the `RowOps` in the certificate to the source matrix returns the resulting matrix. -/
 theorem rowEchelonForm_steps
     (M : DenseMatrix m n α) :
     (rowEchelonForm M).steps.foldl applyRowOp M = (rowEchelonForm M).matrix := by
   simpa [rowEchelonForm] using
-    (rawRowEchelonForm_steps
+    (rowEchelonForm_steps_helper
       (M := M)
-      (M' := (rawRowEchelonForm M).1)
-      (ops := (rawRowEchelonForm M).2)
+      (M' := (rowEchelonForm M).1)
+      (ops := (rowEchelonForm M).2)
       rfl)
 
 theorem reducedRowEchelonForm_steps
@@ -588,10 +608,238 @@ theorem reducedRowEchelonForm_steps
     (reducedRowEchelonForm M).steps.foldl applyRowOp M =
       (reducedRowEchelonForm M).matrix := by
   simpa [reducedRowEchelonForm] using
-    (rawReducedRowEchelonForm_steps
+    (reducedRowEchelonForm_steps_helper
       (M := M)
-      (M' := (rawReducedRowEchelonForm M).1)
-      (ops := (rawReducedRowEchelonForm M).2)
+      (M' := (reducedRowEchelonForm M).1)
+      (ops := (reducedRowEchelonForm M).2)
       rfl)
+
+-- /-! ## Algorithm output is (reduced) row echelon form of input -/
+
+-- /--
+-- Core invariance lemma for `GaussianEliminationInternal.eliminateColLoop`.
+
+-- No matter which branch is taken while scanning rows (skip pivot row, replace,
+-- or continue), the matrix stays row-equivalent to the input `cur`.
+-- -/
+-- private theorem eliminateColGo_rowEquivalent
+--     {m n : Nat}
+--     (pivotRow : Fin m) (pivotCol : Fin n) (row : Nat)
+--     (cur : DenseMatrix m n α) (steps : List (RowOp m α)) :
+--     Matrix.RowEquivalent cur.toMatrix (eliminateColLoop pivotRow pivotCol row cur steps).1.toMatrix := by
+--   have goAux_matrix_eq
+--       (pivotVal : α) (row : Nat) (cur : DenseMatrix m n α) (steps : List (RowOp m α))
+--       (hpivot : cur.get pivotRow pivotCol = pivotVal) :
+--       (eliminateColLoopAux pivotRow pivotCol pivotVal row cur steps).1 =
+--         (eliminateColLoop pivotRow pivotCol row cur steps).1 := by
+--     simp [eliminateColLoop, hpivot]
+--   rw [eliminateColLoop, eliminateColLoopAux]
+--   split_ifs with hr
+--   · let i : Fin m := ⟨row, hr⟩
+--     by_cases hEq : i = pivotRow
+--     · have hrec : Matrix.RowEquivalent cur.toMatrix
+--           (eliminateColLoop pivotRow pivotCol (row + 1) cur steps).1.toMatrix := by
+--         exact eliminateColGo_rowEquivalent pivotRow pivotCol (row + 1) cur steps
+--       have hrec' : Matrix.RowEquivalent cur.toMatrix
+--             (eliminateColLoopAux pivotRow pivotCol (cur.get pivotRow pivotCol) (row + 1) cur steps).1.toMatrix := by
+--         simpa [goAux_matrix_eq (cur.get pivotRow pivotCol) (row + 1) cur steps rfl] using hrec
+--       simpa [i, hEq] using hrec'
+--     · by_cases hcoeff : cur.get i pivotCol ≠ 0
+--       · let cur' := replaceRow cur pivotRow i (-cur.get i pivotCol / cur.get pivotRow pivotCol)
+--         let steps' := List.concat steps (.replace pivotRow i (-cur.get i pivotCol / cur.get pivotRow pivotCol))
+--         have hreplace : Matrix.RowEquivalent cur.toMatrix cur'.toMatrix := by
+--           dsimp [cur']
+--           rw [toMatrix_replace_eq_replace_toMatrix]
+--           exact Matrix.rowEquivalent_transvection cur.toMatrix i pivotRow hEq
+--             (-cur.get i pivotCol / cur.get pivotRow pivotCol)
+--         have hpivot' : cur'.get pivotRow pivotCol = cur.get pivotRow pivotCol := by
+--           have huse : pivotRow ≠ i := by
+--             intro hpr
+--             exact hEq hpr.symm
+--           simp [cur', replaceRow, huse, of_apply]
+--         have hrec : Matrix.RowEquivalent cur'.toMatrix
+--               (eliminateColLoop pivotRow pivotCol (row + 1) cur' steps').1.toMatrix := by
+--           simpa [cur', steps'] using
+--             (eliminateColGo_rowEquivalent pivotRow pivotCol (row + 1) cur' steps')
+--         have hrec' : Matrix.RowEquivalent cur'.toMatrix
+--             (eliminateColLoopAux pivotRow pivotCol (cur.get pivotRow pivotCol) (row + 1) cur' steps').1.toMatrix := by
+--           simpa [goAux_matrix_eq (cur.get pivotRow pivotCol) (row + 1) cur' steps' hpivot'] using hrec
+--         simpa [i, hEq, hcoeff, cur', steps'] using Matrix.RowEquivalent.trans hreplace hrec'
+--       · have hrec : Matrix.RowEquivalent cur.toMatrix
+--             (eliminateColLoop pivotRow pivotCol (row + 1) cur steps).1.toMatrix := by
+--           exact eliminateColGo_rowEquivalent pivotRow pivotCol (row + 1) cur steps
+--         have hrec' : Matrix.RowEquivalent cur.toMatrix
+--               (eliminateColLoopAux pivotRow pivotCol (cur.get pivotRow pivotCol) (row + 1) cur steps).1.toMatrix := by
+--           simpa [goAux_matrix_eq (cur.get pivotRow pivotCol) (row + 1) cur steps rfl] using hrec
+--         simpa [i, hEq, hcoeff] using hrec'
+--   · simp
+
+-- /--
+-- Wrapper lemma for `GaussianEliminationInternal.eliminateCol`.
+
+-- The boolean `reduced` only changes the starting scan row; both branches are
+-- delegated to `eliminateColGo_rowEquivalent`.
+-- -/
+-- private theorem eliminateCol_rowEquivalent
+--     {m n : Nat}
+--     (M : DenseMatrix m n α) (pivotRow : Fin m) (pivotCol : Fin n)
+--     (steps : List (RowOp m α)) (reduced : Bool) :
+--     Matrix.RowEquivalent M.toMatrix (eliminateCol M pivotRow pivotCol steps reduced).1.toMatrix := by
+--   rw [GaussianEliminationInternal.eliminateCol]
+--   by_cases hred : reduced
+--   · simpa [hred] using eliminateColGo_rowEquivalent pivotRow pivotCol 0 M steps
+--   · simpa [hred] using eliminateColGo_rowEquivalent pivotRow pivotCol pivotRow.1 M steps
+-- /--
+-- Main bridge lemma for the RREF driver `GaussianEliminationInternal.rowReductionAux`.
+
+-- Each algorithmic stage preserves row-equivalence:
+-- `M -> m1` (optional swap), `m1 -> m2` (optional normalization),
+-- `m2 -> m3` (column elimination), then recursive call on `(row+1, col+1)`.
+-- -/
+-- private theorem rrefAux_rowEquivalent
+--     {m n : Nat}
+--     (M : DenseMatrix m n α) (row col : Nat)
+--     (steps : List (RowOp m α)) (reduced : Bool) :
+--     Matrix.RowEquivalent M.toMatrix (rowReductionAux M row col steps reduced).1.toMatrix := by
+--   rw [GaussianEliminationInternal.rowReductionAux.eq_1]
+--   split_ifs with hrow hcol
+--   · cases hcp : checkPivot M row col with
+--     | none =>
+--         simp only
+--         exact Matrix.RowEquivalent.refl M.toMatrix
+--     | some prpc =>
+--         rcases prpc with ⟨pivotRow, pivotCol⟩
+--         let rowFin : Fin m := ⟨row, hrow⟩
+--         let m1 : DenseMatrix m n α :=
+--           if pivotRow.1 = row then M else swapRow M rowFin pivotRow
+--         let steps1 : List (RowOp m α) := List.concat steps (.swap rowFin pivotRow)
+--         let pivotVal : α := m1.get rowFin pivotCol
+--         let m2 : DenseMatrix m n α :=
+--           if !reduced || pivotVal = 1 then m1 else scaleRow m1 rowFin pivotVal⁻¹
+--         let steps2 : List (RowOp m α) :=
+--           if !reduced || pivotVal = 1 then
+--             steps1
+--           else
+--             List.concat steps1 (.factor rowFin pivotVal⁻¹)
+--         have hM1 : Matrix.RowEquivalent M.toMatrix m1.toMatrix := by
+--           by_cases hp : pivotRow.1 = row
+--           · simp [m1, hp]
+--           · simpa [m1, hp, toMatrix_swap_eq_swap_toMatrix]
+--               using (Matrix.rowEquivalent_swap M.toMatrix rowFin pivotRow)
+--         have hpivot_ne_zero : pivotVal ≠ 0 := by
+--           have hnon : M.get pivotRow pivotCol ≠ 0 :=
+--             checkPivot_some_nonzero M row col (by simp [hcp])
+--           by_cases hp : pivotRow.1 = row
+--           · have hroweq : rowFin = pivotRow := by
+--               exact Fin.ext (by simpa [rowFin] using hp.symm)
+--             subst hroweq
+--             simpa [m1, hp, pivotVal] using hnon
+--           · have hrowne : rowFin ≠ pivotRow := by
+--               intro hEq
+--               exact hp (by simpa [rowFin] using (congrArg Fin.val hEq).symm)
+--             have hpres :
+--                 (swapRow M rowFin pivotRow).get rowFin pivotCol = M.get pivotRow pivotCol := by
+--               simp [swapRow, of_apply]
+--             simpa [m1, hp, pivotVal, hpres] using hnon
+--         have hM2 : Matrix.RowEquivalent m1.toMatrix m2.toMatrix := by
+--           cases hred : reduced with
+--           | false =>
+--               simp [m2, hred]
+--           | true =>
+--               by_cases hv : pivotVal = 1
+--               · simp [m2, hred, hv]
+--               · have hfac : Matrix.RowEquivalent m1.toMatrix (scaleRow m1 rowFin pivotVal⁻¹).toMatrix := by
+--                   simpa [toMatrix_scale_eq_scale_toMatrix]
+--                     using Matrix.rowEquivalent_rowScale m1.toMatrix rowFin
+--                     (Units.mk0 (pivotVal⁻¹) (inv_ne_zero hpivot_ne_zero))
+--                   sorry
+--                 simpa [m2, hred, hv] using hfac
+--         cases hp : GaussianEliminationInternal.eliminateCol m2 rowFin pivotCol steps2 reduced with
+--         | mk m3 steps3 =>
+--             have hM3raw : Matrix.RowEquivalent m2.toMatrix
+--                 (eliminateCol m2 rowFin pivotCol steps2 reduced).1.toMatrix := by
+--               simpa using eliminateCol_rowEquivalent m2 rowFin pivotCol steps2 reduced
+--             have hRec : Matrix.RowEquivalent m3.toMatrix
+--                 (rowReductionAux m3 (row + 1) (col + 1) steps3 reduced).1.toMatrix := by
+--               simpa using rrefAux_rowEquivalent m3 (row + 1) (col + 1) steps3 reduced
+--             have hRecraw :
+--                 Matrix.RowEquivalent (eliminateCol m2 rowFin pivotCol steps2 reduced).1.toMatrix
+--                   (rowReductionAux
+--                     (eliminateCol m2 rowFin pivotCol steps2 reduced).1
+--                     (row + 1) (col + 1)
+--                     (eliminateCol m2 rowFin pivotCol steps2 reduced).2 reduced).1.toMatrix := by
+--               simpa [hp] using hRec
+--             simpa [m1, m2, steps1, steps2, pivotVal, rowFin, hcp, hp, List.concat_eq_append] using
+--               Matrix.RowEquivalent.trans (Matrix.RowEquivalent.trans hM1 (Matrix.RowEquivalent.trans hM2 hM3raw)) hRecraw
+--   · simp only
+--     exact Matrix.RowEquivalent.refl M.toMatrix
+--   · simp only
+--     exact Matrix.RowEquivalent.refl M.toMatrix
+-- termination_by m - row
+-- decreasing_by
+--   · omega
+
+-- /--
+-- Top-level algorithmic invariant.
+
+-- `GaussianEliminationInternal.rawReducedRowEchelonForm` always returns a matrix row-equivalent to its input.
+-- -/
+-- theorem reducedRowEchelonForm_rowEquivalent
+--     {m n : Nat}
+--     (A : DenseMatrix m n α) :
+--     Matrix.RowEquivalent A.toMatrix (reducedRowEchelonForm A).1.toMatrix := by
+--   simpa [reducedRowEchelonForm] using rrefAux_rowEquivalent A 0 0 List.nil true
+
+
+
+
+-- /--
+-- Bridge theorem from algorithm output to semantic predicate:
+-- the computed output is both row-equivalent to `A` and reduced.
+-- -/
+-- theorem reducedRowEchelonForm_isReducedEchelonFormOf
+--     {m n : Nat}
+--     (A : DenseMatrix m n α) :
+--     Matrix.IsReducedRowEchelonOf A.toMatrix (reducedRowEchelonForm A).1.toMatrix := by
+--   refine ⟨reducedRowEchelonForm_rowEquivalent A, ?_⟩
+--   simpa [reducedRowEchelonForm] using
+--     Matrix.reducedRowEchelonForm_isReducedEchelonForm A
+
+-- /--
+-- Auxiliary bridge theorem: algorithm output is also in echelon form.
+
+-- This is weaker than reduced form but useful when a statement only requires
+-- `IsEchelonFormOf`.
+-- -/
+-- theorem reducedRowEchelonForm_isEchelonFormOf
+--     {m n : Nat}
+--     (A : Matrix (Fin m) (Fin n) R) :
+--     IsEchelonFormOf (A := A) ((GaussianEliminationInternal.rawReducedRowEchelonForm A).1) := by
+--   refine ⟨reducedRowEchelonForm_rowEquivalent (A := A), ?_⟩
+--   simpa [Matrix.reducedRowEchelonForm] using
+--     Matrix.reducedRowEchelonForm_isEchelonForm (M := A)
+
+-- /--
+-- If two matrices have the same computed RREF, then they are row-equivalent.
+-- -/
+-- theorem rowEquivalent_of_rref_eq {m n : Nat}
+--     {A B : Matrix (Fin m) (Fin n) R}
+--     (hEq : (GaussianEliminationInternal.rawReducedRowEchelonForm A).1 = (GaussianEliminationInternal.rawReducedRowEchelonForm B).1) :
+--     RowEquivalent A B := by
+--   let C : Matrix (Fin m) (Fin n) R := (GaussianEliminationInternal.rawReducedRowEchelonForm A).1
+--   have hAC : RowEquivalent A C := by
+--     simpa [C] using reducedRowEchelonForm_rowEquivalent (A := A)
+--   have hBC : RowEquivalent B C := by
+--     simpa [C, hEq] using reducedRowEchelonForm_rowEquivalent (A := B)
+--   exact RowEquivalent.trans hAC (RowEquivalent.symm hBC)
+
+-- /--
+-- Computational wrapper: if `decide` confirms RREF equality, conclude row-equivalence.
+-- -/
+-- theorem rowEquivalent_of_decide_rref_eq_true {m n : Nat}
+--     {A B : Matrix (Fin m) (Fin n) R}
+--     (hEq : decide ((GaussianEliminationInternal.rawReducedRowEchelonForm A).1 = (GaussianEliminationInternal.rawReducedRowEchelonForm B).1) = true) :
+--     RowEquivalent A B := by
+--   exact rowEquivalent_of_rref_eq (A := A) (B := B) (of_decide_eq_true hEq)
 
 end DenseMatrix
