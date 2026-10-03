@@ -1,86 +1,11 @@
-# Provable Computation (Lean 4)
+# DenseMatrix
 
-Provable Computation is a Lean 4 library for executable and certifiable algorithms, with a
-focus on Gaussian elimination, LU factorization, and determinant computation.
+This repository defines `DenseMatrix`, a 1D array representation for matrices in mathlib,
+with proof-by-transfer via bijections/ring isomorphisms between `DenseMatrix` and mathlib's
+function-backed `Matrix`. The repository also includes an implementation of Gaussian elimination
+using `DenseMatrix`, as well as relevant `Matrix` theory.
 
 ## Team
 
 - Mentor: Dhruv Bhatia
-- Members: Alan Chang, Annis Wu, Joseph Qian, Junye Ji, Veer Shukla,
-  Zeyin (Michael) Feng
-
-## Current module tree
-
-- Core echelon predicates:
-  - [`Echelon.lean`](./ProvableComputation/LinearAlgebra/Echelon.lean)
-- Gaussian elimination:
-  - [`Defs.lean`](./ProvableComputation/LinearAlgebra/GaussianElimination/Defs.lean)
-  - [`Rref.lean`](./ProvableComputation/LinearAlgebra/GaussianElimination/Rref.lean)
-  - [`Elementary.lean`](./ProvableComputation/LinearAlgebra/GaussianElimination/Elementary.lean)
-  - [`Pivot.lean`](./ProvableComputation/LinearAlgebra/GaussianElimination/Pivot.lean)
-  - [`RrefCorrectness.lean`](./ProvableComputation/LinearAlgebra/GaussianElimination/RrefCorrectness.lean)
-  - [`RrefUniqueness.lean`](./ProvableComputation/LinearAlgebra/GaussianElimination/RrefUniqueness.lean)
-- LU factorization:
-  - [`Defs.lean`](./ProvableComputation/LinearAlgebra/LU/Defs.lean)
-  - [`Basic.lean`](./ProvableComputation/LinearAlgebra/LU/Basic.lean)
-  - [`Correctness.lean`](./ProvableComputation/LinearAlgebra/LU/Correctness.lean)
-- Determinant:
-  - [`Basic.lean`](./ProvableComputation/LinearAlgebra/Determinant/Basic.lean)
-- Examples and benchmarks:
-  - [`GaussianEliminationDemos.lean`](./ProvableComputation/Examples/GaussianEliminationDemos.lean)
-
-## Toolchain
-
-- Lean toolchain: `leanprover/lean4:v4.33.0` (from [`lean-toolchain`](./lean-toolchain))
-- Build tool: Lake
-- This project is pinned to `mathlib4` tag `v4.33.0` on the Lean 4.33 line.
-
-## Quick start
-
-```bash
-lake exe cache get
-lake build  # Build the public library.
-lake test   # Build the internal test library.
-```
-
-## Gaussian dependency documentation
-
-The `Lean Action CI` workflow uploads a private website artifact named
-`gaussian-dependency-visualization-<commit>`. After downloading and extracting it, open
-`index.html` for the guided Blueprint or `dependency-graph/index.html` for the complete
-interactive declaration graph.
-
-To build the same site locally, install Graphviz and
-[uv](https://docs.astral.sh/uv/), then run these commands from a clean checkout:
-
-```bash
-uvx --python 3.12 --from leanblueprint==0.0.20 leanblueprint web
-lake exe gaussian_dependency_graph \
-  --output blueprint/web/dependency-graph \
-  --blueprint blueprint/src/content.tex \
-  --revision "$(git rev-parse HEAD)"
-python3 -m http.server --directory blueprint/web 8000
-```
-
-The Blueprint is a compact reading route. The interactive graph and its
-`dependency-graph/graph.json` file contain declaration-level dependency data for the scoped
-Gaussian modules; generated declaration paths are collapsed and LU is shown as boundary nodes.
-
-## Public entrypoints
-
-- `Matrix.rowEchelonForm` and `Matrix.reducedRowEchelonForm`
-  return `Matrix.RowReductionResult` with named fields `matrix` and `steps`.
-- `Matrix.luFactorization`
-  returns `Matrix.LUFactors` with named fields `P`, `L`, and `U`.
-- `Matrix.gaussDet` and `Matrix.luDet`
-  expose the determinant algorithms on the namespaced public API.
-
-## Poster
-
-![Poster from UW Math AI Poster Session (03/16/2026)](./postersession_3-16-2026.png)
-
-## Status
-
-- The old `linear_algebra/` tree has been replaced by the `LinearAlgebra/` hierarchy.
-- Demo and benchmark code live outside the core library import surface.
-- Determinant correctness proofs are still not implemented as a separate proof module.
+- Members: Joseph Qian, Junye Ji
