@@ -12,7 +12,7 @@ import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Basic
 
 This module implements the executable elimination loops for row-echelon and reduced
 row-echelon form. The tuple-valued internal routines are retained for proof convenience,
-while the public `Matrix` wrappers return `RowReductionResult`.
+while the public `DenseMatrix` wrappers return `RowReductionResult`.
 -/
 
 universe u
@@ -89,12 +89,12 @@ def eliminateColLoop
 to set the value in column `pivotCol` of the row to 0.
 -/
 def eliminateCol
-    (given : DenseMatrix m n α) (pivotRow : Fin m) (pivotCol : Fin n)
+    (givenMatrix : DenseMatrix m n α) (pivotRow : Fin m) (pivotCol : Fin n)
     (steps : List (RowOp m α)) (reduced : Bool) : (DenseMatrix m n α × List (RowOp m α)) :=
   if reduced then
-    eliminateColLoop pivotRow pivotCol 0 given steps
+    eliminateColLoop pivotRow pivotCol 0 givenMatrix steps
   else
-    eliminateColLoop pivotRow pivotCol pivotRow.val given steps
+    eliminateColLoop pivotRow pivotCol pivotRow.val givenMatrix steps
 
 def rowReductionAux
   (M : DenseMatrix m n α) (row col : Nat) (steps : List (RowOp m α)) (reduced : Bool)
@@ -110,7 +110,11 @@ def rowReductionAux
             M
           else
             DenseMatrix.swapRow M ⟨row, hrow⟩ pivotRow
-        let steps := List.concat steps (.swap ⟨row, hrow⟩ pivotRow)
+        let steps :=
+          if pivotRow.val = row then
+            steps
+          else
+            List.concat steps (.swap ⟨row, hrow⟩ pivotRow)
         let pivotVal : α := M1.get ⟨row, hrow⟩ pivotCol
         let M2 :=
           if !reduced || pivotVal = 1 then
@@ -121,7 +125,7 @@ def rowReductionAux
           if !reduced || pivotVal = 1 then
             steps
           else
-            List.concat steps (.factor ⟨row, hrow⟩ (pivotVal)⁻¹)
+            List.concat steps (.scale ⟨row, hrow⟩ (pivotVal)⁻¹)
         let (M3, steps) := eliminateCol M2 ⟨row, hrow⟩ pivotCol steps reduced
         rowReductionAux M3 (row + 1) (col + 1) steps reduced
     else
@@ -138,17 +142,17 @@ Computes the row echelon form of a matrix and records the row operations used to
 result.
 -/
 def rowEchelonForm
-    (given : DenseMatrix m n α) : RowReductionResult m n α :=
-  let raw := GaussianEliminationInternal.rowReductionAux given 0 0 List.nil false
-  { matrix := raw.1, steps := raw.2 }
+    (givenMatrix : DenseMatrix m n α) : RowReductionResult m n α :=
+  let result := GaussianEliminationInternal.rowReductionAux givenMatrix 0 0 List.nil false
+  { matrix := result.1, steps := result.2 }
 
 /--
 Computes the reduced row echelon form of a matrix and records the row operations used to get the
 result.
 -/
 def reducedRowEchelonForm
-    (given : DenseMatrix m n α) : RowReductionResult m n α :=
-  let raw := GaussianEliminationInternal.rowReductionAux given 0 0 List.nil true
-  { matrix := raw.1, steps := raw.2 }
+    (givenMatrix : DenseMatrix m n α) : RowReductionResult m n α :=
+  let result := GaussianEliminationInternal.rowReductionAux givenMatrix 0 0 List.nil true
+  { matrix := result.1, steps := result.2 }
 
 end DenseMatrix

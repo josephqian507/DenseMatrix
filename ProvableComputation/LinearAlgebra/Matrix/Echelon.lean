@@ -5,9 +5,11 @@ Authors: Joseph Qian, Junye Ji, Dhruv Bhatia
 -/
 
 import Mathlib.Data.Matrix.Basic
+import Mathlib.LinearAlgebra.FiniteDimensional.Basic
+import Mathlib.LinearAlgebra.Isomorphisms
 import Mathlib.LinearAlgebra.Matrix.Echelon.Basic
-
-import ProvableComputation.LinearAlgebra.Matrix.ElementaryRowOperations
+import Mathlib.LinearAlgebra.Matrix.ElementaryRowOperations
+import Mathlib.LinearAlgebra.Matrix.ToLin
 
 /-!
 # Echelon Predicates
@@ -29,17 +31,17 @@ section EchelonOf
 
 variable [CommRing R] [DecidableEq m] [Fintype m]
 
-/-- `B` is an echelon-form representative of `A`. -/
+/-- `A` is a row-echelon-form representative of `B`. -/
 structure IsRowEchelonOf [LT m] [LT n] (A B : Matrix m n R) : Prop where
   rowEquivalent : RowEquivalent A B
   isRowEchelon : IsRowEchelon A
 
-/-- `B` is a dense reduced-echelon representative of `A`. -/
+/-- `A` is a reduced-row-echelon-form representative of `B`. -/
 structure IsReducedRowEchelonOf [LT m] [LT n] (A B : Matrix m n R) : Prop where
   rowEquivalent : RowEquivalent A B
   isReducedRowEchelon : IsReducedRowEchelon A
 
-/-- A dense reduced-echelon representative is also an echelon representative. -/
+/-- A reduced-echelon representative is also an echelon representative. -/
 theorem IsReducedRowEchelonOf.isRowEchelon [LT m] [LT n] {A B : Matrix m n R}
     (h : IsReducedRowEchelonOf A B) : IsRowEchelonOf A B :=
   ⟨h.rowEquivalent, h.isReducedRowEchelon.isRowEchelon⟩
@@ -52,7 +54,7 @@ section RowEquivalent
 
 variable [CommRing R] [DecidableEq m] [Fintype m]
 
-/-- Dense row-equivalent matrices have the same homogeneous solution set in Matrix view. -/
+/-- Row-equivalent matrices have the same homogeneous solution set. -/
 theorem RowEquivalent.mul_eq_zero_iff [LT m] [Fintype n] {A B : Matrix m n R}
     (hAB : RowEquivalent A B)
     (x : n → R) :
@@ -97,8 +99,8 @@ theorem RowEquivalent.ker_eq [Fintype n] {A B : Matrix m n R}
     exact hmul
 
 /--
-Dense matrices row-equivalent to a common source have the same homogeneous
-solution set in Matrix view.
+Matrices row-equivalent to a common source have the same homogeneous solution
+set.
 -/
 theorem rowEquivalent_common_source_mul_eq_zero_iff
     [LT m] [Fintype n]
@@ -120,10 +122,44 @@ variable [Field R] [DecidableEq m] [Fintype m]
 theorem rowEquivalent_of_mul_eq_zero [Fintype n] {A B : Matrix m n R}
     (hAB : ∀ x : n → R, A *ᵥ x = 0 ↔ B *ᵥ x = 0) :
     RowEquivalent A B := by
+  let _ := Classical.decEq n
   unfold RowEquivalent
   rw [MulAction.mem_orbit_iff]
-
-  sorry
+  let f : (n → R) →ₗ[R] (m → R) := Matrix.toLin' A
+  let g : (n → R) →ₗ[R] (m → R) := Matrix.toLin' B
+  have hker : f.ker = g.ker := by
+    ext x
+    simp [f, g, Matrix.toLin'_apply, hAB x]
+  let q : ((n → R) ⧸ f.ker) ≃ₗ[R] ((n → R) ⧸ g.ker) :=
+    Submodule.quotEquivOfEq f.ker g.ker hker
+  let eRange : f.range ≃ₗ[R] g.range :=
+    f.quotKerEquivRange.symm.trans (q.trans g.quotKerEquivRange)
+  obtain ⟨e, he⟩ := Submodule.exists_linearEquiv_restrict_eq eRange
+  have he_apply (x : n → R) : e (f x) = g x := by
+    have hx := he ⟨f x, LinearMap.mem_range_self f x⟩
+    change (eRange ⟨f x, LinearMap.mem_range_self f x⟩ : m → R) = e (f x) at hx
+    simpa [eRange, q] using hx.symm
+  let U : Matrix m m R := Matrix.toLin'.symm e.toLinearMap
+  let Uinv : Matrix m m R := Matrix.toLin'.symm e.symm.toLinearMap
+  have hU : Matrix.toLin' U = e.toLinearMap := by simp [U]
+  have hUinv : Matrix.toLin' Uinv = e.symm.toLinearMap := by simp [Uinv]
+  have hUUinv : U * Uinv = 1 := by
+    apply Matrix.toLin'.injective
+    rw [Matrix.toLin'_mul, Matrix.toLin'_one, hU, hUinv]
+    exact LinearMap.ext fun x => e.apply_symm_apply x
+  have hUinvU : Uinv * U = 1 := by
+    apply Matrix.toLin'.injective
+    rw [Matrix.toLin'_mul, Matrix.toLin'_one, hU, hUinv]
+    exact LinearMap.ext fun x => e.symm_apply_apply x
+  let u : GL m R := ⟨U, Uinv, hUUinv, hUinvU⟩
+  have hBA : B = U * A := by
+    apply Matrix.toLin'.injective
+    rw [Matrix.toLin'_mul, hU]
+    apply LinearMap.ext
+    intro x
+    simpa [f, g] using (he_apply x).symm
+  refine ⟨u, ?_⟩
+  exact hBA.symm
 
 /-- Two matrices over a field are row equivalent if and only if they have the same null space. -/
 theorem rowEquivalent_iff_ker_eq [Fintype n]
@@ -132,7 +168,10 @@ theorem rowEquivalent_iff_ker_eq [Fintype n]
   constructor
   · exact RowEquivalent.ker_eq
   · intro hker
-    sorry
+    apply rowEquivalent_of_mul_eq_zero
+    intro x
+    change x ∈ LinearMap.ker (mulVecLin A) ↔ x ∈ LinearMap.ker (mulVecLin B)
+    rw [hker]
 
 end RowEquivalentIffKernelEqual
 
@@ -162,34 +201,5 @@ theorem not_isLeadingEntry_of_row_eq_zero [LT n] {i : m} {c : n}
   exact hc.row_ne_zero h0
 
 end LeadingEntry
-
--- /-- A row is zero if all of its entries are zero. -/
--- def RowIsZero {m n : Type*} (M : Matrix m n R) (i : m) : Prop :=
---   ∀ j, M i j = 0
-
--- /-- A pivot at column `p` of row `i`: the entry is nonzero and all entries to the left are zero.
--- -/
--- def IsPivot {m n : Type*} [LinearOrder n] (M : Matrix m n R) (i : m) (p : n) : Prop :=
---   M i p ≠ 0 ∧ ∀ j < p, M i j = 0
-
--- /-- Row echelon form with respect to the given row and column orders. -/
--- structure IsEchelonForm {m n : Type*} [LinearOrder m] [LinearOrder n]
---   (M : Matrix m n R) : Prop where
---   row_zero_or_pivot :
---     ∀ i, RowIsZero M i ∨ ∃ p : n, IsPivot M i p
---   zero_rows_bottom :
---     ∀ i j, i < j → RowIsZero M i → RowIsZero M j
---   pivots_strictly_increasing :
---     ∀ i j p q, i < j → IsPivot M i p → IsPivot M j q → p < q
-
--- /- In REF, a pivot column is zero below the pivot (derivable from the minimal axioms). -/
--- lemma IsEchelonForm.pivot_column_zero_below
---     {m n : Type*} [LinearOrder m] [LinearOrder n]
---     {M : Matrix m n R} (h : IsEchelonForm M) :
---     ∀ i r p, i < r → IsPivot M i p → M r p = 0 := by
---   intro i r p hir hp
---   rcases h.row_zero_or_pivot r with hzero | ⟨q, hq⟩
---   · exact hzero p
---   · exact hq.2 p (h.pivots_strictly_increasing i r p q hir hp hq)
 
 end Matrix

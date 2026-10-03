@@ -163,7 +163,8 @@ theorem ext {m n : Nat} {α : Type u} : ∀ {M N : DenseMatrix m n α}
     exact h ⟨x / n, index_div_lt hx⟩ ⟨x % n, index_mod_lt hx⟩
 
 /-- ToString instance -/
-instance {m n : Nat} {α : Type u} [Inhabited α] [ToString α] : ToString (DenseMatrix m n α) where
+instance {m n : Nat} {α : Type u} [Inhabited α] [ToString α] :
+    ToString (DenseMatrix m n α) where
   toString A := Id.run do
     let mut rows : Array String := #[]
     for i in [0:m] do
@@ -262,9 +263,14 @@ lemma ofMatrix_inj {m n : Nat} {α : Type u} {A B : Matrix (Fin m) (Fin n) α} :
   · intro h
     rw [h]
 
-/-- Define a `DenseMatrix` using a function. -/
+/--
+Define a `DenseMatrix` by traversing rows and then columns.
+
+Unlike `ofMatrix`, this constructor does not decode every flat index using division. It is the
+appropriate constructor for executable entrywise operations.
+-/
 def of {m n : Nat} {α : Type u} (f : Fin m → Fin n → α) : DenseMatrix m n α :=
-  .ofMatrix (Matrix.of f)
+  ⟨(Vector.ofFn fun i : Fin m => Vector.ofFn fun j : Fin n => f i j).flatten⟩
 
 /--
 Reading a `DenseMatrix` built from a function returns the same value as querying the
@@ -273,7 +279,15 @@ function.
 @[simp]
 theorem of_apply {m n : Nat} {α : Type u} (f : Fin m → Fin n → α) (i j) :
     (of f).get i j = f i j := by
-  exact get_ofMatrix (Matrix.of f) i j
+  change (Vector.ofFn fun i : Fin m => Vector.ofFn fun j : Fin n => f i j).flatten[
+    rowMajorIndex i j]'(RowMajorIndex.lt i j) = f i j
+  rw [Vector.getElem_flatten]
+  simp only [Vector.getElem_ofFn]
+  apply congrArg₂ f
+  · apply Fin.ext
+    exact RowMajorIndex.div_eq_row i j
+  · apply Fin.ext
+    exact RowMajorIndex.mod_eq_col i j
 
 /-! ## DenseMatrix literals. -/
 
@@ -355,7 +369,7 @@ theorem neg_toMatrix {m n : Nat} {α : Type u} [Neg α] (M : DenseMatrix m n α)
 
 /-! ## Matrix operations -/
 
-/-- Add two `DenseMatrices. -/
+/-- Add two `DenseMatrix` values. -/
 def add {m n : Nat} {α : Type u} [Add α] (A B : DenseMatrix m n α) : DenseMatrix m n α where
   data := A.data.zipWith (· + ·) B.data
 
@@ -382,8 +396,38 @@ theorem add_toMatrix {m n : Nat} {α : Type u} [Add α] (A B : DenseMatrix m n �
   exact add_ofMatrix M N
 
 /-- Multiplies a `DenseMatrix` by a scalar. -/
-def smul {m n : Nat} {α : Type u} [Mul α] (c : α) (M : DenseMatrix m n α) : DenseMatrix m n α where
+def smul {m n : Nat} {α : Type u} [Mul α]
+    (c : α) (M : DenseMatrix m n α) : DenseMatrix m n α where
   data := M.data.map (fun x => c * x)
+
+instance {m n : Nat} {α : Type u} [Mul α] : SMul α (DenseMatrix m n α) := ⟨smul⟩
+
+/-- Scalar multiplication commutes with conversion from mathlib matrices. -/
+theorem smul_ofMatrix {m n : Nat} {α : Type u} [Mul α]
+    (c : α) (M : Matrix (Fin m) (Fin n) α) :
+    c • ofMatrix M = ofMatrix (c • M) := by
+  ext i j
+  change (smul c (ofMatrix M)).get i j = (ofMatrix (c • M)).get i j
+  rw [get_ofMatrix]
+  change (smul c (ofMatrix M)).get i j = c * M i j
+  calc
+    (smul c (ofMatrix M)).get i j = c * (ofMatrix M).get i j := by
+      change (Vector.map (fun x : α => c * x) (ofMatrix M).data).get
+        ⟨rowMajorIndex i j, RowMajorIndex.lt i j⟩ =
+          c * (ofMatrix M).data.get ⟨rowMajorIndex i j, RowMajorIndex.lt i j⟩
+      exact Vector.getElem_map (fun x : α => c * x) (RowMajorIndex.lt i j)
+    _ = c * M i j := by rw [get_ofMatrix]
+
+/-- Scalar multiplication commutes with conversion to mathlib matrices. -/
+theorem smul_toMatrix {m n : Nat} {α : Type u} [Mul α]
+    (c : α) (M : DenseMatrix m n α) :
+    toMatrix (c • M) = c • toMatrix M := by
+  ext i j
+  change (smul c M).get i j = c * M.get i j
+  change (Vector.map (fun x : α => c * x) M.data).get
+    ⟨rowMajorIndex i j, RowMajorIndex.lt i j⟩ =
+      c * M.data.get ⟨rowMajorIndex i j, RowMajorIndex.lt i j⟩
+  exact Vector.getElem_map (fun x : α => c * x) (RowMajorIndex.lt i j)
 
 private def dotProduct_helper {m k n : Nat} {α : Type u} [Zero α] [Add α] [Mul α]
     (sum : α) (i : Fin m) (j : Fin n) (l : Fin k)
@@ -395,9 +439,10 @@ private def dotProduct_helper {m k n : Nat} {α : Type u} [Zero α] [Add α] [Mu
 
 /--
 Given indices `i` and `j`, returns the dot product of the i-th row of `A` and the j-th column
-of `B `.
+of `B`. `dotProduct` is used to simplify the recursive function used for `mul`.
 
-dotProduct is used to simplify the recursive function used for mul.
+TODO: support a zero-width inner dimension. The current recursive loop starts at `0`, so this
+implementation temporarily requires `[NeZero k]`.
 -/
 def dotProduct {m k n : Nat} {α : Type u} [Zero α] [Add α] [Mul α] [NeZero k]
     (i : Fin m) (j : Fin n) (M : DenseMatrix m k α) (N : DenseMatrix k n α) : α :=
@@ -428,7 +473,8 @@ private def mul_helper {m k n : Nat} {α : Type u} [Zero α] [Add α] [Mul α]
     (out : Array α) (i j : Nat) (A : DenseMatrix m k α) (B : DenseMatrix k n α)
     (h_size : out.size = i * n + j) (hi : m ≥ i + 1) (hj : n ≥ j + 1)
     : Vector α (m * n) :=
-  let entry := dotProduct ⟨i, by exact Nat.lt_of_succ_le hi⟩ ⟨j, by exact Nat.lt_of_succ_le hj⟩ A B
+  let entry :=
+    dotProduct ⟨i, by exact Nat.lt_of_succ_le hi⟩ ⟨j, by exact Nat.lt_of_succ_le hj⟩ A B
   if h₁ : j + 1 < n then
     mul_helper (out.push entry) i (j+1) A B (by aesop) hi (by exact Nat.succ_le_of_lt h₁)
   else if h₂ : i + 1 < m then
@@ -441,7 +487,12 @@ private def mul_helper {m k n : Nat} {α : Type u} [Zero α] [Add α] [Mul α]
     let hj' : j + 1 = n := by apply le_antisymm hj (by push Not at h₁; exact h₁)
     ⟨out.push entry, mul_helper_size_invariant out i j h_size hi' hj' entry⟩
 
-/-- Multiply two `DenseMatrices`. -/
+/--
+Multiply two `DenseMatrices`.
+
+TODO: extend the recursive array implementation to zero-sized dimensions; it currently requires
+the displayed `NeZero` assumptions in order to start its row and column loops.
+-/
 def mul {m k n : Nat} {α : Type u} [Inhabited α] [Zero α] [Add α] [Mul α]
     [NeZero m] [NeZero k] [NeZero n]
     (A : DenseMatrix m k α) (B : DenseMatrix k n α) : DenseMatrix m n α where
@@ -472,9 +523,11 @@ private theorem dot_eq_sum_plus {m k n : Nat} {α : Type u} [Semiring α]
           (if l ≥ l then A.get i l * B.get l j else 0) +
           (∑ x : Fin k, if x ≥ ⟨l.val + 1, h₁⟩ then A.get i x * B.get x j else 0) := by
         rw [← Finset.add_sum_erase _ _ (Finset.mem_univ l)]
-        have h_rhs_split : (∑ x : Fin k, if x ≥ ⟨l.val + 1, h₁⟩ then A.get i x * B.get x j else 0) =
+        have h_rhs_split :
+            (∑ x : Fin k, if x ≥ ⟨l.val + 1, h₁⟩ then A.get i x * B.get x j else 0) =
             (if l ≥ ⟨l.val + 1, h₁⟩ then A.get i l * B.get l j else 0) +
-            ∑ x ∈ Finset.univ.erase l, if x ≥ ⟨l.val + 1, h₁⟩ then A.get i x * B.get x j else 0 :=
+            ∑ x ∈ Finset.univ.erase l,
+              if x ≥ ⟨l.val + 1, h₁⟩ then A.get i x * B.get x j else 0 :=
           (Finset.add_sum_erase _ _ (Finset.mem_univ l)).symm
         rw [h_rhs_split]
         have hl_false : ¬ ((l : Fin k) ≥ ⟨l.val + 1, h₁⟩) := by
@@ -537,14 +590,17 @@ private theorem mul_helper_spec {m k n : Nat} {α : Type u} [Semiring α] [Inhab
     (h_out : ∀ (idx : Fin (m * n)), (h_idx : idx.val < out.size) →
       out[idx.val]'h_idx =
       ∑ l : Fin k,
-      (A.get ⟨idx.val / n, index_div_lt idx.isLt⟩ l * B.get l ⟨idx.val % n, index_mod_lt idx.isLt⟩))
+      (A.get ⟨idx.val / n, index_div_lt idx.isLt⟩ l *
+        B.get l ⟨idx.val % n, index_mod_lt idx.isLt⟩))
     : (mul_helper out i j A B h_size hi hj) =
     Vector.ofFn (fun x : Fin (m * n) => ∑ l : Fin k,
-    (A.get ⟨x.val / n, index_div_lt x.isLt⟩ l * B.get l ⟨x.val % n, index_mod_lt x.isLt⟩)) := by
+    (A.get ⟨x.val / n, index_div_lt x.isLt⟩ l *
+      B.get l ⟨x.val % n, index_mod_lt x.isLt⟩)) := by
   unfold mul_helper
   dsimp only
   have h_entry : dotProduct ⟨i, Nat.lt_of_succ_le hi⟩ ⟨j, Nat.lt_of_succ_le hj⟩ A B =
-      ∑ l : Fin k, A.get ⟨i, Nat.lt_of_succ_le hi⟩ l * B.get l ⟨j, Nat.lt_of_succ_le hj⟩ := by
+      ∑ l : Fin k,
+        A.get ⟨i, Nat.lt_of_succ_le hi⟩ l * B.get l ⟨j, Nat.lt_of_succ_le hj⟩ := by
     exact dot_zero_eq_matrix_mul ⟨i, _⟩ ⟨j, _⟩ A B
   simp only [h_entry]
   split
@@ -572,7 +628,8 @@ private theorem mul_helper_spec {m k n : Nat} {α : Type u} [Semiring α] [Inhab
       have hj' : j + 1 = n := by omega
       have h_size' := row_size_invariant out i j n h_size hj'
         (∑ l : Fin k, A.get ⟨i, by exact hi⟩ l * B.get l ⟨j, by exact hj⟩)
-      apply mul_helper_spec (out.push _) (i + 1) 0 A B h_size' (Nat.succ_le_of_lt h₂) NeZero.one_le
+      apply mul_helper_spec (out.push _) (i + 1) 0 A B h_size'
+        (Nat.succ_le_of_lt h₂) NeZero.one_le
       intro idx h_lt
       rw [Array.size_push] at h_lt
       by_cases h_old : idx.val < out.size
@@ -611,8 +668,8 @@ private theorem mul_helper_spec {m k n : Nat} {α : Type u} [Semiring α] [Inhab
 
 /-- `DenseMatrix` multiplication commutes with `ofMatrix`. -/
 theorem mul_ofMatrix {m k n : Nat} {α : Type u} [Semiring α] [Inhabited α]
-    [NeZero m] [NeZero k] [NeZero n] (A : Matrix (Fin m) (Fin k) α) (B : Matrix (Fin k) (Fin n) α) :
-    -- mul (ofMatrix A) (ofMatrix B) = ofMatrix (A * B : Matrix (Fin m) (Fin n) α) := by
+    [NeZero m] [NeZero k] [NeZero n]
+    (A : Matrix (Fin m) (Fin k) α) (B : Matrix (Fin k) (Fin n) α) :
     (ofMatrix A) * (ofMatrix B) = ofMatrix (A * B : Matrix (Fin m) (Fin n) α) := by
   change mul (ofMatrix A) (ofMatrix B) = ofMatrix (A * B : Matrix (Fin m) (Fin n) α)
   rw [mul, DenseMatrix.mk.injEq]
@@ -689,64 +746,29 @@ instance {n : Nat} {α : Type u} [Semiring α] [Inhabited α] [NeZero n] :
     rw [mul_toMatrix, add_toMatrix, add_toMatrix, mul_toMatrix, mul_toMatrix]
     exact add_mul (toMatrix A) (toMatrix B) (toMatrix C)
 
-/-- Ring instance for `DenseMatrix`, when the type of matrix elements is a Ring. -/
+/--
+The executable square-matrix operations are algebraically equivalent to mathlib matrices.
+
+Rectangular bridge theorems remain separate because a ring equivalence only applies to square
+matrices.
+-/
+protected def ringEquivMatrix {n : Nat} {α : Type u}
+    [Semiring α] [Inhabited α] [NeZero n] :
+    DenseMatrix n n α ≃+* Matrix (Fin n) (Fin n) α :=
+  { DenseMatrix.equivMatrix with
+    map_mul' := mul_toMatrix
+    map_add' := add_toMatrix }
+
+/-- Ring structure extending the already established executable semiring operations. -/
 instance {n : Nat} {α : Type u} [Ring α] [Inhabited α] [NeZero n] :
-    Ring (DenseMatrix n n α) where
-  add := (· + ·)
-  mul := (· * ·)
-  zero := 0
-  one := 1
-  neg := fun A => -A
-  nsmul := nsmulRec
-  zsmul := zsmulRec
-  add_assoc := fun A B C => by
-    apply_fun toMatrix using (fun X Y h => by rw [← ofMatrix_toMatrix X, h, ofMatrix_toMatrix Y])
-    simp only [add_toMatrix]
-    exact add_assoc (toMatrix A) (toMatrix B) (toMatrix C)
-  zero_add := fun A => by
-    apply_fun toMatrix using (fun X Y h => by rw [← ofMatrix_toMatrix X, h, ofMatrix_toMatrix Y])
-    simp only [add_toMatrix, zero_toMatrix]
-    exact zero_add (toMatrix A)
-  add_zero := fun A => by
-    apply_fun toMatrix using (fun X Y h => by rw [← ofMatrix_toMatrix X, h, ofMatrix_toMatrix Y])
-    simp only [add_toMatrix, zero_toMatrix]
-    exact add_zero (toMatrix A)
-  add_comm := fun A B => by
-    apply_fun toMatrix using (fun X Y h => by rw [← ofMatrix_toMatrix X, h, ofMatrix_toMatrix Y])
-    simp only [add_toMatrix]
-    apply add_comm (toMatrix A) (toMatrix B)
-  neg_add_cancel := fun A => by
-    apply_fun toMatrix using (fun X Y h => by rw [← ofMatrix_toMatrix X, h, ofMatrix_toMatrix Y])
+    Ring (DenseMatrix n n α) := by
+  letI : Sub (DenseMatrix n n α) := ⟨fun A B => A + -B⟩
+  letI : ZSMul (DenseMatrix n n α) := ⟨zsmulRec⟩
+  letI : IntCast (DenseMatrix n n α) := ⟨Int.castDef⟩
+  exact Ring.mk (neg_add_cancel := fun A => by
+    apply_fun toMatrix using DenseMatrix.equivMatrix.injective
     simp only [add_toMatrix, zero_toMatrix, neg_toMatrix]
-    apply neg_add_cancel
-  mul_assoc := fun A B C => by
-    apply_fun toMatrix using (fun X Y h => by rw [← ofMatrix_toMatrix X, h, ofMatrix_toMatrix Y])
-    simp only [mul_toMatrix]
-    exact mul_assoc (toMatrix A) (toMatrix B) (toMatrix C)
-  zero_mul := fun A => by
-    apply_fun toMatrix using (fun X Y h => by rw [← ofMatrix_toMatrix X, h, ofMatrix_toMatrix Y])
-    simp only [mul_toMatrix, zero_toMatrix]
-    exact zero_mul (toMatrix A)
-  mul_zero := fun A => by
-    apply_fun toMatrix using (fun X Y h => by rw [← ofMatrix_toMatrix X, h, ofMatrix_toMatrix Y])
-    simp only [mul_toMatrix, zero_toMatrix]
-    exact mul_zero (toMatrix A)
-  one_mul := fun A => by
-    apply_fun toMatrix using (fun X Y h => by rw [← ofMatrix_toMatrix X, h, ofMatrix_toMatrix Y])
-    simp only [mul_toMatrix, one_toMatrix]
-    exact one_mul (toMatrix A)
-  mul_one := fun A => by
-    apply_fun toMatrix using (fun X Y h => by rw [← ofMatrix_toMatrix X, h, ofMatrix_toMatrix Y])
-    rw [mul_toMatrix, one_toMatrix]
-    exact mul_one (toMatrix A)
-  left_distrib := fun A B C => by
-    apply_fun toMatrix using (fun X Y h => by rw [← ofMatrix_toMatrix X, h, ofMatrix_toMatrix Y])
-    rw [mul_toMatrix, add_toMatrix, add_toMatrix, mul_toMatrix, mul_toMatrix]
-    exact mul_add (toMatrix A) (toMatrix B) (toMatrix C)
-  right_distrib := fun A B C => by
-    apply_fun toMatrix using (fun X Y h => by rw [← ofMatrix_toMatrix X, h, ofMatrix_toMatrix Y])
-    rw [mul_toMatrix, add_toMatrix, add_toMatrix, mul_toMatrix, mul_toMatrix]
-    exact add_mul (toMatrix A) (toMatrix B) (toMatrix C)
+    exact neg_add_cancel (toMatrix A))
 
 protected theorem mul_apply {m n k : Nat} {α : Type u} [Semiring α] [Inhabited α]
     [NeZero m] [NeZero n] [NeZero k]
@@ -843,7 +865,11 @@ private def transpose_helper {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
     let hj' : j + 1 = n := by apply le_antisymm hj (by push Not at h₂; exact h₂)
     ⟨out.push entry, transpose_helper_size_invariant out i j h_size hi' hj' entry⟩
 
-/-- Transposes a `DenseMatrix`. -/
+/--
+Transposes a `DenseMatrix`.
+
+TODO: support empty dimensions without the current `[NeZero m] [NeZero n]` loop preconditions.
+-/
 def transpose {m n : Nat} {α : Type u} [NeZero m] [NeZero n]
     (M : DenseMatrix m n α) : DenseMatrix n m α :=
   { data := transpose_helper (Array.mkEmpty (n * m)) 0 0 M (by simp) NeZero.one_le NeZero.one_le }

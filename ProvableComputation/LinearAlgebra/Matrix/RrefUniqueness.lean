@@ -4,33 +4,14 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Joseph Qian, Junye Ji, Dhruv Bhatia
 -/
 
-import Mathlib.LinearAlgebra.Matrix.Echelon.Basic
-import ProvableComputation.LinearAlgebra.Matrix.ElementaryRowOperations
-import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.Rref
-import ProvableComputation.LinearAlgebra.DenseMatrix.GaussianElimination.RrefCorrectness
+import ProvableComputation.LinearAlgebra.Matrix.Echelon
 
 /-!
-# RREF uniqueness: canonical representative and semantic uniqueness
+# Reduced row-echelon form uniqueness
 
-This file organizes the uniqueness story for reduced row echelon form in two
-parallel viewpoints.
-
-* `IsReducedRowEchelonOf A B` is the semantic predicate saying that `B` is a
-  valid RREF representative of `A`: it is row-equivalent to `A` and reduced.
-* `IsCanonicalRrefOf A B` is the canonical predicate saying that `B` is exactly
-  the algorithm output `(GaussianEliminationInternal.rawReducedRowEchelonForm A).1`.
-* `RrefUniquenessSemanticGoal` states the stage-2 semantic specification: any
-  two semantic representatives of the same source matrix are equal.
-
-The bridge is built in two steps.
-
-1. Show the algorithmic pipeline preserves row-equivalence
-   (`GaussianEliminationInternal.eliminateColLoop`,
-   `GaussianEliminationInternal.eliminateCol`,
-   `GaussianEliminationInternal.rowReductionAux`, and finally
-   `GaussianEliminationInternal.rawReducedRowEchelonForm`).
-2. Prove semantic uniqueness of reduced representatives under row-equivalence
-   and then derive canonical equalities as corollaries.
+This file proves that two reduced row-echelon representatives of the same
+matrix are equal. It is generic Matrix theory: the proof does not depend on a
+particular row-reduction algorithm.
 -/
 
 universe v
@@ -108,9 +89,9 @@ private lemma pivot_exists_in_right {m n : Nat}
     {i : Fin m} {p : Fin n}
     (hpB : IsLeadingEntry B i p) :
     ∃ k : Fin m, IsLeadingEntry C k p := by
-  rcases RowEquivalent.symm hBC with ⟨UUnit, hUraw⟩
+  rcases RowEquivalent.symm hBC with ⟨UUnit, hUAction⟩
   let U : Matrix (Fin m) (Fin m) R := (UUnit : Matrix (Fin m) (Fin m) R)
-  have hU : B = U * C := by simpa [U] using hUraw.symm
+  have hU : B = U * C := by simpa [U] using hUAction.symm
   by_contra hnone
   have hsumZero : (∑ t, U i t * C t p) = 0 := by
     refine Finset.sum_eq_zero ?_
@@ -302,9 +283,9 @@ private theorem reduced_unique_of_rowEquivalent {m n : Nat}
     (hB : IsReducedRowEchelon B)
     (hC : IsReducedRowEchelon C) :
     B = C := by
-  rcases RowEquivalent.symm hBC with ⟨UUnit, hUraw⟩
+  rcases RowEquivalent.symm hBC with ⟨UUnit, hUAction⟩
   let U : Matrix (Fin m) (Fin m) R := (UUnit : Matrix (Fin m) (Fin m) R)
-  have hU : B = U * C := by simpa [U] using hUraw.symm
+  have hU : B = U * C := by simpa [U] using hUAction.symm
   have hMatch : ∀ i : Fin m, RowMatch (R := R) B C i :=
     reduced_rowMatch_of_rowEquivalent (hBC := hBC) (hB := hB) (hC := hC)
   ext i j
@@ -333,7 +314,7 @@ private theorem reduced_unique_of_rowEquivalent {m n : Nat}
 /--
 Core semantic uniqueness theorem.
 
-Two matrices that are both reduced representatives of the same source `A`
+Two matrices that are both reduced representatives of the same source `B`
 must be equal.
 -/
 theorem IsReducedRowEchelonOf.unique {m n : Nat}
@@ -345,30 +326,5 @@ theorem IsReducedRowEchelonOf.unique {m n : Nat}
     RowEquivalent.trans hA.rowEquivalent (RowEquivalent.symm hA'.rowEquivalent)
   exact reduced_unique_of_rowEquivalent (hBC := hAA') (hB := hA.isReducedRowEchelon)
     (hC := hA'.isReducedRowEchelon)
-
-/--
-Semantic stage-2 specification of RREF uniqueness.
-
-This statement is intentionally algorithm-independent: it quantifies over any
-`B` and `B'` satisfying the semantic predicate `IsReducedRowEchelonOf A`.
--/
-def RrefUniquenessSemanticGoal {m n : Nat}
-    [DecidableEq R]
-    (B : Matrix (Fin m) (Fin n) R) : Prop :=
-  ∀ {A A' : Matrix (Fin m) (Fin n) R},
-    IsReducedRowEchelonOf A B →
-    IsReducedRowEchelonOf A' B →
-    A = A'
-
-/--
-The semantic stage-2 specification holds, instantiated directly from
-`IsReducedRowEchelonOf.unique`.
--/
-theorem rrefUniquenessSemanticGoal_holds {m n : Nat}
-    [DecidableEq R]
-    (A : Matrix (Fin m) (Fin n) R) :
-    RrefUniquenessSemanticGoal A := by
-  intro B B' hB hB'
-  exact IsReducedRowEchelonOf.unique hB hB'
 
 end Matrix

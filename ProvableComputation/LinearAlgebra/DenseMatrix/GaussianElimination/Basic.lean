@@ -5,6 +5,7 @@ Authors: Joseph Qian, Junye Ji, Dhruv Bhatia
 -/
 
 import Mathlib.Data.Matrix.Basic
+import Mathlib.LinearAlgebra.Matrix.ElementaryRowOperations
 import ProvableComputation.LinearAlgebra.DenseMatrix.Basic
 
 /-!
@@ -37,8 +38,17 @@ namespace DenseMatrix
 /-- A logged elementary row operation on `m` rows over `α`. -/
 inductive RowOp (m : ℕ) (α : Type v) : Type (v + 1) where
   | swap : Fin m → Fin m → RowOp m α
-  | factor : Fin m → α → RowOp m α
+  | scale : Fin m → α → RowOp m α
   | replace : Fin m → Fin m → α → RowOp m α
+
+/-- The condition under which a row-operation certificate represents an invertible operation.
+
+Swaps are always invertible; scaling requires a nonzero scalar; and replacement must use
+distinct source and target rows. -/
+def RowOp.IsInvertible : RowOp m α → Prop
+  | .swap _ _ => True
+  | .scale _ c => c ≠ 0
+  | .replace src tgt _ => src ≠ tgt
 
 /-- Swap two rows of a dense matrix. -/
 def swapRow {m n : Nat} {α : Type u}
@@ -151,13 +161,39 @@ theorem toMatrix_replace_eq_replace_toMatrix {m n : Nat} {α : Type u} [CommRing
         · intro b hb
           simp [Matrix.single, Ne.symm hb, Ne.symm hi]
 
+theorem toMatrix_scaleRow_eq_rowScale_mul_toMatrix {m n : Nat} {α : Type u} [CommRing α]
+    (A : DenseMatrix m n α) (r : Fin m) (c : α) : toMatrix (scaleRow A r c)
+    = Matrix.rowScale r c * toMatrix A := by
+  rw [Matrix.rowScale_mul]
+  ext i j
+  rw [Matrix.updateRow_apply]
+  simp only [Pi.smul_apply, smul_eq_mul, get_toMatrix]
+  change (scaleRow A r c).get i j = if i = r then c * A.toMatrix r j else A.get i j
+  rw [get_toMatrix, scaleRow, of_apply]
+  split <;> simp_all
+
 /-- Apply one row operation certificate to a dense matrix. -/
 def applyRowOp {m n : Nat} {α : Type u} [Semiring α]
     (A : DenseMatrix m n α) (op : RowOp m α) : DenseMatrix m n α :=
   match op with
   | .swap i j => swapRow A i j
-  | .factor i c => scaleRow A i c
+  | .scale i c => scaleRow A i c
   | .replace src tgt k => replaceRow A src tgt k
+
+/-- A valid row-operation certificate preserves row equivalence in the Mathlib matrix view. -/
+theorem RowOp.rowEquivalent_toMatrix {m n : Nat} {α : Type u} [Field α]
+    (op : RowOp m α) (h : op.IsInvertible) (A : DenseMatrix m n α) :
+    Matrix.RowEquivalent A.toMatrix (applyRowOp A op).toMatrix := by
+  cases op with
+  | swap i j =>
+      simpa [applyRowOp, toMatrix_swap_eq_swap_toMatrix] using
+        Matrix.rowEquivalent_swap A.toMatrix i j
+  | scale i c =>
+      rw [applyRowOp, toMatrix_scaleRow_eq_rowScale_mul_toMatrix, ← Units.val_mk0 h]
+      exact Matrix.rowEquivalent_rowScale A.toMatrix i (Units.mk0 c h)
+  | replace src tgt c =>
+      simpa [applyRowOp, toMatrix_replace_eq_replace_toMatrix] using
+        Matrix.rowEquivalent_transvection A.toMatrix tgt src h.symm c
 
 /-- Elementary matrix corresponding to one row operation certificate. -/
 def elementaryMatrixOfRowOp {m : Nat} {α : Type u} [Semiring α] [NeZero m]
@@ -202,7 +238,7 @@ theorem swap_inv {m n : Nat} {α : Type u}
   · rw [← h3]
   · rfl
 
-theorem factor_inv {m n : Nat} {α : Type u} [Field α]
+theorem scaleRow_inv {m n : Nat} {α : Type u} [Field α]
     (A : DenseMatrix m n α) (r : Fin m) (s : α) (hs : s ≠ 0) :
     scaleRow (scaleRow A r s) r s⁻¹ = A := by
   apply_fun toMatrix using DenseMatrix.equivMatrix.injective
